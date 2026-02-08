@@ -56,7 +56,7 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
     // 3D Tilt Calculation
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-    // 傾きを少し控えめにして上品に
+    // Make the tilt a bit more subtle and elegant
     const rotateX = ((y - centerY) / centerY) * -2;
     const rotateY = ((x - centerX) / centerX) * 2;
 
@@ -293,7 +293,7 @@ const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
                 <Fingerprint className={`w-16 h-16 transition-colors ${scanStatus === 'scanning' ? 'text-indigo-400 animate-pulse' : 'text-slate-500 group-hover:text-indigo-400'}`} />
             )}
         </div>
-        <p className="mt-8 text-sm font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">
+        <p className="mt-8 text-sm font-black uppercase tracking-widest text-slate-400 animate-pulse">
             {scanStatus === 'idle' ? 'Touch to Authorize' :
              scanStatus === 'scanning' ? 'Verifying Biometrics...' :
              'Identity Confirmed'}
@@ -684,7 +684,7 @@ const App = () => {
           </div>
           <div className="hidden sm:block">
             <span className="font-black text-xl tracking-tighter text-white block leading-none">TRUSTFLOW<span className="text-indigo-500">.</span></span>
-            <span className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase tracking-widest">Protocol v3.5</span>
+            <span className="text-[9px] font-black text-slate-500 tracking-widest uppercase">Protocol v3.5</span>
           </div>
         </div>
 
@@ -818,7 +818,7 @@ const App = () => {
                     </div>
                     <div>
                       <h1 className="text-3xl sm:text-5xl font-black tracking-tighter italic text-white leading-none">Acceptance Protocol</h1>
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Definition of Done (DoD)</p>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Definition of Done (DoD)</p>
                     </div>
                   </div>
 
@@ -872,14 +872,14 @@ const App = () => {
                   <div className="animate-fade-in-up space-y-10">
                     <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Final Commitment</h2>
                     <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl">
-                      DoDに合意し、エスクローを有効化します。この操作は分散台帳に記録されます。
+                      Agree to the DoD and activate escrow. This operation will be recorded on the distributed ledger.
                     </p>
                     <div className="bg-white/5 p-10 rounded-[48px] border border-white/10 space-y-8">
-                       <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-[0.3em] mb-4">Verification Layer</h4>
+                       <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-widest mb-4">Verification Layer</h4>
                        <div className="space-y-5 text-sm sm:text-base font-bold text-slate-300">
-                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> エスクローによる支払保証</div>
-                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> AI Neural 自動裁定</div>
-                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> 不可逆的なログ記録</div>
+                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> Escrow-based payment guarantee</div>
+                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> AI neural automatic arbitration</div>
+                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> Irreversible log recording</div>
                        </div>
                     </div>
                     <HoldButton
