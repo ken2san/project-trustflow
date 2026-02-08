@@ -6,7 +6,8 @@ import {
   BadgeCheck, UploadCloud, X, Send, Paperclip, Fingerprint, Scale,
   BrainCircuit, Target, UserCheck, LayoutGrid, Bell, CreditCard,
   Loader2, Check, MousePointer2, FileSignature, Scan, Hash,
-  RefreshCw, QrCode, Briefcase, Users, ChevronRight, User, Gavel, AlertTriangle
+  RefreshCw, QrCode, Briefcase, Users, ChevronRight, User, Gavel, AlertTriangle,
+  Command, Laptop
 } from 'lucide-react';
 
 // --- Utility Components ---
@@ -20,7 +21,7 @@ const NeuralBackground = () => (
   </div>
 );
 
-// Spotlight Card Component (Layout Fix Applied)
+// 3D Tilt Card
 const SpotlightCard = ({ children, className = "", onClick }) => {
   const divRef = useRef(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -29,7 +30,21 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
   const handleMouseMove = (e) => {
     if (!divRef.current) return;
     const rect = divRef.current.getBoundingClientRect();
-    setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setPosition({ x, y });
+
+    // Subtle 3D Tilt
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateX = ((y - centerY) / centerY) * -1.5;
+    const rotateY = ((x - centerX) / centerX) * 1.5;
+    divRef.current.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.005, 1.005, 1.005)`;
+  };
+
+  const handleMouseLeave = () => {
+    setOpacity(0);
+    if (divRef.current) divRef.current.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
   };
 
   return (
@@ -37,36 +52,18 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
       ref={divRef}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setOpacity(1)}
-      onMouseLeave={() => setOpacity(0)}
+      onMouseLeave={handleMouseLeave}
       onClick={onClick}
       className={`relative overflow-hidden border border-white/5 bg-[#0f172a] backdrop-blur-xl transition-all duration-300 ease-out ${className}`}
     >
-      <div
-        className="pointer-events-none absolute -inset-px transition duration-300 z-0"
-        style={{
-          opacity,
-          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.1), transparent 40%)`,
-        }}
-      />
-      <div
-        className="pointer-events-none absolute -inset-px transition duration-300 z-0"
-        style={{
-          opacity,
-          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.4), transparent 40%)`,
-          maskImage: 'linear-gradient(black, black) content-box, linear-gradient(black, black)',
-          maskComposite: 'exclude',
-          WebkitMaskComposite: 'xor',
-          padding: '1px',
-        }}
-      />
-      <div className="relative z-10 h-full w-full">
-        {children}
-      </div>
+      <div className="pointer-events-none absolute -inset-px transition duration-300 z-0" style={{ opacity, background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.1), transparent 40%)` }} />
+      <div className="pointer-events-none absolute -inset-px transition duration-300 z-0" style={{ opacity, background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.4), transparent 40%)`, maskImage: 'linear-gradient(black, black) content-box, linear-gradient(black, black)', maskComposite: 'exclude', WebkitMaskComposite: 'xor', padding: '1px' }} />
+      <div className="relative z-10 h-full w-full">{children}</div>
     </div>
   );
 };
 
-// Hold-to-Confirm Button Logic
+// Hold Button Logic
 const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white" }) => {
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -127,11 +124,7 @@ const ScrambleText = ({ text, className }) => {
     let iteration = 0;
     const interval = setInterval(() => {
       setDisplay(
-        textStr.split('').map((char, index) => {
-          if (index < iteration) return textStr[index];
-          return chars[Math.floor(Math.random() * chars.length)];
-        }).join('')
-      );
+        textStr.split('').map((char, index) => index < iteration ? textStr[index] : chars[Math.floor(Math.random() * chars.length)]).join(''));
       if (iteration >= textStr.length) clearInterval(interval);
       iteration += 1 / 3;
     }, 30);
@@ -174,68 +167,128 @@ const ToastContainer = ({ toasts, removeToast }) => (
   </div>
 );
 
-// Dispute/Arbitration Modal
-const DisputeModal = ({ isOpen, onClose, onResolve }) => {
-  const [step, setStep] = useState(1); // 1: Reason, 2: AI Analysis, 3: Resolution
+// ★ Command Palette Component (God Mode)
+const CommandPalette = ({ isOpen, onClose, commands }) => {
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef(null);
+
+  const filteredCommands = commands.filter(cmd =>
+    cmd.label.toLowerCase().includes(query.toLowerCase())
+  );
 
   useEffect(() => {
-     if(isOpen) setStep(1);
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+      setQuery('');
+      setActiveIndex(0);
+    }
   }, [isOpen]);
 
-  const handleReasonSubmit = () => {
-     setStep(2);
-     setTimeout(() => setStep(3), 2000);
-  };
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isOpen) return;
 
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveIndex(prev => (prev + 1) % filteredCommands.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveIndex(prev => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filteredCommands[activeIndex]) {
+          filteredCommands[activeIndex].action();
+          onClose();
+        }
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, filteredCommands, activeIndex, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-start justify-center pt-[15vh] px-4">
+      <div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/5">
+          <Search className="w-5 h-5 text-slate-500" />
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Type a command..."
+            value={query}
+            onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
+            className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 text-base"
+          />
+          <div className="flex items-center gap-2">
+             <span className="text-[10px] font-mono text-slate-500 border border-white/10 px-1.5 py-0.5 rounded">ESC</span>
+          </div>
+        </div>
+        <div className="py-2 max-h-[300px] overflow-y-auto">
+          {filteredCommands.length === 0 ? (
+            <div className="px-4 py-8 text-center text-slate-500 text-sm">No commands found.</div>
+          ) : (
+            filteredCommands.map((cmd, idx) => (
+              <button
+                key={cmd.id}
+                onClick={() => { cmd.action(); onClose(); }}
+                className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${idx === activeIndex ? 'bg-indigo-600/10 border-l-2 border-indigo-500' : 'hover:bg-white/5 border-l-2 border-transparent'}`}
+                onMouseEnter={() => setActiveIndex(idx)}
+              >
+                <div className={`p-2 rounded-lg ${idx === activeIndex ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>
+                  {React.createElement(cmd.icon, { size: 16 })}
+                </div>
+                <span className={`text-sm ${idx === activeIndex ? 'text-white font-bold' : 'text-slate-300'}`}>{cmd.label}</span>
+                {idx === activeIndex && <ArrowRight className="ml-auto w-4 h-4 text-indigo-400" />}
+              </button>
+            ))
+          )}
+        </div>
+        <div className="px-4 py-2 bg-white/[0.02] border-t border-white/5 flex justify-between items-center text-[10px] text-slate-500 font-mono">
+            <span>TrustFlow Command Line</span>
+            <span>v3.5</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Dispute/Arbitration Modal
+const DisputeModal = ({ isOpen, onClose, onResolve }) => {
+  const [step, setStep] = useState(1);
+  useEffect(() => { if(isOpen) setStep(1); }, [isOpen]);
+  const handleReasonSubmit = () => { setStep(2); setTimeout(() => setStep(3), 2000); };
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-rose-950/20 backdrop-blur-lg" onClick={onClose} />
       <div className="relative bg-[#0f172a] border border-rose-500/30 w-full max-w-lg rounded-[40px] p-8 shadow-[0_0_50px_rgba(244,63,94,0.1)] overflow-hidden animate-scale-up">
-
         {step === 1 && (
             <div className="space-y-6">
-                <div className="flex items-center gap-3 text-rose-500 mb-2">
-                    <AlertTriangle className="w-8 h-8" />
-                    <h3 className="text-2xl font-black italic">Reject Deliverable</h3>
-                </div>
+                <div className="flex items-center gap-3 text-rose-500 mb-2"><AlertTriangle className="w-8 h-8" /><h3 className="text-2xl font-black italic">Reject Deliverable</h3></div>
                 <p className="text-slate-400 text-sm">Initiating arbitration protocol. Please specify the discrepancy with the DoD.</p>
                 <div className="space-y-3">
                     {['Incomplete Feature Set', 'Quality Below Threshold', 'Bug / Crash Detected'].map(reason => (
-                        <button key={reason} onClick={handleReasonSubmit} className="w-full text-left p-4 rounded-2xl border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all font-bold text-sm flex justify-between group">
-                            {reason} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
+                        <button key={reason} onClick={handleReasonSubmit} className="w-full text-left p-4 rounded-2xl border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all font-bold text-sm flex justify-between group">{reason} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" /></button>
                     ))}
                 </div>
             </div>
         )}
-
         {step === 2 && (
-             <div className="flex flex-col items-center justify-center py-10 space-y-6 text-center">
-                 <div className="w-20 h-20 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" />
-                 <div>
-                    <h3 className="text-xl font-black text-rose-500 mb-2">AI Arbitrator Analyzing</h3>
-                    <p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">Comparing Codebase vs. Spec...</p>
-                 </div>
-             </div>
+             <div className="flex flex-col items-center justify-center py-10 space-y-6 text-center"><div className="w-20 h-20 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" /><div><h3 className="text-xl font-black text-rose-500 mb-2">AI Arbitrator Analyzing</h3><p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">Comparing Codebase vs. Spec...</p></div></div>
         )}
-
         {step === 3 && (
             <div className="space-y-6">
-                <div className="flex items-center gap-3 text-indigo-400 mb-2">
-                    <Scale className="w-8 h-8" />
-                    <h3 className="text-2xl font-black italic">Fair Resolution</h3>
-                </div>
-                <div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
-                    <p className="text-sm text-indigo-200 font-bold mb-2">Analysis Result:</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                        "Minor discrepancy found in 'Dark Mode Tokens'. Code quality meets 95% of criteria. Recommendation: <span className="text-white font-bold">Conditional Release (-5% withheld)</span> or <span className="text-white font-bold">24h extension</span>."
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <button onClick={onResolve} className="flex-1 py-4 rounded-xl bg-white text-black font-black text-sm hover:bg-indigo-50 transition-all">Accept 24h Extension</button>
-                </div>
+                <div className="flex items-center gap-3 text-indigo-400 mb-2"><Scale className="w-8 h-8" /><h3 className="text-2xl font-black italic">Fair Resolution</h3></div>
+                <div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl"><p className="text-sm text-indigo-200 font-bold mb-2">Analysis Result:</p><p className="text-xs text-slate-400 leading-relaxed">"Minor discrepancy found in 'Dark Mode Tokens'. Code quality meets 95% of criteria. Recommendation: <span className="text-white font-bold">Conditional Release (-5% withheld)</span> or <span className="text-white font-bold">24h extension</span>."</p></div>
+                <div className="flex gap-3"><button onClick={onResolve} className="flex-1 py-4 rounded-xl bg-white text-black font-black text-sm hover:bg-indigo-50 transition-all">Accept 24h Extension</button></div>
             </div>
         )}
       </div>
@@ -251,42 +304,13 @@ const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
       <div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[#0f172a] border border-white/10 w-full max-w-md rounded-[40px] p-8 shadow-2xl animate-scale-up overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none" />
-        <div className="flex justify-between items-center mb-8 relative z-10">
-          <h3 className="text-2xl font-black text-white italic tracking-tighter">Add Funds</h3>
-          <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-            <X className="w-5 h-5 text-slate-400" />
-          </button>
-        </div>
+        <div className="flex justify-between items-center mb-8 relative z-10"><h3 className="text-2xl font-black text-white italic tracking-tighter">Add Funds</h3><button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-5 h-5 text-slate-400" /></button></div>
         <div className="space-y-6 relative z-10">
           <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group">
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-8">
-                <CreditCard className="w-8 h-8 opacity-80" />
-                <span className="font-mono text-lg opacity-80">•••• 4242</span>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase opacity-60 tracking-widest mb-1">Balance</p>
-                <p className="text-2xl font-black tracking-widest">$12,450.00</p>
-              </div>
-            </div>
+            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" /><div className="relative z-10"><div className="flex justify-between items-start mb-8"><CreditCard className="w-8 h-8 opacity-80" /><span className="font-mono text-lg opacity-80">•••• 4242</span></div><div><p className="text-[10px] uppercase opacity-60 tracking-widest mb-1">Balance</p><p className="text-2xl font-black tracking-widest">$12,450.00</p></div></div>
           </div>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2 mb-2 block">Amount (USD)</label>
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-4">
-                <span className="text-slate-400 font-bold">$</span>
-                <input type="number" defaultValue="1000" className="bg-transparent border-none outline-none text-white font-mono text-xl flex-1" />
-              </div>
-            </div>
-          </div>
-          <HoldButton
-            onClick={onConfirm}
-            label="Confirm Deposit"
-            icon={ArrowRight}
-            className="w-full py-5 rounded-2xl shadow-xl"
-            color="white"
-          />
+          <div className="space-y-4"><div><label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2 mb-2 block">Amount (USD)</label><div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-4"><span className="text-slate-400 font-bold">$</span><input type="number" defaultValue="1000" className="bg-transparent border-none outline-none text-white font-mono text-xl flex-1" /></div></div></div>
+          <HoldButton onClick={onConfirm} label="Confirm Deposit" icon={ArrowRight} className="w-full py-5 rounded-2xl shadow-xl" color="white" />
         </div>
       </div>
     </div>
@@ -299,13 +323,11 @@ const AnalyticsGraph = () => {
     const width = 100;
     const height = 40;
     const max = Math.max(...data);
-
     const points = data.map((d, i) => {
         const x = (i / (data.length - 1)) * width;
         const y = height - (d / max) * height;
         return `${x},${y}`;
     });
-
     let d = `M ${points[0]}`;
     for (let i = 1; i < points.length; i++) {
         const [x, y] = points[i].split(',');
@@ -316,16 +338,10 @@ const AnalyticsGraph = () => {
         const cp2y = y;
         d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${x},${y}`;
     }
-
     return (
         <div className="w-full h-32 relative group">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <defs>
-                    <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#818cf8" stopOpacity="0.5" />
-                        <stop offset="100%" stopColor="#818cf8" stopOpacity="0" />
-                    </linearGradient>
-                </defs>
+                <defs><linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity="0.5" /><stop offset="100%" stopColor="#818cf8" stopOpacity="0" /></linearGradient></defs>
                 <path d={`${d} L ${width},${height} L 0,${height} Z`} fill="url(#graphGradient)" className="opacity-50 transition-all duration-500 group-hover:opacity-70" />
                 <path d={d} fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
                 {points.map((p, i) => {
@@ -401,7 +417,7 @@ const HashGenerator = ({ length = 24, onComplete }) => {
         Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('')
       );
       iteration += 1;
-      if (iteration > 20) {
+      if (iteration > 20) { // Run for a bit then finalize
         clearInterval(interval);
         const finalHash = '0x' + Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
         setHash(finalHash);
@@ -426,11 +442,12 @@ const App = () => {
 
   // Feature States
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false); // Command Palette
   const [toasts, setToasts] = useState([]);
   const [scrambleTrigger, setScrambleTrigger] = useState(0);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isBiometricOpen, setIsBiometricOpen] = useState(false); // Sign時
-  const [isDisputeOpen, setIsDisputeOpen] = useState(false); // Reject時
+  const [isBiometricOpen, setIsBiometricOpen] = useState(false);
+  const [isDisputeOpen, setIsDisputeOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -449,9 +466,22 @@ const App = () => {
 
   const chatEndRef = useRef(null);
 
+  // Global Key Listener for Command Palette
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const addToast = (title, message, type = 'info') => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, title, message, type }]);
+    setToasts(prev => [...prev, { id, title, message }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
   };
 
@@ -520,7 +550,6 @@ const App = () => {
   const handleDisputeResolve = () => {
       setIsDisputeOpen(false);
       addToast('Dispute Resolved', 'Extension time added to contract.', 'success');
-      // デモとして進行はさせない、あるいはStepを戻すなども可能だが今回は通知のみ
   };
 
   const handleFileUpload = () => {
@@ -547,28 +576,6 @@ const App = () => {
           setStatus('idle');
           addToast('Deposit Successful', '100,000 PTS added to Vault.', 'success');
       }, 1000);
-  };
-
-  // AI-Driven Dynamic Contract Update Logic
-  const triggerSmartContractUpdate = () => {
-    const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' };
-    setMessages(prev => [...prev, userMsg]);
-
-    setTimeout(() => {
-        const aiProposal = {
-            id: Date.now() + 1,
-            sender: 'ai',
-            type: 'contract_update',
-            data: {
-                title: 'Scope Expansion Detected',
-                changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'],
-                additionalCost: 50000,
-                newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000
-            },
-            time: 'Now'
-        };
-        setMessages(prev => [...prev, aiProposal]);
-    }, 1500);
   };
 
   const acceptContractUpdate = (updateData) => {
@@ -605,6 +612,14 @@ const App = () => {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isChatOpen]);
+
+  // Command List
+  const commands = [
+      { id: 'home', label: 'Go to Marketplace', icon: LayoutGrid, action: () => setView('marketplace') },
+      { id: 'wallet', label: 'Open Wallet', icon: Wallet, action: () => setView('wallet') },
+      { id: 'switch', label: `Switch to ${mode === 'earner' ? 'Hirer' : 'Earner'} Mode`, icon: RefreshCw, action: toggleMode },
+      { id: 'chat', label: 'Toggle Chat', icon: MessageSquare, action: () => setIsChatOpen(prev => !prev) },
+  ];
 
   // --- Visual Components ---
   const MatchCircle = ({ score, size = "large" }) => {
@@ -692,6 +707,7 @@ const App = () => {
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
       <BiometricModal isOpen={isBiometricOpen} onClose={() => setIsBiometricOpen(false)} onAuthenticated={handleBiometricSuccess} />
       <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} />
+      <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} commands={commands} />
 
       {(status === 'processing' || status === 'switching') && (
         <div className="fixed inset-0 z-[100] bg-[#020617]/90 backdrop-blur-md flex flex-col items-center justify-center">
@@ -713,6 +729,18 @@ const App = () => {
             <span className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase">
                 {mode === 'earner' ? 'Professional' : 'Client Suite'}
             </span>
+          </div>
+        </div>
+
+        {/* Command Bar (Added) */}
+        <div
+          onClick={() => setIsCommandOpen(true)}
+          className="hidden md:flex flex-1 max-w-md mx-6 items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 px-4 py-2.5 rounded-xl cursor-pointer transition-all group"
+        >
+          <Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
+          <span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span>
+          <div className="ml-auto flex gap-1">
+            <span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span>
           </div>
         </div>
 
@@ -973,6 +1001,7 @@ const App = () => {
             </div>
           </div>
         )}
+
       </main>
 
       {/* Floating Chat Overlay */}
@@ -1012,7 +1041,7 @@ const App = () => {
 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-2xl border-t border-white/10 px-8 py-5 flex justify-between items-center z-50 shadow-[0_-15px_40px_rgba(0,0,0,0.6)]">
         <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => setView('marketplace')}><LayoutGrid className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500"><Search className="w-6 h-6" /></button>
+        <button className="p-3 text-slate-500" onClick={() => setIsCommandOpen(true)}><Search className="w-6 h-6" /></button>
         <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => setView('wallet')}><Wallet className="w-6 h-6" /></button>
         <button className="p-3 text-slate-500"><UserCheck className="w-6 h-6" /></button>
       </nav>
@@ -1021,14 +1050,16 @@ const App = () => {
         body { background-color: #020617; margin: 0; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in-up { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        .animate-slide-in-right { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes scaleUp { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .animate-scale-up { animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
+        .animate-fall { animation: fall linear forwards; }
         @keyframes scan { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
         .animate-scan { animation: scan 3s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
         @keyframes scanVertical { 0% { top: 0; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
         .animate-scan-vertical { animation: scanVertical 1.5s linear infinite; }
-        .animate-scale-up { animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes scaleUp { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
-        .animate-fall { animation: fall linear forwards; }
       `}</style>
     </div>
   );
