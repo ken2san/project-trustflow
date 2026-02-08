@@ -1,75 +1,72 @@
-## 実運用における課題と解決機能ロードマップ
+## Challenges and Solution Feature Roadmap for Real Operation
 
 ---
 
-### 1. 「主観」と「AI判定」の乖離問題 (The Subjectivity Gap)
+### 1. The Subjectivity Gap (Discrepancy Between Subjective Judgment and AI Evaluation)
 
-**問題:**
-AIは「仕様通りか（DoD）」は判定できますが、「デザインのセンスが良いか」「コードが読みやすいか」といった主観的な品質までは完全に保証できません。
-クライアントが「AIはOKと言っているが、気に入らないから金を払わない」と言い出した時、最大の紛争になります。
+**Issue:**
+AI can determine whether something meets the specifications (DoD), but cannot fully guarantee subjective qualities like "good design sense" or "readable code." When a client says, "AI says OK, but I don't like it, so I won't pay," it leads to major disputes.
 
-**解決機能:**
+**Solution Features:**
 
-- **Human Arbiter Escalation（人間による裁定エスカレーション）**
-  - AIの判定に不服がある場合、カテゴリー（デザイン、開発など）ごとの認定エキスパート（第三者）を召喚し、最終判定を下す機能。
-  - UIイメージ: チャット内の「Dispute」ボタンから、裁判員を呼ぶような演出。
-- **Partial Release（部分解放）**
-  - 0か100かではなく、「進捗80%までは認めるので、その分だけ支払う」という和解案をAIが提示する機能。
-
----
-
-### 2. 「ゴースティング（音信不通）」問題 (The Ghosting Issue)
-
-**問題:**
-フリーランスあるあるですが、納品したのにクライアントが忙しくて検収ボタンを押さない、あるいは連絡が途絶えるケース。
-エスクローにお金が入ったまま凍結され、クリエイターのキャッシュフローが死にます。
-
-**解決機能:**
-
-- **Auto-Release Timer（自動解放タイマー）**
-  - 納品後、クライアントが「72時間以内」にアクション（承認または修正依頼）を起こさない場合、AIが「黙認」とみなし、自動で資金をクリエイターに解放する機能。
-  - UIイメージ: 検収画面にカウントダウンタイマー（爆弾処理のような緊張感のあるデザイン）を表示。
+- **Human Arbiter Escalation**
+  - If there is dissatisfaction with the AI's judgment, summon certified experts (third parties) for each category (design, development, etc.) to make the final decision.
+  - UI image: From the "Dispute" button in chat, create an effect as if calling an arbitrator.
+- **Partial Release**
+  - Instead of all-or-nothing, AI proposes a settlement such as "I accept 80% progress, so I'll pay for that portion."
 
 ---
 
-### 3. マネーロンダリングと本人確認 (AML & KYC)
+### 2. The Ghosting Issue (Unresponsive Clients)
 
-**問題:**
-匿名で高額な資金移動ができると、犯罪組織の資金洗浄（マネーロンダリング）に使われるリスクがあります。
-決済代行会社（Stripeなど）の審査を通すためにも必須です。
+**Issue:**
+Common in freelance work: after delivery, the client is too busy to press the acceptance button, or communication is cut off. Funds remain frozen in escrow, killing the creator's cash flow.
 
-**解決機能:**
+**Solution Features:**
 
-- **eKYC Integration（オンライン本人確認）**
-  - スマホカメラで免許証や顔写真をスキャンし、身元を保証する機能。
-  - 現在のUIにある「Professional Verified」バッジを、飾りではなく実際の認証ステータスと連動させる。
-- **Trust Score History（信用スコアの履歴化）**
-  - 「過去にどれだけ支払ったか」「紛争率はどれくらいか」をブロックチェーン的（改ざん不可能）に記録し、新規取引時に相手に提示する。
+- **Auto-Release Timer**
+  - After delivery, if the client does not take action (approve or request revision) within "72 hours," AI considers it tacit approval and automatically releases funds to the creator.
+  - UI image: Display a countdown timer (with a tense design like bomb defusal) on the acceptance screen.
 
 ---
 
-### 4. 成果物のセキュリティと動作保証 (Security & Sandbox)
+### 3. Money Laundering and Identity Verification (AML & KYC)
 
-**問題:**
-納品されたzipファイルにウイルスが入っていたり、コードが自分の環境では動かない（「環境のせい」にする）トラブル。
+**Issue:**
+If large sums can be transferred anonymously, there is a risk of use for criminal money laundering. Passing payment processor (e.g., Stripe) screening is also essential.
 
-**解決機能:**
+**Solution Features:**
 
-- **Cloud Sandbox Preview（クラウド実行環境）**
-  - 納品されたコードを、ユーザーのローカル環境ではなく、AWS等の隔離されたコンテナ上で自動ビルド・実行し、そのプレビュー画面をブラウザに表示する。
-  - 「動くこと」をシステムが証明してから検収ボタンを押させる。
+- **eKYC Integration (Online Identity Verification)**
+  - Scan ID cards and face photos with a smartphone camera to guarantee identity.
+  - Link the "Professional Verified" badge in the current UI to actual authentication status, not just decoration.
+- **Trust Score History**
+  - Record "how much was paid in the past" and "dispute rate" in a blockchain-like (tamper-proof) manner, and present it to the other party when starting a new transaction.
+
+---
+
+### 4. Security and Operation Guarantee of Deliverables (Security & Sandbox)
+
+**Issue:**
+Problems such as viruses in delivered zip files or code not running in the user's environment (blaming the environment).
+
+**Solution Features:**
+
+- **Cloud Sandbox Preview**
+  - Automatically build and run delivered code on isolated containers (e.g., AWS), not the user's local environment, and display the preview screen in the browser.
+  - Require pressing the acceptance button only after the system proves "it works."
 - **Virus Scan Shield**
-  - アップロード時にマルウェアスキャンを行い、安全なファイルのみ通過させるゲートキーパー機能。
+  - Perform malware scans at upload and allow only safe files to pass through as a gatekeeper.
 
 ---
 
-## 次に実装すべき優先順位
+## Next Implementation Priorities
 
-UI/UXは完成形に近いため、次は**「泥臭いトラブル回避」**の機能をバックエンド重視で組み込むのが良いでしょう。
+UI/UX is nearly complete, so the next step is to focus on backend features for "trouble avoidance."
 
-- **Auto-Release Timer** (実装難易度: 低 / 効果: 絶大)
-  - 「放置しても大丈夫」という安心感をクリエイターに与える。
-- **Escalation UI** (実装難易度: 中)
-  - 「もしもの時は人間が助けてくれる」という逃げ道を作る。
-- **eKYC** (実装難易度: 高 / 必須)
-  - サービスとして公開するなら避けて通れない道。
+- **Auto-Release Timer** (Implementation difficulty: Low / Effect: Huge)
+  - Gives creators peace of mind that "it's okay even if left unattended."
+- **Escalation UI** (Implementation difficulty: Medium)
+  - Provides an escape route: "If something happens, humans can help."
+- **eKYC** (Implementation difficulty: High / Essential)
+  - If you want to launch as a service, this is unavoidable.

@@ -1,60 +1,60 @@
-# TrustFlow 開発ロードマップ (VSCode & Copilot 向け)
+# TrustFlow Development Roadmap (For VSCode & Copilot)
 
-Canvasからコードをコピーした後の、次のステップとCopilotへの指示出しのヒントです。
+Tips and prompts for the next steps after copying code from Canvas and working with Copilot.
 
-## 1. プロジェクト構造の整理
+## 1. Organize Project Structure
 
-App.jsx が肥大化してきたら、Copilotに以下のように依頼してコンポーネントを分割しましょう。
+When App.jsx becomes too large, ask Copilot to split components as follows:
 
-**Prompt例:**
-
-```
-App.jsx内にあるMarketplace、Scoping、Contractの各ビューを、src/components/配下の独立したファイルに分割してエクスポートして
-```
-
-## 2. Firebaseによるデータの永続化
-
-「ポイントの預託」や「契約ステータス」を実際に保存するために、Firebaseの導入をCopilotと進めます。
-
-**Prompt例:**
+**Prompt Example:**
 
 ```
-Firebase Firestoreを使用して、selectedJobのステータスとユーザーのポイント残高を保存・同期するロジックを実装して
+Split the Marketplace, Scoping, and Contract views in App.jsx into separate files under src/components/ and export them.
 ```
 
-> **注意:** エスクローのルール（Rule 1-3）をCopilotに伝えると、より安全なコードが生成されます。
+## 2. Data Persistence with Firebase
 
-## 3. AIロジックの実装
+To actually save "point deposits" and "contract status," introduce Firebase with Copilot.
 
-現在はダミーデータである「AI診断」や「DoD生成」をGemini APIと連携させます。
-
-**Prompt例:**
+**Prompt Example:**
 
 ```
-Gemini APIを使用して、案件の概要からAcceptance Criteria（検収基準）を5つ自動生成する関数を作成して
+Use Firebase Firestore to implement logic that saves and synchronizes the status of selectedJob and the user's point balance.
 ```
 
-## 4. 紛争解決（Dispute）ロジックの追加
+> **Note:** If you tell Copilot the escrow rules (Rule 1-3), it will generate safer code.
 
-**Prompt例:**
+## 3. Implement AI Logic
 
-```
-AI Inspection Scoreが一定以下の場合に、Dispute（紛争）ビューへ遷移し、運営に通知を送るフローを追加して
-```
+Currently, dummy data is used for "AI diagnosis" and "DoD generation." Connect these features to the Gemini API.
 
-## 5. エクスポート & レポーティング機能
-
-取引の証拠を残すための機能を実装します。
-
-**Prompt例:**
+**Prompt Example:**
 
 ```
-現在表示しているAudit TrailやDoDの合意内容を、jspdfなどのライブラリを使ってPDFとしてエクスポートする機能を実装して
+Use the Gemini API to create a function that automatically generates 5 Acceptance Criteria from the project summary.
+```
+
+## 4. Add Dispute Resolution Logic
+
+**Prompt Example:**
+
+```
+When the AI Inspection Score falls below a certain threshold, transition to the Dispute view and add a flow to notify the admin.
+```
+
+## 5. Export & Reporting Features
+
+Implement features to keep evidence of transactions.
+
+**Prompt Example:**
+
+```
+Export the currently displayed Audit Trail and DoD agreement contents as PDF using libraries like jspdf.
 ```
 
 ---
 
-### 開発時のTips
+### Development Tips
 
-- **Contextの活用:** VSCodeで App.jsx を開いた状態でCopilot Chatを使うと、コードの文脈を理解した的確なアドバイスがもらえます。
-- **環境変数:** APIキーなどは必ず `.env` ファイルに保存し、Copilotに「.envからAPIキーを読み込むように修正して」と伝えましょう。
+- **Utilize Context:** If you use Copilot Chat while App.jsx is open in VSCode, you will get more accurate advice based on code context.
+- **Environment Variables:** Always save API keys in a `.env` file, and tell Copilot, "Modify the code to load API keys from .env."
