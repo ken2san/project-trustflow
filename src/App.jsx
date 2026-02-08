@@ -7,12 +7,12 @@ import {
   BrainCircuit, Target, UserCheck, LayoutGrid, Bell, CreditCard,
   Loader2, Check, MousePointer2, FileSignature, Scan, Hash,
   RefreshCw, QrCode, Briefcase, Users, ChevronRight, User, Gavel, AlertTriangle,
-  Command, Laptop
+  Command, Laptop, Wand2
 } from 'lucide-react';
 
 // --- Utility Components ---
 
-// Neural Background with Floating Nodes
+// Neural Background
 const NeuralBackground = () => (
   <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
     <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-indigo-900/20 rounded-full blur-[120px] animate-pulse mix-blend-screen" />
@@ -30,21 +30,7 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
   const handleMouseMove = (e) => {
     if (!divRef.current) return;
     const rect = divRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setPosition({ x, y });
-
-    // Subtle 3D Tilt
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -1.5;
-    const rotateY = ((x - centerX) / centerX) * 1.5;
-    divRef.current.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.005, 1.005, 1.005)`;
-  };
-
-  const handleMouseLeave = () => {
-    setOpacity(0);
-    if (divRef.current) divRef.current.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+    setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
   return (
@@ -52,7 +38,10 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
       ref={divRef}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setOpacity(1)}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={() => {
+          setOpacity(0);
+          if (divRef.current) divRef.current.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+      }}
       onClick={onClick}
       className={`relative overflow-hidden border border-white/5 bg-[#0f172a] backdrop-blur-xl transition-all duration-300 ease-out ${className}`}
     >
@@ -63,7 +52,7 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
   );
 };
 
-// Hold Button Logic
+// Hold Button
 const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white" }) => {
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -105,10 +94,7 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
       className={`relative overflow-hidden group select-none ${bgClassFinal} ${textClass} ${className}`}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      <div
-        className={`absolute inset-0 ${fillClassFinal} transition-all duration-75 ease-linear opacity-50`}
-        style={{ width: `${progress}%` }}
-      />
+      <div className={`absolute inset-0 ${fillClassFinal} transition-all duration-75 ease-linear opacity-50`} style={{ width: `${progress}%` }} />
       <div className="relative z-10 flex items-center justify-center gap-3 w-full h-full">
         {isCompleted ? <CheckCircle2 className="w-6 h-6 animate-scale-up" /> : <><span className={`font-black text-lg transition-transform group-active:scale-95 ${labelClass}`}>{label}</span>{Icon && <Icon className={`w-5 h-5 group-hover:translate-x-1 transition-transform ${labelClass}`} />}</>}
       </div>
@@ -116,6 +102,7 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
   );
 };
 
+// Text Effects
 const ScrambleText = ({ text, className }) => {
   const [display, setDisplay] = useState(text);
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -123,8 +110,7 @@ const ScrambleText = ({ text, className }) => {
     const textStr = String(text);
     let iteration = 0;
     const interval = setInterval(() => {
-      setDisplay(
-        textStr.split('').map((char, index) => index < iteration ? textStr[index] : chars[Math.floor(Math.random() * chars.length)]).join(''));
+      setDisplay(textStr.split('').map((char, index) => index < iteration ? textStr[index] : chars[Math.floor(Math.random() * chars.length)]).join(''));
       if (iteration >= textStr.length) clearInterval(interval);
       iteration += 1 / 3;
     }, 30);
@@ -150,6 +136,7 @@ const Typewriter = ({ text, delay = 30 }) => {
   return <span>{currentText}</span>;
 };
 
+// Visual Helpers
 const ToastContainer = ({ toasts, removeToast }) => (
   <div className="fixed top-24 right-6 z-[70] flex flex-col gap-3 pointer-events-none">
     {toasts.map(toast => (
@@ -167,15 +154,85 @@ const ToastContainer = ({ toasts, removeToast }) => (
   </div>
 );
 
-// ★ Command Palette Component (God Mode)
+const HashGenerator = ({ length = 24, onComplete }) => {
+  const [hash, setHash] = useState('');
+  const chars = '0123456789ABCDEF';
+  useEffect(() => {
+    let iteration = 0;
+    const interval = setInterval(() => {
+      setHash(Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join(''));
+      iteration += 1;
+      if (iteration > 20) {
+        clearInterval(interval);
+        setHash('0x' + Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join(''));
+        if (onComplete) onComplete();
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
+  return <span className="font-mono">{hash}</span>;
+};
+
+const AnalyticsGraph = () => {
+    const data = [20, 45, 30, 60, 55, 85, 70];
+    const width = 100;
+    const height = 40;
+    const max = Math.max(...data);
+
+    // Simple Bezier Logic
+    let d = `M 0,${height}`;
+    // Actual points
+    const points = data.map((val, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - (val / max) * height;
+        return {x, y};
+    });
+
+    d = `M ${points[0].x},${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+         const cp1x = points[i-1].x + (points[i].x - points[i-1].x) / 2;
+         const cp1y = points[i-1].y;
+         const cp2x = points[i-1].x + (points[i].x - points[i-1].x) / 2;
+         const cp2y = points[i].y;
+         d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${points[i].x},${points[i].y}`;
+    }
+
+    return (
+        <div className="w-full h-32 relative group">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                <defs><linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity="0.5" /><stop offset="100%" stopColor="#818cf8" stopOpacity="0" /></linearGradient></defs>
+                <path d={`${d} L ${width},${height} L 0,${height} Z`} fill="url(#graphGradient)" className="opacity-50 transition-all duration-500 group-hover:opacity-70" />
+                <path d={d} fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="1.5" fill="#fff" className="opacity-0 group-hover:opacity-100 transition-opacity duration-300" />)}
+            </svg>
+        </div>
+    );
+};
+
+// Match Circle
+const MatchCircle = ({ score }) => (
+    <div className="w-32 h-32 flex flex-col items-center justify-center relative">
+      <div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" />
+      <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" />
+        <circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - score / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+        <defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs>
+      </svg>
+      <div className="relative z-10 text-center">
+        <span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${score}%`} /></span>
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span>
+      </div>
+    </div>
+);
+
+// --- Modals ---
+
 const CommandPalette = ({ isOpen, onClose, commands }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
 
-  const filteredCommands = commands.filter(cmd =>
-    cmd.label.toLowerCase().includes(query.toLowerCase())
-  );
+  const filteredCommands = commands.filter(cmd => cmd.label.toLowerCase().includes(query.toLowerCase()));
 
   useEffect(() => {
     if (isOpen) {
@@ -188,24 +245,11 @@ const CommandPalette = ({ isOpen, onClose, commands }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isOpen) return;
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActiveIndex(prev => (prev + 1) % filteredCommands.length);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveIndex(prev => (prev - 1 + filteredCommands.length) % filteredCommands.length);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (filteredCommands[activeIndex]) {
-          filteredCommands[activeIndex].action();
-          onClose();
-        }
-      } else if (e.key === 'Escape') {
-        onClose();
-      }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex(prev => (prev + 1) % filteredCommands.length); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex(prev => (prev - 1 + filteredCommands.length) % filteredCommands.length); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (filteredCommands[activeIndex]) { filteredCommands[activeIndex].action(); onClose(); } }
+      else if (e.key === 'Escape') { onClose(); }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, filteredCommands, activeIndex, onClose]);
@@ -218,48 +262,26 @@ const CommandPalette = ({ isOpen, onClose, commands }) => {
       <div className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-white/5">
           <Search className="w-5 h-5 text-slate-500" />
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="Type a command..."
-            value={query}
-            onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
-            className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 text-base"
-          />
-          <div className="flex items-center gap-2">
-             <span className="text-[10px] font-mono text-slate-500 border border-white/10 px-1.5 py-0.5 rounded">ESC</span>
-          </div>
+          <input ref={inputRef} type="text" placeholder="Type a command..." value={query} onChange={e => { setQuery(e.target.value); setActiveIndex(0); }} className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 text-base" />
+          <span className="text-[10px] font-mono text-slate-500 border border-white/10 px-1.5 py-0.5 rounded">ESC</span>
         </div>
         <div className="py-2 max-h-[300px] overflow-y-auto">
-          {filteredCommands.length === 0 ? (
-            <div className="px-4 py-8 text-center text-slate-500 text-sm">No commands found.</div>
-          ) : (
+          {filteredCommands.length === 0 ? <div className="px-4 py-8 text-center text-slate-500 text-sm">No commands found.</div> :
             filteredCommands.map((cmd, idx) => (
-              <button
-                key={cmd.id}
-                onClick={() => { cmd.action(); onClose(); }}
-                className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${idx === activeIndex ? 'bg-indigo-600/10 border-l-2 border-indigo-500' : 'hover:bg-white/5 border-l-2 border-transparent'}`}
-                onMouseEnter={() => setActiveIndex(idx)}
-              >
-                <div className={`p-2 rounded-lg ${idx === activeIndex ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>
-                  {React.createElement(cmd.icon, { size: 16 })}
-                </div>
+              <button key={cmd.id} onClick={() => { cmd.action(); onClose(); }} className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${idx === activeIndex ? 'bg-indigo-600/10 border-l-2 border-indigo-500' : 'hover:bg-white/5 border-l-2 border-transparent'}`} onMouseEnter={() => setActiveIndex(idx)}>
+                <div className={`p-2 rounded-lg ${idx === activeIndex ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>{React.createElement(cmd.icon, { size: 16 })}</div>
                 <span className={`text-sm ${idx === activeIndex ? 'text-white font-bold' : 'text-slate-300'}`}>{cmd.label}</span>
                 {idx === activeIndex && <ArrowRight className="ml-auto w-4 h-4 text-indigo-400" />}
               </button>
             ))
-          )}
+          }
         </div>
-        <div className="px-4 py-2 bg-white/[0.02] border-t border-white/5 flex justify-between items-center text-[10px] text-slate-500 font-mono">
-            <span>TrustFlow Command Line</span>
-            <span>v3.5</span>
-        </div>
+        <div className="px-4 py-2 bg-white/[0.02] border-t border-white/5 flex justify-between items-center text-[10px] text-slate-500 font-mono"><span>TrustFlow Command Line</span><span>v3.5</span></div>
       </div>
     </div>
   );
 };
 
-// Dispute/Arbitration Modal
 const DisputeModal = ({ isOpen, onClose, onResolve }) => {
   const [step, setStep] = useState(1);
   useEffect(() => { if(isOpen) setStep(1); }, [isOpen]);
@@ -274,16 +296,10 @@ const DisputeModal = ({ isOpen, onClose, onResolve }) => {
             <div className="space-y-6">
                 <div className="flex items-center gap-3 text-rose-500 mb-2"><AlertTriangle className="w-8 h-8" /><h3 className="text-2xl font-black italic">Reject Deliverable</h3></div>
                 <p className="text-slate-400 text-sm">Initiating arbitration protocol. Please specify the discrepancy with the DoD.</p>
-                <div className="space-y-3">
-                    {['Incomplete Feature Set', 'Quality Below Threshold', 'Bug / Crash Detected'].map(reason => (
-                        <button key={reason} onClick={handleReasonSubmit} className="w-full text-left p-4 rounded-2xl border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all font-bold text-sm flex justify-between group">{reason} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" /></button>
-                    ))}
-                </div>
+                <div className="space-y-3">{['Incomplete Feature Set', 'Quality Below Threshold', 'Bug / Crash Detected'].map(reason => (<button key={reason} onClick={handleReasonSubmit} className="w-full text-left p-4 rounded-2xl border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all font-bold text-sm flex justify-between group">{reason} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" /></button>))}</div>
             </div>
         )}
-        {step === 2 && (
-             <div className="flex flex-col items-center justify-center py-10 space-y-6 text-center"><div className="w-20 h-20 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" /><div><h3 className="text-xl font-black text-rose-500 mb-2">AI Arbitrator Analyzing</h3><p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">Comparing Codebase vs. Spec...</p></div></div>
-        )}
+        {step === 2 && (<div className="flex flex-col items-center justify-center py-10 space-y-6 text-center"><div className="w-20 h-20 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" /><div><h3 className="text-xl font-black text-rose-500 mb-2">AI Arbitrator Analyzing</h3><p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">Comparing Codebase vs. Spec...</p></div></div>)}
         {step === 3 && (
             <div className="space-y-6">
                 <div className="flex items-center gap-3 text-indigo-400 mb-2"><Scale className="w-8 h-8" /><h3 className="text-2xl font-black italic">Fair Resolution</h3></div>
@@ -296,7 +312,6 @@ const DisputeModal = ({ isOpen, onClose, onResolve }) => {
   );
 };
 
-// Payment Modal
 const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
   return (
@@ -317,123 +332,29 @@ const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
   );
 };
 
-// Analytics Graph Component
-const AnalyticsGraph = () => {
-    const data = [20, 45, 30, 60, 55, 85, 70];
-    const width = 100;
-    const height = 40;
-    const max = Math.max(...data);
-    const points = data.map((d, i) => {
-        const x = (i / (data.length - 1)) * width;
-        const y = height - (d / max) * height;
-        return `${x},${y}`;
-    });
-    let d = `M ${points[0]}`;
-    for (let i = 1; i < points.length; i++) {
-        const [x, y] = points[i].split(',');
-        const [prevX, prevY] = points[i-1].split(',');
-        const cp1x = parseFloat(prevX) + (parseFloat(x) - parseFloat(prevX)) / 2;
-        const cp1y = prevY;
-        const cp2x = parseFloat(prevX) + (parseFloat(x) - parseFloat(prevX)) / 2;
-        const cp2y = y;
-        d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${x},${y}`;
-    }
-    return (
-        <div className="w-full h-32 relative group">
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <defs><linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity="0.5" /><stop offset="100%" stopColor="#818cf8" stopOpacity="0" /></linearGradient></defs>
-                <path d={`${d} L ${width},${height} L 0,${height} Z`} fill="url(#graphGradient)" className="opacity-50 transition-all duration-500 group-hover:opacity-70" />
-                <path d={d} fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                {points.map((p, i) => {
-                   const [x, y] = p.split(',');
-                   return ( <circle key={i} cx={x} cy={y} r="1.5" fill="#fff" className="opacity-0 group-hover:opacity-100 transition-opacity duration-300" /> );
-                })}
-            </svg>
-        </div>
-    );
-};
-
-// Biometric Auth Modal
 const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
   const [scanStatus, setScanStatus] = useState('idle');
-
-  useEffect(() => {
-    if (isOpen) {
-      setScanStatus('idle');
-    }
-  }, [isOpen]);
-
-  const handleScan = () => {
-    setScanStatus('scanning');
-    setTimeout(() => {
-      setScanStatus('success');
-      setTimeout(() => {
-        onAuthenticated();
-      }, 800);
-    }, 2000);
-  };
-
+  useEffect(() => { if (isOpen) setScanStatus('idle'); }, [isOpen]);
+  const handleScan = () => { setScanStatus('scanning'); setTimeout(() => { setScanStatus('success'); setTimeout(onAuthenticated, 800); }, 2000); };
   if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-md" onClick={onClose} />
       <div className="relative flex flex-col items-center">
-        <div
-            className={`w-32 h-32 rounded-[32px] border-2 flex items-center justify-center cursor-pointer transition-all duration-500 relative overflow-hidden group ${
-                scanStatus === 'success' ? 'border-emerald-500 bg-emerald-500/10' :
-                scanStatus === 'scanning' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/20 bg-white/5 hover:border-indigo-400'
-            }`}
-            onClick={scanStatus === 'idle' ? handleScan : undefined}
-        >
-            {scanStatus === 'scanning' && (
-                <div className="absolute inset-0 bg-indigo-500/20 animate-scan-vertical" />
-            )}
-            {scanStatus === 'success' ? (
-                <CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" />
-            ) : (
-                <Fingerprint className={`w-16 h-16 transition-colors ${scanStatus === 'scanning' ? 'text-indigo-400 animate-pulse' : 'text-slate-500 group-hover:text-indigo-400'}`} />
-            )}
+        <div className={`w-32 h-32 rounded-[32px] border-2 flex items-center justify-center cursor-pointer transition-all duration-500 relative overflow-hidden group ${scanStatus === 'success' ? 'border-emerald-500 bg-emerald-500/10' : scanStatus === 'scanning' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/20 bg-white/5 hover:border-indigo-400'}`} onClick={scanStatus === 'idle' ? handleScan : undefined}>
+            {scanStatus === 'scanning' && (<div className="absolute inset-0 bg-indigo-500/20 animate-scan-vertical" />)}
+            {scanStatus === 'success' ? (<CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" />) : (<Fingerprint className={`w-16 h-16 transition-colors ${scanStatus === 'scanning' ? 'text-indigo-400 animate-pulse' : 'text-slate-500 group-hover:text-indigo-400'}`} />)}
         </div>
-        <p className="mt-8 text-sm font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">
-            {scanStatus === 'idle' ? 'Touch to Authorize' :
-             scanStatus === 'scanning' ? 'Verifying Biometrics...' :
-             'Identity Confirmed'}
-        </p>
+        <p className="mt-8 text-sm font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">{scanStatus === 'idle' ? 'Touch to Authorize' : scanStatus === 'scanning' ? 'Verifying Biometrics...' : 'Identity Confirmed'}</p>
       </div>
     </div>
   );
 };
 
-// Hash Generation Effect
-const HashGenerator = ({ length = 24, onComplete }) => {
-  const [hash, setHash] = useState('');
-  const chars = '0123456789ABCDEF';
-
-  useEffect(() => {
-    let iteration = 0;
-    const interval = setInterval(() => {
-      setHash(
-        Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('')
-      );
-      iteration += 1;
-      if (iteration > 20) { // Run for a bit then finalize
-        clearInterval(interval);
-        const finalHash = '0x' + Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-        setHash(finalHash);
-        if (onComplete) onComplete();
-      }
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
-
-  return <span className="font-mono">{hash}</span>;
-};
-
 // --- Main App Component ---
 
 const App = () => {
-  const [mode, setMode] = useState('earner'); // 'earner' | 'hirer'
+  const [mode, setMode] = useState('earner');
   const [view, setView] = useState('marketplace');
   const [step, setStep] = useState(1);
   const [userPoints, setUserPoints] = useState(500000);
@@ -442,7 +363,7 @@ const App = () => {
 
   // Feature States
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isCommandOpen, setIsCommandOpen] = useState(false); // Command Palette
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [scrambleTrigger, setScrambleTrigger] = useState(0);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -466,14 +387,9 @@ const App = () => {
 
   const chatEndRef = useRef(null);
 
-  // Global Key Listener for Command Palette
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsCommandOpen(prev => !prev);
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsCommandOpen(prev => !prev); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -481,11 +397,10 @@ const App = () => {
 
   const addToast = (title, message, type = 'info') => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, title, message }]);
+    setToasts(prev => [...prev, { id, title, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
   };
 
-  // Actions
   const toggleMode = () => {
     setStatus('switching');
     setTimeout(() => {
@@ -500,10 +415,7 @@ const App = () => {
     }, 800);
   };
 
-  const handleSelect = (item) => {
-    setSelectedItem(item);
-    setView('scoping');
-  };
+  const handleSelect = (item) => { setSelectedItem(item); setView('scoping'); };
 
   const handleAIArchitectSubmit = () => {
       setStatus('processing');
@@ -543,9 +455,7 @@ const App = () => {
     }, 1200);
   };
 
-  const handleReject = () => {
-      setIsDisputeOpen(true);
-  };
+  const handleReject = () => { setIsDisputeOpen(true); };
 
   const handleDisputeResolve = () => {
       setIsDisputeOpen(false);
@@ -563,7 +473,7 @@ const App = () => {
             setIsUploading(false);
             setUploadProgress(0);
             handleNextStep();
-            addToast('Upload Complete', 'AI Inspection initiated.');
+            addToast('Upload Complete', 'AI Inspection initiated.', 'success');
         }
     }, 80);
   };
@@ -578,23 +488,27 @@ const App = () => {
       }, 1000);
   };
 
+  const triggerSmartContractUpdate = () => {
+    const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' };
+    setMessages(prev => [...prev, userMsg]);
+    setTimeout(() => {
+        const aiProposal = {
+            id: Date.now() + 1,
+            sender: 'ai',
+            type: 'contract_update',
+            data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 },
+            time: 'Now'
+        };
+        setMessages(prev => [...prev, aiProposal]);
+    }, 1500);
+  };
+
   const acceptContractUpdate = (updateData) => {
       if (selectedItem) {
-        setSelectedItem(prev => ({
-            ...prev,
-            totalPoints: updateData.newTotal,
-            acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"]
-        }));
+        setSelectedItem(prev => ({ ...prev, totalPoints: updateData.newTotal, acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"] }));
       }
       setScrambleTrigger(prev => prev + 1);
-
-      setMessages(prev => [...prev, {
-          id: Date.now(),
-          sender: 'system',
-          text: `Contract updated. Budget increased by ${updateData.additionalCost.toLocaleString()} PTS.`,
-          time: 'Now',
-          type: 'text'
-      }]);
+      setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: `Contract updated. Budget increased by ${updateData.additionalCost.toLocaleString()} PTS.`, time: 'Now', type: 'text' }]);
       addToast('Smart Contract Updated', 'New budget locked in escrow.', 'success');
   };
 
@@ -602,18 +516,13 @@ const App = () => {
     if (!inputText.trim()) return;
     setMessages([...messages, { id: Date.now(), sender: 'me', text: inputText, time: 'Now', type: 'text' }]);
     setInputText('');
-    setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', text: 'Context updated. Evidence logged.', time: 'Now', type: 'text' }]);
-    }, 1000);
+    setTimeout(() => { setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', text: 'Context updated. Evidence logged.', time: 'Now', type: 'text' }]); }, 1000);
   };
 
   useEffect(() => {
-    if (isChatOpen && chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    if (isChatOpen && chatEndRef.current) { chatEndRef.current.scrollIntoView({ behavior: "smooth" }); }
   }, [messages, isChatOpen]);
 
-  // Command List
   const commands = [
       { id: 'home', label: 'Go to Marketplace', icon: LayoutGrid, action: () => setView('marketplace') },
       { id: 'wallet', label: 'Open Wallet', icon: Wallet, action: () => setView('wallet') },
@@ -621,61 +530,15 @@ const App = () => {
       { id: 'chat', label: 'Toggle Chat', icon: MessageSquare, action: () => setIsChatOpen(prev => !prev) },
   ];
 
-  // --- Visual Components ---
-  const MatchCircle = ({ score, size = "large" }) => {
-    const radius = size === "large" ? 50 : 35;
-    const viewBoxSize = 120;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (score / 100) * circumference;
-
-    return (
-      <div className={`flex flex-col items-center justify-center relative ${size === "large" ? "w-32 h-32 sm:w-40 sm:h-40" : "w-20 h-20"}`}>
-        <div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" />
-        <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90">
-          <circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" />
-          <circle
-            cx="60" cy="60" r={radius} fill="none" stroke="url(#indigoGradient)"
-            strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - score / 100)} strokeLinecap="round"
-            className="transition-all duration-1000 ease-out"
-          />
-          <defs>
-            <linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#818cf8" />
-              <stop offset="100%" stopColor="#4f46e5" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div className="relative z-10 text-center">
-          <span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${score}%`} /></span>
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span>
-        </div>
-      </div>
-    );
-  };
-
   // Data
   const jobs = [
-    {
-        id: 1, type: 'job', title: "Mobile App Design System", client: "Neo-Digital Inc.", totalPoints: 300000, aiScore: 98, matchReason: "85% skill overlap. Optimal budget.",
-        acceptanceCriteria: ["Definitive Figma Library", "Dark Mode Tokens", "Atomic Design Compliance"]
-    },
-    {
-        id: 2, type: 'job', title: "AI Chatbot UI Kit", client: "Future Labs", totalPoints: 150000, aiScore: 94, matchReason: "High efficiency potential.",
-        acceptanceCriteria: ["WCAG 2.1 Compliance", "12 Screen Layouts", "Motion JSON"]
-    }
+    { id: 1, type: 'job', title: "Mobile App Design System", client: "Neo-Digital Inc.", totalPoints: 300000, aiScore: 98, matchReason: "85% skill overlap. Optimal budget.", acceptanceCriteria: ["Definitive Figma Library", "Dark Mode Tokens", "Atomic Design Compliance"] },
+    { id: 2, type: 'job', title: "AI Chatbot UI Kit", client: "Future Labs", totalPoints: 150000, aiScore: 94, matchReason: "High efficiency potential.", acceptanceCriteria: ["WCAG 2.1 Compliance", "12 Screen Layouts", "Motion JSON"] }
   ];
 
   const talents = [
-    {
-        id: 101, type: 'talent', name: "Sarah K.", role: "React Architect", rate: 85000, aiScore: 99, matchReason: "Perfect match for your Tech Stack.",
-        totalPoints: 425000, // Estimated project cost
-        acceptanceCriteria: ["React Native Codebase", "Stripe Integration", "Biometric Auth Flow"]
-    },
-    {
-        id: 102, type: 'talent', name: "David L.", role: "Motion Designer", rate: 72000, aiScore: 92, matchReason: "Strong portfolio in fintech.",
-        totalPoints: 216000,
-        acceptanceCriteria: ["Lottie Animations", "Micro-interactions", "60fps Performance"]
-    }
+    { id: 101, type: 'talent', name: "Sarah K.", role: "React Architect", rate: 85000, aiScore: 99, matchReason: "Perfect match for your Tech Stack.", totalPoints: 425000, acceptanceCriteria: ["React Native Codebase", "Stripe Integration", "Biometric Auth Flow"] },
+    { id: 102, type: 'talent', name: "David L.", role: "Motion Designer", rate: 72000, aiScore: 92, matchReason: "Strong portfolio in fintech.", totalPoints: 216000, acceptanceCriteria: ["Lottie Animations", "Micro-interactions", "60fps Performance"] }
   ];
 
   const transactions = [
@@ -684,25 +547,12 @@ const App = () => {
     { id: 'TX-982', title: 'Network Fee', type: 'out', points: 5000, date: '2026.01.20' }
   ];
 
-  const steps = [
-    { id: 1, label: 'PROTOCOL' }, { id: 2, label: 'ESCROW' }, { id: 3, label: 'INSPECT' }, { id: 4, label: 'RELEASE' }
-  ];
+  const steps = [ { id: 1, label: 'PROTOCOL' }, { id: 2, label: 'ESCROW' }, { id: 3, label: 'INSPECT' }, { id: 4, label: 'RELEASE' } ];
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
-
       <NeuralBackground />
-
-      {/* Confetti Effect */}
-      {showConfetti && (
-          <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden flex justify-center">
-              {[...Array(20)].map((_, i) => (
-                  <div key={i} className="absolute top-0 w-2 h-2 bg-emerald-400 rounded-full animate-fall" style={{ left: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 2}s`, animationDuration: `${2 + Math.random() * 3}s` }} />
-              ))}
-          </div>
-      )}
-
-      {/* Overlays */}
+      {showConfetti && (<div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden flex justify-center">{[...Array(20)].map((_, i) => (<div key={i} className="absolute top-0 w-2 h-2 bg-emerald-400 rounded-full animate-fall" style={{ left: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 2}s`, animationDuration: `${2 + Math.random() * 3}s` }} />))}</div>)}
       <ToastContainer toasts={toasts} removeToast={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
       <BiometricModal isOpen={isBiometricOpen} onClose={() => setIsBiometricOpen(false)} onAuthenticated={handleBiometricSuccess} />
@@ -712,48 +562,33 @@ const App = () => {
       {(status === 'processing' || status === 'switching') && (
         <div className="fixed inset-0 z-[100] bg-[#020617]/90 backdrop-blur-md flex flex-col items-center justify-center">
           <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-6" />
-          <p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">
-            {status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}
-          </p>
+          <p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">{status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}</p>
         </div>
       )}
 
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/80 backdrop-blur-xl border-b border-white/[0.05] px-6 py-4 flex justify-between items-center transition-all duration-300">
         <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setView('marketplace')}>
-          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${mode === 'earner' ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
-            {mode === 'earner' ? <ShieldCheck className="text-white w-6 h-6" /> : <Briefcase className="text-white w-6 h-6" />}
-          </div>
-          <div className="hidden sm:block">
-            <span className="font-black text-xl tracking-tighter text-white block leading-none">TRUSTFLOW</span>
-            <span className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase">
-                {mode === 'earner' ? 'Professional' : 'Client Suite'}
-            </span>
-          </div>
+          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${mode === 'earner' ? 'bg-indigo-600' : 'bg-emerald-600'}`}>{mode === 'earner' ? <ShieldCheck className="text-white w-6 h-6" /> : <Briefcase className="text-white w-6 h-6" />}</div>
+          <div className="hidden sm:block"><span className="font-black text-xl tracking-tighter text-white block leading-none">TRUSTFLOW</span><span className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase">{mode === 'earner' ? 'Professional' : 'Client Suite'}</span></div>
         </div>
 
-        {/* Command Bar (Added) */}
         <div
           onClick={() => setIsCommandOpen(true)}
           className="hidden md:flex flex-1 max-w-md mx-6 items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 px-4 py-2.5 rounded-xl cursor-pointer transition-all group"
         >
           <Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
           <span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span>
-          <div className="ml-auto flex gap-1">
-            <span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span>
-          </div>
+          <div className="ml-auto flex gap-1"><span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span></div>
         </div>
 
         <div className="flex gap-4 items-center">
           <button onClick={toggleMode} className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all">
-            <div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span>
-            <RefreshCw className="w-3 h-3 text-slate-500" />
+            <div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" />
           </button>
 
           <div className="flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setView('wallet')}>
-            <Coins className="w-3.5 h-3.5 text-amber-500" />
-            <span className="font-mono font-bold text-xs">{userPoints.toLocaleString()}</span>
+            <Coins className="w-3.5 h-3.5 text-amber-500" /><span className="font-mono font-bold text-xs">{userPoints.toLocaleString()}</span>
           </div>
 
           <div className="flex items-center gap-3 pl-2 border-l border-white/10">
@@ -761,11 +596,7 @@ const App = () => {
                 <Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
                 <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" />
              </button>
-             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[1px] cursor-pointer hover:scale-105 transition-transform">
-                <div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden">
-                   <User className="w-5 h-5 text-slate-300" />
-                </div>
-             </div>
+             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[1px] cursor-pointer hover:scale-105 transition-transform"><div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden"><User className="w-5 h-5 text-slate-300" /></div></div>
           </div>
         </div>
       </nav>
@@ -780,69 +611,55 @@ const App = () => {
                 <div className="w-32 h-32 relative flex items-center justify-center">
                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[40px] opacity-20 blur-2xl group-hover:opacity-40 transition-opacity duration-700" />
                    <div className="w-full h-full bg-[#0a0f1e] border border-white/10 rounded-[40px] flex items-center justify-center shadow-2xl relative z-10 overflow-hidden backdrop-blur-3xl">
-                      {/* おしゃれな細いスキャンライン */}
                       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent blur-[0.5px] animate-scan shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
                       <BrainCircuit className="text-indigo-400 w-16 h-16 relative z-10 drop-shadow-[0_0_20px_rgba(129,140,248,0.6)] animate-pulse" />
                    </div>
                 </div>
-                {/* 信頼の証（緑の盾） */}
-                <div className="absolute -bottom-2 -right-2 z-20">
-                  <div className="w-12 h-12 bg-[#050b14] rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] text-emerald-400 backdrop-blur-md">
-                    <ShieldCheck className="w-6 h-6" />
-                  </div>
-                </div>
+                <div className="absolute -bottom-2 -right-2 z-20"><div className="w-12 h-12 bg-[#050b14] rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] text-emerald-400 backdrop-blur-md"><ShieldCheck className="w-6 h-6" /></div></div>
               </div>
               <div className="flex-1 space-y-4 text-center md:text-left">
-                <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]">
-                   {mode === 'earner' ? 'Ready to earn?' : 'Build your team.'}
-                </h1>
-                <p className="text-slate-400 text-lg">
-                    AI has curated <span className="text-indigo-400 font-bold">2 prime vectors</span> based on your profile.
-                </p>
+                <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]"><Typewriter text="Hello, Felix." /> <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-400 to-slate-600 italic font-medium tracking-tight text-4xl sm:text-6xl">I've isolated <span className="text-indigo-400 border-b-4 border-indigo-500/30 pb-1">2 prime vectors</span>.</span></h1>
+                <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                  <div className="flex items-center gap-3 px-5 py-2.5 bg-indigo-950/30 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-indigo-300"><Activity className="w-3.5 h-3.5" /> Neural Match Active</div>
+                  <div className="flex items-center gap-3 px-5 py-2.5 bg-emerald-950/30 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-emerald-300"><Award className="w-3.5 h-3.5" /> Professional Verified</div>
+                </div>
               </div>
             </div>
 
-            {/* EARNER MODE: Job Feed */}
             {mode === 'earner' && (
                 <div className="grid grid-cols-1 gap-8">
                 {jobs.map(item => (
                     <SpotlightCard key={item.id} className="rounded-[40px] p-8 cursor-pointer group" onClick={() => handleSelect(item)}>
                     <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center w-full">
-                        <div className="shrink-0"><MatchCircle score={item.aiScore} /></div>
+                        <div className="shrink-0 flex flex-col items-center gap-8 relative z-10">
+                            <div className="w-32 h-32 flex flex-col items-center justify-center relative">
+                                <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90">
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" />
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - item.aiScore / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+                                    <defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs>
+                                </svg>
+                                <div className="relative z-10 text-center"><span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${item.aiScore}%`} /></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span></div>
+                            </div>
+                        </div>
                         <div className="flex-1 space-y-6 text-center md:text-left min-w-0">
-                            <div>
-                                <h3 className="text-3xl font-black text-white mb-2">{item.title}</h3>
-                                <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{item.client}</p>
-                            </div>
+                            <div><h3 className="text-3xl font-black text-white mb-2">{item.title}</h3><p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{item.client}</p></div>
                             <div className="relative pl-6 border-l-2 border-indigo-500/30"><p className="text-sm sm:text-lg font-medium leading-relaxed text-slate-300 italic">"{item.matchReason}"</p></div>
-                            <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2">
-                                <div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Reward</p><p className="text-2xl font-black italic text-white leading-none tracking-tight"><ScrambleText text={item.totalPoints.toLocaleString()} /> <span className="text-xs not-italic text-slate-500 font-bold">PTS</span></p></div>
-                            </div>
+                            <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2"><div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Reward</p><p className="text-2xl font-black italic text-white leading-none tracking-tight"><ScrambleText text={item.totalPoints.toLocaleString()} /> <span className="text-xs not-italic text-slate-500 font-bold">PTS</span></p></div></div>
                         </div>
-                        <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0 md:ml-auto">
-                        <button className="w-full md:w-auto bg-white text-[#020617] px-10 py-5 rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">
-                            Initialize <ArrowRight className="w-5 h-5" />
-                        </button>
-                        </div>
+                        <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0 md:ml-auto"><button className="w-full md:w-auto bg-white text-[#020617] px-10 py-5 rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">Initialize <ArrowRight className="w-5 h-5" /></button></div>
                     </div>
                     </SpotlightCard>
                 ))}
                 </div>
             )}
 
-            {/* HIRER MODE: Architect Interface */}
             {mode === 'hirer' && (
                 <div className="space-y-16 animate-fade-in-up">
                     {!aiSuggestions ? (
                         <div className="max-w-3xl mx-auto text-center space-y-10">
                             <div className="w-20 h-20 bg-emerald-600/20 rounded-3xl flex items-center justify-center mx-auto border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)]"><BrainCircuit className="w-10 h-10 text-emerald-400" /></div>
                             <div><h1 className="text-5xl font-black text-white tracking-tighter mb-4">AI Project Architect</h1><p className="text-slate-400 text-lg">Describe what you need. I'll define the scope, budget, and find the perfect talent.</p></div>
-                            <div className="relative">
-                                <textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" />
-                                <div className="absolute bottom-6 right-6">
-                                    <button onClick={handleAIArchitectSubmit} disabled={!projectPrompt && projectPrompt !== ''} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Architect Project</button>
-                                </div>
-                            </div>
+                            <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt && projectPrompt !== ''} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Architect Project</button></div></div>
                         </div>
                     ) : (
                         <div className="space-y-12">
@@ -914,14 +731,10 @@ const App = () => {
                   <div className="space-y-10 animate-fade-in-up">
                     <div className="w-32 h-32 bg-indigo-500/10 rounded-[48px] flex items-center justify-center border border-indigo-500/20 rotate-12 mx-auto"><Lock className="w-14 h-14 text-indigo-400 -rotate-12" /></div>
                     <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">Vault Secured</h2>
-                    {/* 修正ポイント: ファイルアップロードUIを追加 */}
                     {isUploading ? (
                         <div className="space-y-8 max-w-md mx-auto">
                             <div className="w-32 h-32 mx-auto relative flex items-center justify-center">
-                                <svg className="w-full h-full -rotate-90">
-                                    <circle cx="64" cy="64" r="50" fill="none" stroke="#1e293b" strokeWidth="8" />
-                                    <circle cx="64" cy="64" r="50" fill="none" stroke="#6366f1" strokeWidth="8" strokeDasharray="314" strokeDashoffset={314 - (314 * uploadProgress / 100)} strokeLinecap="round" className="transition-all duration-100" />
-                                </svg>
+                                <svg className="w-full h-full -rotate-90"><circle cx="64" cy="64" r="50" fill="none" stroke="#1e293b" strokeWidth="8" /><circle cx="64" cy="64" r="50" fill="none" stroke="#6366f1" strokeWidth="8" strokeDasharray="314" strokeDashoffset={314 - (314 * uploadProgress / 100)} strokeLinecap="round" className="transition-all duration-100" /></svg>
                                 <span className="absolute text-2xl font-black text-white">{uploadProgress}%</span>
                             </div>
                             <p className="text-indigo-400 font-black tracking-widest uppercase animate-pulse">Scanning Artifacts...</p>
