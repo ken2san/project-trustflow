@@ -35,39 +35,55 @@ import {
   Loader2,
   Check,
   MousePointer2,
-  FileSignature
+  FileSignature,
+  Scan,
+  Hash,
+  RefreshCw,
+  QrCode
 } from 'lucide-react';
 
 // --- Utility Components ---
 
-// 3D Tilt & Spotlight Card Component (Fixed Layout)
+// Neural Background with Floating Nodes
+const NeuralBackground = () => {
+  return (
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+      {/* Base Aurora */}
+      <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-indigo-900/20 rounded-full blur-[120px] animate-pulse mix-blend-screen" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-violet-900/10 rounded-full blur-[120px] mix-blend-screen" />
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.04]" />
+
+      {/* Floating Particles (CSS Animation) */}
+      <div className="absolute inset-0">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-indigo-500/20 blur-xl animate-float"
+            style={{
+              width: `${Math.random() * 300 + 100}px`,
+              height: `${Math.random() * 300 + 100}px`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDuration: `${Math.random() * 20 + 20}s`,
+              animationDelay: `-${Math.random() * 20}s`
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Spotlight Card Component (Layout Fix Applied)
 const SpotlightCard = ({ children, className = "", onClick }) => {
   const divRef = useRef(null);
-  const [opacity, setOpacity] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [opacity, setOpacity] = useState(0);
 
   const handleMouseMove = (e) => {
     if (!divRef.current) return;
     const rect = divRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setPosition({ x, y });
-
-    // 3D Tilt Calculation
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    // Make the tilt a bit more subtle and elegant
-    const rotateX = ((y - centerY) / centerY) * -2;
-    const rotateY = ((x - centerX) / centerX) * 2;
-
-    divRef.current.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
-  };
-
-  const handleMouseLeave = () => {
-    setOpacity(0);
-    if (divRef.current) {
-      divRef.current.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-    }
+    setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
   return (
@@ -75,20 +91,17 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
       ref={divRef}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setOpacity(1)}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={() => setOpacity(0)}
       onClick={onClick}
-      className={`relative overflow-hidden border border-white/5 bg-[#0f172a]/40 backdrop-blur-xl transition-all duration-200 ease-out ${className}`}
-      style={{ willChange: 'transform' }}
+      className={`relative overflow-hidden border border-white/5 bg-[#0f172a]/40 backdrop-blur-xl transition-all duration-300 ${className}`}
     >
-      {/* Spotlight Gradient */}
       <div
         className="pointer-events-none absolute -inset-px transition duration-300 z-0"
         style={{
           opacity,
-          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.1), transparent 40%)`,
+          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.15), transparent 40%)`,
         }}
       />
-      {/* Border Highlight */}
       <div
         className="pointer-events-none absolute -inset-px transition duration-300 z-0"
         style={{
@@ -100,7 +113,7 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
           padding: '1px',
         }}
       />
-      {/* Inner Content Wrapper (w-full ensures proper flex behavior) */}
+      {/* w-full added to ensure proper flex behavior */}
       <div className="relative z-10 h-full w-full">
         {children}
       </div>
@@ -108,37 +121,61 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
   );
 };
 
-// Hold-to-Confirm Button Component
+// Hash Generation Effect
+const HashGenerator = ({ length = 24, onComplete }) => {
+  const [hash, setHash] = useState('');
+  const chars = '0123456789ABCDEF';
+
+  useEffect(() => {
+    let iteration = 0;
+    const interval = setInterval(() => {
+      setHash(
+        Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('')
+      );
+      iteration += 1;
+      if (iteration > 20) { // Run for a bit then finalize
+        clearInterval(interval);
+        const finalHash = '0x' + Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
+        setHash(finalHash);
+        if (onComplete) onComplete();
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
+
+  return <span className="font-mono">{hash}</span>;
+};
+
+// Hold-to-Confirm Button Component with Ripple
 const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white" }) => {
   const [progress, setProgress] = useState(0);
-  const [isHolding, setIsHolding] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [showRipple, setShowRipple] = useState(false);
   const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (progress >= 100 && !isCompleted) {
+      clearInterval(intervalRef.current);
+      setIsCompleted(true);
+      setShowRipple(true);
+      setTimeout(() => setShowRipple(false), 1000);
+      onClick(); // Trigger parent action
+    }
+  }, [progress, isCompleted, onClick]);
 
   const startHold = () => {
     if (isCompleted) return;
-    setIsHolding(true);
     intervalRef.current = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(intervalRef.current);
-          setIsCompleted(true);
-          onClick();
-          return 100;
-        }
-        return prev + 4; // Speed of fill
-      });
-    }, 20);
+      setProgress((prev) => Math.min(prev + 4, 100)); // Faster fill for snappy feel
+    }, 16);
   };
 
   const endHold = () => {
     if (isCompleted) return;
-    setIsHolding(false);
     clearInterval(intervalRef.current);
     setProgress(0);
   };
 
-  // Color styles
   const bgClass = color === "indigo" ? "bg-indigo-600" : "bg-white";
   const textClass = color === "indigo" ? "text-white" : "text-[#020617]";
   const fillClass = color === "indigo" ? "bg-indigo-400" : "bg-indigo-500";
@@ -153,13 +190,18 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
       className={`relative overflow-hidden group select-none ${bgClass} ${textClass} ${className}`}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      {/* Progress Fill */}
       <div
-        className={`absolute inset-0 ${fillClass} transition-all duration-75 ease-linear opacity-50`}
+        className={`absolute inset-0 ${fillClass} transition-all duration-75 ease-linear opacity-40`}
         style={{ width: `${progress}%` }}
       />
 
-      {/* Content */}
+      {/* Ripple Effect */}
+      {showRipple && (
+        <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="animate-ripple absolute inline-flex h-full w-full rounded-full bg-white opacity-50"></span>
+        </span>
+      )}
+
       <div className="relative z-10 flex items-center justify-center gap-3 w-full h-full">
         {isCompleted ? (
           <CheckCircle2 className="w-6 h-6 animate-scale-up" />
@@ -179,21 +221,22 @@ const ScrambleText = ({ text, className, delay = 0, trigger }) => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
 
   useEffect(() => {
+    const textStr = String(text);
     let iteration = 0;
     const interval = setInterval(() => {
       setDisplay(
-        String(text)
+        textStr
           .split('')
           .map((char, index) => {
             if (index < iteration) {
-              return String(text)[index];
+              return textStr[index];
             }
             return chars[Math.floor(Math.random() * chars.length)];
           })
           .join('')
       );
 
-      if (iteration >= String(text).length) {
+      if (iteration >= textStr.length) {
         clearInterval(interval);
       }
 
@@ -251,9 +294,8 @@ const ToastContainer = ({ toasts, removeToast }) => (
   </div>
 );
 
-// Biometric Auth Modal
 const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
-  const [scanStatus, setScanStatus] = useState('idle'); // idle, scanning, success
+  const [scanStatus, setScanStatus] = useState('idle');
 
   useEffect(() => {
     if (isOpen) {
@@ -293,7 +335,7 @@ const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
                 <Fingerprint className={`w-16 h-16 transition-colors ${scanStatus === 'scanning' ? 'text-indigo-400 animate-pulse' : 'text-slate-500 group-hover:text-indigo-400'}`} />
             )}
         </div>
-        <p className="mt-8 text-sm font-black uppercase tracking-widest text-slate-400 animate-pulse">
+        <p className="mt-8 text-sm font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">
             {scanStatus === 'idle' ? 'Touch to Authorize' :
              scanStatus === 'scanning' ? 'Verifying Biometrics...' :
              'Identity Confirmed'}
@@ -303,7 +345,6 @@ const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
   );
 };
 
-// Payment Modal
 const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
   return (
@@ -333,10 +374,10 @@ const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
           </div>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2 mb-2 block">Amount (JPY)</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2 mb-2 block">Amount (USD)</label>
               <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-4">
-                <span className="text-slate-400 font-bold">¥</span>
-                <input type="number" defaultValue="100000" className="bg-transparent border-none outline-none text-white font-mono text-xl flex-1" />
+                <span className="text-slate-400 font-bold">$</span>
+                <input type="number" defaultValue="1000" className="bg-transparent border-none outline-none text-white font-mono text-xl flex-1" />
               </div>
             </div>
           </div>
@@ -345,6 +386,7 @@ const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
             label="Confirm Deposit"
             icon={ArrowRight}
             className="w-full py-5 rounded-2xl shadow-xl"
+            color="white"
           />
         </div>
       </div>
@@ -426,6 +468,7 @@ const App = () => {
   const [isBiometricOpen, setIsBiometricOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [scrambleTrigger, setScrambleTrigger] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false); // For Wallet Card Flip
 
   const chatEndRef = useRef(null);
 
@@ -488,7 +531,7 @@ const App = () => {
 
   // AI-Driven Dynamic Contract Update Logic
   const triggerSmartContractUpdate = () => {
-    const userMsg = { id: Date.now(), sender: 'me', text: 'ダークモードの追加要件が発生しました。予算を増やせますか？', time: 'Now', type: 'text' };
+    const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' };
     setMessages(prev => [...prev, userMsg]);
 
     setTimeout(() => {
@@ -638,13 +681,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
-
-      {/* Aurora Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-indigo-900/20 rounded-full blur-[120px] animate-pulse mix-blend-screen" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-violet-900/10 rounded-full blur-[120px] mix-blend-screen" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03]" />
-      </div>
+      <NeuralBackground />
 
       {showConfetti && (
           <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden flex justify-center">
@@ -818,7 +855,7 @@ const App = () => {
                     </div>
                     <div>
                       <h1 className="text-3xl sm:text-5xl font-black tracking-tighter italic text-white leading-none">Acceptance Protocol</h1>
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Definition of Done (DoD)</p>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Definition of Done (DoD)</p>
                     </div>
                   </div>
 
@@ -854,7 +891,6 @@ const App = () => {
           </div>
         )}
 
-        {/* ... (Contract and Wallet views remain largely the same, they benefit from global updates) ... */}
         {/* VIEW: Contract Flow */}
         {view === 'contract' && selectedJob && (
           <div className="animate-fade-in-up space-y-16">
@@ -872,14 +908,16 @@ const App = () => {
                   <div className="animate-fade-in-up space-y-10">
                     <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Final Commitment</h2>
                     <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl">
-                      Agree to the DoD and activate escrow. This operation will be recorded on the distributed ledger.
+                      Final agreement to DoD. Funds will be moved to the decentralized vault.
+                      {/* Generative Hash Animation */}
+                      <br/><span className="text-sm font-mono text-indigo-400 mt-2 block"><HashGenerator length={32} /></span>
                     </p>
                     <div className="bg-white/5 p-10 rounded-[48px] border border-white/10 space-y-8">
-                       <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-widest mb-4">Verification Layer</h4>
+                       <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-[0.3em] mb-4">Verification Layer</h4>
                        <div className="space-y-5 text-sm sm:text-base font-bold text-slate-300">
-                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> Escrow-based payment guarantee</div>
-                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> AI neural automatic arbitration</div>
-                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> Irreversible log recording</div>
+                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> 100% Payment Guarantee via Escrow</div>
+                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> AI Neural Auto-Arbitration</div>
+                          <div className="flex gap-4 items-center"><CheckCircle2 className="w-6 h-6 text-indigo-500" /> Immutable Ledger Recording</div>
                        </div>
                     </div>
                     <HoldButton
@@ -924,7 +962,7 @@ const App = () => {
                        <span className="px-3 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-black rounded-full border border-amber-500/20 uppercase tracking-widest animate-pulse">Scanning Evidence</span>
                     </div>
                     <h2 className="text-4xl font-black italic text-white leading-none tracking-tighter">Neural Inspection</h2>
-                    <p className="text-slate-400 text-lg">提出された成果物をDoD要件と高次元照合しました。</p>
+                    <p className="text-slate-400 text-lg">Cross-referencing deliverables with DoD parameters.</p>
                     <div className="bg-black/40 rounded-[48px] p-8 sm:p-10 border border-white/5 space-y-5">
                        {selectedJob.acceptanceCriteria.map((c, i) => (
                          <div key={i} className="flex items-center justify-between p-6 bg-white/5 rounded-[32px] border border-white/10 hover:bg-white/10 transition-colors">
@@ -976,15 +1014,35 @@ const App = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-4">
                 <SpotlightCard className="bg-gradient-to-br from-indigo-600 to-violet-900 rounded-[56px] p-8 sm:p-12 text-white shadow-[0_30px_80px_rgba(79,70,229,0.3)] group">
-                  <div className="flex flex-col relative z-10 w-full h-full">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full group-hover:scale-110 transition-transform duration-1000" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-6">Net Liquidity</p>
-                    <h2 className="text-5xl sm:text-6xl lg:text-7xl font-black italic mb-12 leading-none tracking-tighter break-words">
-                      <ScrambleText text={userPoints.toLocaleString()} /> <span className="text-sm not-italic opacity-60 block mt-4 uppercase tracking-widest font-bold">TrustPoints</span>
-                    </h2>
-                    <div className="space-y-5 relative z-10">
+                  {/* Flip Card functionality simulation */}
+                  <div className="flex flex-col relative z-10 w-full h-full cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
+                     <div className={`transition-all duration-500 ${isFlipped ? 'opacity-0 absolute' : 'opacity-100'}`}>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full group-hover:scale-110 transition-transform duration-1000" />
+                        <div className="flex justify-between items-start mb-6">
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Net Liquidity</p>
+                            <RefreshCw className="w-4 h-4 opacity-50" />
+                        </div>
+                        <h2 className="text-5xl sm:text-6xl lg:text-7xl font-black italic mb-12 leading-none tracking-tighter break-words">
+                        <ScrambleText text={userPoints.toLocaleString()} /> <span className="text-sm not-italic opacity-60 block mt-4 uppercase tracking-widest font-bold">TrustPoints</span>
+                        </h2>
+                     </div>
+
+                     <div className={`transition-all duration-500 ${isFlipped ? 'opacity-100' : 'opacity-0 absolute inset-0'}`}>
+                        <div className="flex flex-col h-full justify-between">
+                            <div className="flex justify-between items-start">
+                                <QrCode className="w-32 h-32 text-white/90" />
+                                <RefreshCw className="w-4 h-4 opacity-50" />
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Wallet Address</p>
+                                <p className="font-mono text-xs opacity-80 break-all">0x71C...9A21</p>
+                            </div>
+                        </div>
+                     </div>
+
+                    <div className={`space-y-5 relative z-10 transition-all duration-300 ${isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                       <button
-                        onClick={() => setIsPaymentModalOpen(true)}
+                        onClick={(e) => { e.stopPropagation(); setIsPaymentModalOpen(true); }}
                         className="w-full bg-white text-indigo-900 py-6 rounded-[32px] font-black text-lg hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl"
                       >
                         <PlusCircle className="w-6 h-6" /> Charge Wallet
