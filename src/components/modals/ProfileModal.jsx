@@ -9,9 +9,9 @@ const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToas
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center pt-12 sm:pt-0 p-2 sm:p-4">
       <div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-lg" onClick={onClose} />
-      <div className="relative w-full max-w-4xl bg-[#0f172a] border border-white/10 rounded-[32px] sm:rounded-[48px] shadow-2xl overflow-hidden animate-scale-up flex flex-col md:flex-row max-h-[90vh]">
+        <div className="relative w-full max-w-4xl bg-[#0f172a] border border-white/10 rounded-[32px] sm:rounded-[48px] shadow-2xl animate-scale-up flex flex-col md:flex-row overflow-hidden max-h-[90vh]">
         {/* Make modal content scrollable on mobile */}
-        <div className="md:w-1/3 bg-white/[0.02] p-6 sm:p-8 border-b md:border-b-0 md:border-r border-white/5 flex flex-col items-center text-center relative overflow-hidden">
+        <div className="md:w-1/3 bg-white/[0.02] p-6 sm:p-8 pb-16 border-b md:border-b-0 md:border-r border-white/5 flex flex-col items-center text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />
           <div className="relative z-10 w-24 h-24 sm:w-32 sm:h-32 rounded-full p-1 bg-gradient-to-tr from-indigo-500 to-emerald-500 mb-6 pointer-events-none">
             <div className="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center overflow-hidden">
@@ -30,7 +30,7 @@ const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToas
           </div>
           <button onClick={(e) => { e.stopPropagation(); actionLabel ? handleAction() : handleExport(); }} className={`mt-auto w-full py-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-colors relative z-20 ${actionLabel ? 'bg-indigo-600 text-white hover:bg-indigo-500 rounded-2xl mb-2 shadow-lg' : 'text-slate-500 hover:text-white'}`}>{actionLabel ? <>Initiate Contract <ArrowRight className="w-4 h-4" /></> : <><Share2 className="w-4 h-4" /> Export Identity</>}</button>
         </div>
-        <div className="flex-1 p-6 sm:p-8 md:p-12 space-y-10 relative overflow-y-auto max-h-[60vh] md:max-h-none">
+          <div className="flex-1 p-6 sm:p-8 md:p-12 pb-32 space-y-10 relative overflow-y-auto max-h-[calc(100vh-96px)] md:max-h-none">
           <div className="flex justify-between items-center relative z-10">
             <h3 className="text-lg sm:text-xl font-black text-white flex items-center gap-3"><Activity className="w-5 h-5 text-emerald-500" /> Performance Metrics</h3>
             <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-white/5">Top 1% Global</span>
