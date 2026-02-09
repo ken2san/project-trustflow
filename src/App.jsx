@@ -12,6 +12,7 @@ import {
 
 // --- Utility Components ---
 
+// Neural Background
 const NeuralBackground = () => (
   <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
     <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-indigo-900/20 rounded-full blur-[120px] animate-pulse mix-blend-screen" />
@@ -20,6 +21,7 @@ const NeuralBackground = () => (
   </div>
 );
 
+// 3D Tilt Card
 const SpotlightCard = ({ children, className = "", onClick }) => {
   const divRef = useRef(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -36,35 +38,21 @@ const SpotlightCard = ({ children, className = "", onClick }) => {
       ref={divRef}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setOpacity(1)}
-      onMouseLeave={() => setOpacity(0)}
+      onMouseLeave={() => {
+          setOpacity(0);
+          if (divRef.current) divRef.current.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+      }}
       onClick={onClick}
       className={`relative overflow-hidden border border-white/5 bg-[#0f172a] backdrop-blur-xl transition-all duration-300 ease-out ${className}`}
     >
-      <div
-        className="pointer-events-none absolute -inset-px transition duration-300 z-0"
-        style={{
-          opacity,
-          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.1), transparent 40%)`,
-        }}
-      />
-      <div
-        className="pointer-events-none absolute -inset-px transition duration-300 z-0"
-        style={{
-          opacity,
-          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.4), transparent 40%)`,
-          maskImage: 'linear-gradient(black, black) content-box, linear-gradient(black, black)',
-          maskComposite: 'exclude',
-          WebkitMaskComposite: 'xor',
-          padding: '1px',
-        }}
-      />
-      <div className="relative z-10 h-full w-full">
-        {children}
-      </div>
+      <div className="pointer-events-none absolute -inset-px transition duration-300 z-0" style={{ opacity, background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.1), transparent 40%)` }} />
+      <div className="pointer-events-none absolute -inset-px transition duration-300 z-0" style={{ opacity, background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(99,102,241,0.4), transparent 40%)`, maskImage: 'linear-gradient(black, black) content-box, linear-gradient(black, black)', maskComposite: 'exclude', WebkitMaskComposite: 'xor', padding: '1px' }} />
+      <div className="relative z-10 h-full w-full">{children}</div>
     </div>
   );
 };
 
+// Hold Button
 const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white" }) => {
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -106,10 +94,7 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
       className={`relative overflow-hidden group select-none ${bgClassFinal} ${textClass} ${className}`}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      <div
-        className={`absolute inset-0 ${fillClassFinal} transition-all duration-75 ease-linear opacity-50`}
-        style={{ width: `${progress}%` }}
-      />
+      <div className={`absolute inset-0 ${fillClassFinal} transition-all duration-75 ease-linear opacity-50`} style={{ width: `${progress}%` }} />
       <div className="relative z-10 flex items-center justify-center gap-3 w-full h-full">
         {isCompleted ? <CheckCircle2 className="w-6 h-6 animate-scale-up" /> : <><span className={`font-black text-lg transition-transform group-active:scale-95 ${labelClass}`}>{label}</span>{Icon && <Icon className={`w-5 h-5 group-hover:translate-x-1 transition-transform ${labelClass}`} />}</>}
       </div>
@@ -117,7 +102,8 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
   );
 };
 
-const ScrambleText = ({ text, className, delay = 0, trigger }) => {
+// Text Effects
+const ScrambleText = ({ text, className }) => {
   const [display, setDisplay] = useState(text);
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   useEffect(() => {
@@ -125,17 +111,12 @@ const ScrambleText = ({ text, className, delay = 0, trigger }) => {
     let iteration = 0;
     const interval = setInterval(() => {
       setDisplay(
-        textStr.split('').map((char, index) => {
-          if (index < iteration) return textStr[index];
-          return chars[Math.floor(Math.random() * chars.length)];
-        }).join('')
-      );
+        textStr.split('').map((char, index) => index < iteration ? textStr[index] : chars[Math.floor(Math.random() * chars.length)]).join(''));
       if (iteration >= textStr.length) clearInterval(interval);
       iteration += 1 / 3;
     }, 30);
-    const startTimeout = setTimeout(() => {}, delay);
-    return () => { clearInterval(interval); clearTimeout(startTimeout); };
-  }, [text, delay, trigger]);
+    return () => clearInterval(interval);
+  }, [text]);
   return <span className={className}>{display}</span>;
 };
 
@@ -156,6 +137,7 @@ const Typewriter = ({ text, delay = 30 }) => {
   return <span>{currentText}</span>;
 };
 
+// Visual Helpers
 const ToastContainer = ({ toasts, removeToast }) => (
   <div className="fixed top-24 right-6 z-[70] flex flex-col gap-3 pointer-events-none">
     {toasts.map(toast => (
@@ -173,22 +155,88 @@ const ToastContainer = ({ toasts, removeToast }) => (
   </div>
 );
 
+const HashGenerator = ({ length = 24, onComplete }) => {
+  const [hash, setHash] = useState('');
+  const chars = '0123456789ABCDEF';
+  useEffect(() => {
+    let iteration = 0;
+    const interval = setInterval(() => {
+      setHash(Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join(''));
+      iteration += 1;
+      if (iteration > 20) {
+        clearInterval(interval);
+        setHash('0x' + Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join(''));
+        if (onComplete) onComplete();
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
+  return <span className="font-mono">{hash}</span>;
+};
+
+const AnalyticsGraph = () => {
+    const data = [20, 45, 30, 60, 55, 85, 70];
+    const width = 100;
+    const height = 40;
+    const max = Math.max(...data);
+
+    // Simple Bezier Logic
+    let d = `M 0,${height}`;
+    // Actual points
+    const points = data.map((val, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - (val / max) * height;
+        return {x, y};
+    });
+
+    d = `M ${points[0].x},${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+         const cp1x = points[i-1].x + (points[i].x - points[i-1].x) / 2;
+         const cp1y = points[i-1].y;
+         const cp2x = points[i-1].x + (points[i].x - points[i-1].x) / 2;
+         const cp2y = points[i].y;
+         d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${points[i].x},${points[i].y}`;
+    }
+
+    return (
+        <div className="w-full h-32 relative group">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                <defs><linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity="0.5" /><stop offset="100%" stopColor="#818cf8" stopOpacity="0" /></linearGradient></defs>
+                <path d={`${d} L ${width},${height} L 0,${height} Z`} fill="url(#graphGradient)" className="opacity-50 transition-all duration-500 group-hover:opacity-70" />
+                <path d={d} fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="1.5" fill="#fff" className="opacity-0 group-hover:opacity-100 transition-opacity duration-300" />)}
+            </svg>
+        </div>
+    );
+};
+
+// Match Circle
+const MatchCircle = ({ score }) => (
+    <div className="w-32 h-32 flex flex-col items-center justify-center relative">
+      <div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" />
+      <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" />
+        <circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - score / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+        <defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs>
+      </svg>
+      <div className="relative z-10 text-center">
+        <span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${score}%`} /></span>
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span>
+      </div>
+    </div>
+);
+
 // --- Modals ---
 
-// Profile / Trust Passport Modal
 const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToast }) => {
   if (!isOpen || !profile) return null;
 
-  // Handler for Export
-  const handleExport = () => {
-    addToast('Export Successful', 'Trust Passport downloaded as PDF.');
-  };
-
-  // Handler for Main Action (Initialize Contract)
   const handleAction = () => {
       if (onAction) {
-          onAction(); // Trigger the navigation in parent
-          onClose(); // Explicitly close the modal
+          onAction();
+          onClose();
+      } else {
+          addToast('Export Successful', 'Identity data exported to local vault.');
       }
   };
 
@@ -196,107 +244,47 @@ const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToas
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-lg" onClick={onClose} />
       <div className="relative w-full max-w-4xl bg-[#0f172a] border border-white/10 rounded-[48px] shadow-2xl overflow-hidden animate-scale-up flex flex-col md:flex-row">
-        {/* Left: Identity Card */}
         <div className="md:w-1/3 bg-white/[0.02] p-8 border-b md:border-b-0 md:border-r border-white/5 flex flex-col items-center text-center relative overflow-hidden">
-            {/* 修正: pointer-events-none を追加してクリック透過に */}
             <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />
             <div className="relative z-10 w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-indigo-500 to-emerald-500 mb-6 pointer-events-none">
-                <div className="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center overflow-hidden">
-                    <User className="w-16 h-16 text-slate-300" />
-                </div>
-                <div className="absolute bottom-1 right-1 w-8 h-8 bg-[#0f172a] rounded-full border border-white/10 flex items-center justify-center text-emerald-400">
-                    <BadgeCheck className="w-5 h-5" />
-                </div>
+                <div className="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center overflow-hidden"><User className="w-16 h-16 text-slate-300" /></div>
+                <div className="absolute bottom-1 right-1 w-8 h-8 bg-[#0f172a] rounded-full border border-white/10 flex items-center justify-center text-emerald-400"><BadgeCheck className="w-5 h-5" /></div>
             </div>
             <h2 className="text-3xl font-black text-white mb-1 relative z-10 pointer-events-none">{profile.name}</h2>
             <p className="text-indigo-400 font-bold text-xs uppercase tracking-widest mb-6 relative z-10 pointer-events-none">{profile.role || "Elite Node"}</p>
-
             <div className="space-y-4 w-full relative z-10 pointer-events-none">
-                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl">
-                    <MapPin className="w-4 h-4 text-indigo-500" /> {profile.location || "Tokyo, Japan"}
-                </div>
-                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl">
-                    <Calendar className="w-4 h-4 text-indigo-500" /> Member since {profile.joined || "2024"}
-                </div>
-                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl">
-                    <Hexagon className="w-4 h-4 text-indigo-500" /> Level {profile.level || "42"} Architect
-                </div>
+                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><MapPin className="w-4 h-4 text-indigo-500" /> {profile.location || "Tokyo, Japan"}</div>
+                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Calendar className="w-4 h-4 text-indigo-500" /> Member since {profile.joined || "2024"}</div>
+                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Hexagon className="w-4 h-4 text-indigo-500" /> Level {profile.level || "42"} Architect</div>
             </div>
-
-            {/* 修正: relative z-20 を追加して最前面に */}
-            <button
-                onClick={(e) => {
-                    e.stopPropagation(); // バブリング防止
-                    actionLabel ? handleAction() : handleExport();
-                }}
-                className={`mt-auto w-full py-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-colors relative z-20 ${actionLabel ? 'bg-indigo-600 text-white hover:bg-indigo-500 rounded-2xl mb-2 shadow-lg' : 'text-slate-500 hover:text-white'}`}
-            >
-                {actionLabel ? (
-                    <>
-                       Initiate Contract <ArrowRight className="w-4 h-4" />
-                    </>
-                ) : (
-                    <>
-                        <Share2 className="w-4 h-4" /> Export Identity
-                    </>
-                )}
+            <button onClick={(e) => { e.stopPropagation(); handleAction(); }} className={`mt-auto w-full py-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-colors relative z-20 ${actionLabel ? 'bg-indigo-600 text-white hover:bg-indigo-500 rounded-2xl mb-2 shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+                {actionLabel ? <>Initiate Contract <ArrowRight className="w-4 h-4" /></> : <><Share2 className="w-4 h-4" /> Export Identity</>}
             </button>
         </div>
-
-        {/* Right: Stats & Radar */}
         <div className="flex-1 p-8 md:p-12 space-y-10 relative">
-             {/* 修正: コンテンツエリアにも念のため z-index 指定 */}
             <div className="flex justify-between items-center relative z-10">
-                <h3 className="text-xl font-black text-white flex items-center gap-3">
-                    <Activity className="w-5 h-5 text-emerald-500" /> Performance Metrics
-                </h3>
-                <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-white/5">
-                    Top 1% Global
-                </span>
+                <h3 className="text-xl font-black text-white flex items-center gap-3"><Activity className="w-5 h-5 text-emerald-500" /> Performance Metrics</h3>
+                <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-white/5">Top 1% Global</span>
             </div>
-
             <div className="grid grid-cols-2 gap-4 relative z-10">
                 {['Reliability', 'Speed', 'Quality', 'Communication'].map((stat, i) => (
                     <div key={stat} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                        <div className="flex justify-between text-xs text-slate-400 font-bold mb-2">
-                            <span>{stat}</span>
-                            <span className="text-indigo-400">9{i+5}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `9${i+5}%` }} />
-                        </div>
+                        <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>{stat}</span><span className="text-indigo-400">9{i+5}%</span></div>
+                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `9${i+5}%` }} /></div>
                     </div>
                 ))}
             </div>
-
             <div className="relative z-10">
                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Reputation Heatmap</h4>
-                <div className="flex gap-1 h-12">
-                    {[...Array(30)].map((_, i) => (
-                        <div
-                            key={i}
-                            className={`flex-1 rounded-sm ${Math.random() > 0.5 ? 'bg-indigo-500/80' : Math.random() > 0.5 ? 'bg-indigo-500/40' : 'bg-white/5'}`}
-                            style={{ opacity: Math.random() * 0.5 + 0.5 }}
-                        />
-                    ))}
-                </div>
+                <div className="flex gap-1 h-12">{[...Array(30)].map((_, i) => (<div key={i} className={`flex-1 rounded-sm ${Math.random() > 0.5 ? 'bg-indigo-500/80' : Math.random() > 0.5 ? 'bg-indigo-500/40' : 'bg-white/5'}`} style={{ opacity: Math.random() * 0.5 + 0.5 }} />))}</div>
             </div>
-
             <div className="p-6 bg-indigo-900/20 border border-indigo-500/20 rounded-3xl flex items-center gap-4 relative z-10">
-                <div className="p-3 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-500/30">
-                    <ShieldCheck className="w-6 h-6" />
-                </div>
-                <div>
-                    <h4 className="text-white font-bold">TrustFlow Guarantee</h4>
-                    <p className="text-xs text-indigo-300">Identity verified via decentralized ledger.</p>
-                </div>
+                <div className="p-3 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-500/30"><ShieldCheck className="w-6 h-6" /></div>
+                <div><h4 className="text-white font-bold">TrustFlow Guarantee</h4><p className="text-xs text-indigo-300">Identity verified via decentralized ledger.</p></div>
                 <div className="ml-auto text-2xl font-black text-white italic">100%</div>
             </div>
         </div>
-
-        <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors z-50">
-            <X className="w-5 h-5" />
-        </button>
+        <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors z-50"><X className="w-5 h-5" /></button>
       </div>
     </div>
   );
@@ -306,34 +294,11 @@ const CommandPalette = ({ isOpen, onClose, commands }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
+  const filteredCommands = commands.filter(cmd => cmd.label.toLowerCase().includes(query.toLowerCase()));
 
-  const filteredCommands = commands.filter(cmd =>
-    cmd.label.toLowerCase().includes(query.toLowerCase())
-  );
+  useEffect(() => { if (isOpen) { setTimeout(() => inputRef.current?.focus(), 50); setQuery(''); setActiveIndex(0); } }, [isOpen]);
 
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-      setQuery('');
-      setActiveIndex(0);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!isOpen) return;
-      if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex(prev => (prev + 1) % filteredCommands.length); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex(prev => (prev - 1 + filteredCommands.length) % filteredCommands.length); }
-      else if (e.key === 'Enter') { e.preventDefault(); if (filteredCommands[activeIndex]) { filteredCommands[activeIndex].action(); onClose(); } }
-      else if (e.key === 'Escape') { onClose(); }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredCommands, activeIndex, onClose]);
-
-  if (!isOpen) return null;
-
-  return (
+  return !isOpen ? null : (
     <div className="fixed inset-0 z-[90] flex items-start justify-center pt-[15vh] px-4">
       <div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
@@ -409,42 +374,6 @@ const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
   );
 };
 
-// Analytics Graph Component
-const AnalyticsGraph = () => {
-    const data = [20, 45, 30, 60, 55, 85, 70];
-    const width = 100;
-    const height = 40;
-    const max = Math.max(...data);
-    const points = data.map((d, i) => {
-        const x = (i / (data.length - 1)) * width;
-        const y = height - (d / max) * height;
-        return `${x},${y}`;
-    });
-    let d = `M ${points[0]}`;
-    for (let i = 1; i < points.length; i++) {
-        const [x, y] = points[i].split(',');
-        const [prevX, prevY] = points[i-1].split(',');
-        const cp1x = parseFloat(prevX) + (parseFloat(x) - parseFloat(prevX)) / 2;
-        const cp1y = prevY;
-        const cp2x = parseFloat(prevX) + (parseFloat(x) - parseFloat(prevX)) / 2;
-        const cp2y = y;
-        d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${x},${y}`;
-    }
-    return (
-        <div className="w-full h-32 relative group">
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <defs><linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity="0.5" /><stop offset="100%" stopColor="#818cf8" stopOpacity="0" /></linearGradient></defs>
-                <path d={`${d} L ${width},${height} L 0,${height} Z`} fill="url(#graphGradient)" className="opacity-50 transition-all duration-500 group-hover:opacity-70" />
-                <path d={d} fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                {points.map((p, i) => {
-                   const [x, y] = p.split(',');
-                   return ( <circle key={i} cx={x} cy={y} r="1.5" fill="#fff" className="opacity-0 group-hover:opacity-100 transition-opacity duration-300" /> );
-                })}
-            </svg>
-        </div>
-    );
-};
-
 const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
   const [scanStatus, setScanStatus] = useState('idle');
   useEffect(() => { if (isOpen) setScanStatus('idle'); }, [isOpen]);
@@ -464,26 +393,6 @@ const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
   );
 };
 
-// Hash Generation Effect
-const HashGenerator = ({ length = 24, onComplete }) => {
-  const [hash, setHash] = useState('');
-  const chars = '0123456789ABCDEF';
-  useEffect(() => {
-    let iteration = 0;
-    const interval = setInterval(() => {
-      setHash(Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join(''));
-      iteration += 1;
-      if (iteration > 20) {
-        clearInterval(interval);
-        setHash('0x' + Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join(''));
-        if (onComplete) onComplete();
-      }
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
-  return <span className="font-mono">{hash}</span>;
-};
-
 // --- Main App Component ---
 
 const App = () => {
@@ -496,7 +405,7 @@ const App = () => {
 
   // Feature States
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false); // Command Palette
   const [toasts, setToasts] = useState([]);
   const [scrambleTrigger, setScrambleTrigger] = useState(0);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -627,7 +536,7 @@ const App = () => {
             setIsUploading(false);
             setUploadProgress(0);
             handleNextStep();
-            addToast('Upload Complete', 'AI Inspection initiated.');
+            addToast('Upload Complete', 'AI Inspection initiated.', 'success');
         }
     }, 80);
   };
@@ -642,22 +551,15 @@ const App = () => {
       }, 1000);
   };
 
-  // AI-Driven Dynamic Contract Update Logic
   const triggerSmartContractUpdate = () => {
     const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' };
     setMessages(prev => [...prev, userMsg]);
-
     setTimeout(() => {
         const aiProposal = {
             id: Date.now() + 1,
             sender: 'ai',
             type: 'contract_update',
-            data: {
-                title: 'Scope Expansion Detected',
-                changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'],
-                additionalCost: 50000,
-                newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000
-            },
+            data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 },
             time: 'Now'
         };
         setMessages(prev => [...prev, aiProposal]);
@@ -666,21 +568,10 @@ const App = () => {
 
   const acceptContractUpdate = (updateData) => {
       if (selectedItem) {
-        setSelectedItem(prev => ({
-            ...prev,
-            totalPoints: updateData.newTotal,
-            acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"]
-        }));
+        setSelectedItem(prev => ({ ...prev, totalPoints: updateData.newTotal, acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"] }));
       }
       setScrambleTrigger(prev => prev + 1);
-
-      setMessages(prev => [...prev, {
-          id: Date.now(),
-          sender: 'system',
-          text: `Contract updated. Budget increased by ${updateData.additionalCost.toLocaleString()} PTS.`,
-          time: 'Now',
-          type: 'text'
-      }]);
+      setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: `Contract updated. Budget increased by ${updateData.additionalCost.toLocaleString()} PTS.`, time: 'Now', type: 'text' }]);
       addToast('Smart Contract Updated', 'New budget locked in escrow.', 'success');
   };
 
@@ -688,18 +579,13 @@ const App = () => {
     if (!inputText.trim()) return;
     setMessages([...messages, { id: Date.now(), sender: 'me', text: inputText, time: 'Now', type: 'text' }]);
     setInputText('');
-    setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', text: 'Context updated. Evidence logged.', time: 'Now', type: 'text' }]);
-    }, 1000);
+    setTimeout(() => { setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', text: 'Context updated. Evidence logged.', time: 'Now', type: 'text' }]); }, 1000);
   };
 
   useEffect(() => {
-    if (isChatOpen && chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    if (isChatOpen && chatEndRef.current) { chatEndRef.current.scrollIntoView({ behavior: "smooth" }); }
   }, [messages, isChatOpen]);
 
-  // Command List
   const commands = [
       { id: 'home', label: 'Go to Marketplace', icon: LayoutGrid, action: () => setView('marketplace') },
       { id: 'wallet', label: 'Open Wallet', icon: Wallet, action: () => setView('wallet') },
@@ -808,7 +694,7 @@ const App = () => {
       <BiometricModal isOpen={isBiometricOpen} onClose={() => setIsBiometricOpen(false)} onAuthenticated={handleBiometricSuccess} />
       <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} />
       <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} commands={commands} />
-      {/* Profile Modal for Viewing Trust Passport */}
+      {/* Profile Modal */}
       <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
@@ -821,51 +707,32 @@ const App = () => {
       {(status === 'processing' || status === 'switching') && (
         <div className="fixed inset-0 z-[100] bg-[#020617]/90 backdrop-blur-md flex flex-col items-center justify-center">
           <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-6" />
-          <p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">
-            {status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}
-          </p>
+          <p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">{status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}</p>
         </div>
       )}
 
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/80 backdrop-blur-xl border-b border-white/[0.05] px-6 py-4 flex justify-between items-center transition-all duration-300">
         <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setView('marketplace')}>
-          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${mode === 'earner' ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
-            {mode === 'earner' ? <ShieldCheck className="text-white w-6 h-6" /> : <Briefcase className="text-white w-6 h-6" />}
-          </div>
-          <div className="hidden sm:block">
-            <span className="font-black text-xl tracking-tighter text-white block leading-none">TRUSTFLOW</span>
-            <span className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase">
-                {mode === 'earner' ? 'Professional' : 'Client Suite'}
-            </span>
-          </div>
+          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${mode === 'earner' ? 'bg-indigo-600' : 'bg-emerald-600'}`}>{mode === 'earner' ? <ShieldCheck className="text-white w-6 h-6" /> : <Briefcase className="text-white w-6 h-6" />}</div>
+          <div className="hidden sm:block"><span className="font-black text-xl tracking-tighter text-white block leading-none">TRUSTFLOW</span><span className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase">{mode === 'earner' ? 'Professional' : 'Client Suite'}</span></div>
         </div>
 
         <div onClick={() => setIsCommandOpen(true)} className="hidden md:flex flex-1 max-w-md mx-6 items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 px-4 py-2.5 rounded-xl cursor-pointer transition-all group">
-          <Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
-          <span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span>
-          <div className="ml-auto flex gap-1">
-            <span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span>
-          </div>
+          <Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" /><span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span><div className="ml-auto flex gap-1"><span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span></div>
         </div>
 
         <div className="flex gap-4 items-center">
           <button onClick={toggleMode} className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all">
-            <div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span>
-            <RefreshCw className="w-3 h-3 text-slate-500" />
+            <div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" />
           </button>
 
           <div className="flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setView('wallet')}>
-            <Coins className="w-3.5 h-3.5 text-amber-500" />
-            <span className="font-mono font-bold text-xs">{userPoints.toLocaleString()}</span>
+            <Coins className="w-3.5 h-3.5 text-amber-500" /><span className="font-mono font-bold text-xs">{userPoints.toLocaleString()}</span>
           </div>
 
           <div className="flex items-center gap-3 pl-2 border-l border-white/10">
-             <button className="relative p-2 hover:bg-white/5 rounded-full transition-colors group">
-                <Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
-                <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" />
-             </button>
+             <button className="relative p-2 hover:bg-white/5 rounded-full transition-colors group"><Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" /></button>
              <div
                 className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[1px] cursor-pointer hover:scale-105 transition-transform"
                 onClick={() => handleViewProfile(userProfile)}
@@ -894,23 +761,17 @@ const App = () => {
                    </div>
                 </div>
                 {/* 信頼の証（緑の盾） */}
-                <div className="absolute -bottom-2 -right-2 z-20">
-                  <div className="w-12 h-12 bg-[#050b14] rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] text-emerald-400 backdrop-blur-md">
-                    <ShieldCheck className="w-6 h-6" />
-                  </div>
-                </div>
+                <div className="absolute -bottom-2 -right-2 z-20"><div className="w-12 h-12 bg-[#050b14] rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] text-emerald-400 backdrop-blur-md"><ShieldCheck className="w-6 h-6" /></div></div>
               </div>
               <div className="flex-1 space-y-4 text-center md:text-left">
-                <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]">
-                   {mode === 'earner' ? 'Ready to earn?' : 'Build your team.'}
-                </h1>
-                <p className="text-slate-400 text-lg">
-                    AI has curated <span className="text-indigo-400 font-bold">2 prime vectors</span> based on your profile.
-                </p>
+                <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]"><Typewriter text="Hello, Felix." /> <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-400 to-slate-600 italic font-medium tracking-tight text-4xl sm:text-6xl">I've isolated <span className="text-indigo-400 border-b-4 border-indigo-500/30 pb-1">2 prime vectors</span>.</span></h1>
+                <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                  <div className="flex items-center gap-3 px-5 py-2.5 bg-indigo-950/30 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-indigo-300"><Activity className="w-3.5 h-3.5" /> Neural Match Active</div>
+                  <div className="flex items-center gap-3 px-5 py-2.5 bg-emerald-950/30 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-emerald-300"><Award className="w-3.5 h-3.5" /> Professional Verified</div>
+                </div>
               </div>
             </div>
 
-            {/* EARNER MODE: Job Feed */}
             {mode === 'earner' && (
                 <div className="grid grid-cols-1 gap-8">
                 {jobs.map(item => (
@@ -918,39 +779,24 @@ const App = () => {
                     <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center w-full">
                         <div className="shrink-0"><MatchCircle score={item.aiScore} /></div>
                         <div className="flex-1 space-y-6 text-center md:text-left min-w-0">
-                            <div>
-                                <h3 className="text-3xl font-black text-white mb-2">{item.title}</h3>
-                                <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{item.client}</p>
-                            </div>
+                            <div><h3 className="text-3xl font-black text-white mb-2">{item.title}</h3><p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{item.client}</p></div>
                             <div className="relative pl-6 border-l-2 border-indigo-500/30"><p className="text-sm sm:text-lg font-medium leading-relaxed text-slate-300 italic">"{item.matchReason}"</p></div>
-                            <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2">
-                                <div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Reward</p><p className="text-2xl font-black italic text-white leading-none tracking-tight"><ScrambleText text={item.totalPoints.toLocaleString()} /> <span className="text-xs not-italic text-slate-500 font-bold">PTS</span></p></div>
-                            </div>
+                            <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2"><div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Reward</p><p className="text-2xl font-black italic text-white leading-none tracking-tight"><ScrambleText text={item.totalPoints.toLocaleString()} /> <span className="text-xs not-italic text-slate-500 font-bold">PTS</span></p></div></div>
                         </div>
-                        <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0 md:ml-auto">
-                        <button className="w-full md:w-auto bg-white text-[#020617] px-10 py-5 rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">
-                            Initialize <ArrowRight className="w-5 h-5" />
-                        </button>
-                        </div>
+                        <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0 md:ml-auto"><button className="w-full md:w-auto bg-white text-[#020617] px-10 py-5 rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">Initialize <ArrowRight className="w-5 h-5" /></button></div>
                     </div>
                     </SpotlightCard>
                 ))}
                 </div>
             )}
 
-            {/* HIRER MODE: Architect Interface */}
             {mode === 'hirer' && (
                 <div className="space-y-16 animate-fade-in-up">
                     {!aiSuggestions ? (
                         <div className="max-w-3xl mx-auto text-center space-y-10">
                             <div className="w-20 h-20 bg-emerald-600/20 rounded-3xl flex items-center justify-center mx-auto border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)]"><BrainCircuit className="w-10 h-10 text-emerald-400" /></div>
                             <div><h1 className="text-5xl font-black text-white tracking-tighter mb-4">AI Project Architect</h1><p className="text-slate-400 text-lg">Describe what you need. I'll define the scope, budget, and find the perfect talent.</p></div>
-                            <div className="relative">
-                                <textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" />
-                                <div className="absolute bottom-6 right-6">
-                                    <button onClick={handleAIArchitectSubmit} disabled={!projectPrompt && projectPrompt !== ''} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Architect Project</button>
-                                </div>
-                            </div>
+                            <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt && projectPrompt !== ''} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Architect Project</button></div></div>
                         </div>
                     ) : (
                         <div className="space-y-12">
@@ -965,9 +811,9 @@ const App = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {aiSuggestions.candidates.map(talent => (
                                     <SpotlightCard key={talent.id} className="rounded-[32px] p-8 cursor-pointer group" onClick={() => handleViewProfile(talent)}>
-                                        <div className="flex justify-between items-start mb-6"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-white">{talent.name[0]}</div><div><h4 className="font-bold text-white text-lg">{talent.name}</h4><p className="text-xs text-slate-400 uppercase tracking-wider">{talent.role}</p></div></div><div className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-black">{talent.matchScore}% Match</div></div>
-                                        <p className="text-sm text-slate-300 mb-6 italic">"{talent.reason}"</p>
-                                        <div className="flex items-center justify-between border-t border-white/5 pt-4"><p className="text-white font-mono font-bold">{talent.rate.toLocaleString()} PTS <span className="text-slate-500 text-xs">/ day</span></p><button className="bg-white text-black px-6 py-2 rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors">Hire</button></div>
+                                        <div className="flex justify-between items-start mb-6"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-white">{talent.name[0]}</div><div><h4 className="font-bold text-white text-lg">{talent.name}</h4><p className="text-xs text-slate-400 uppercase tracking-wider">{talent.role}</p></div></div><div className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-black">{talent.aiScore}% Match</div></div>
+                                        <p className="text-sm text-slate-300 mb-6 italic border-l-2 border-indigo-500/30 pl-4 py-1">"{talent.matchReason}"</p>
+                                        <div className="flex items-center justify-between border-t border-white/5 pt-4"><div className="flex flex-col"><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Est. Rate</p><p className="text-white font-mono font-bold">{talent.rate.toLocaleString()} PTS <span className="text-slate-500 text-xs">/ day</span></p></div><button className="bg-white text-black px-6 py-2 rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors">Hire</button></div>
                                     </SpotlightCard>
                                 ))}
                             </div>
@@ -1023,7 +869,6 @@ const App = () => {
                   <div className="space-y-10 animate-fade-in-up">
                     <div className="w-32 h-32 bg-indigo-500/10 rounded-[48px] flex items-center justify-center border border-indigo-500/20 rotate-12 mx-auto"><Lock className="w-14 h-14 text-indigo-400 -rotate-12" /></div>
                     <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">Vault Secured</h2>
-                    {/* 修正ポイント: ファイルアップロードUIを追加 */}
                     {isUploading ? (
                         <div className="space-y-8 max-w-md mx-auto">
                             <div className="w-32 h-32 mx-auto relative flex items-center justify-center">
