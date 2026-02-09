@@ -21,11 +21,18 @@ Thumbs.db
 yarn.lock
 package-lock.json
 
+# pnpm
+pnpm-lock.yaml
+
 # Environment
 .env
 .env.*
 .env.local
 local.env
+
+# Explicit envs for future-proofing
+.env.development
+.env.production
 
 *.log
 *.tmp
