@@ -283,10 +283,11 @@ Pending/disabled cards should show:
   - `refactor: Clean up unused comments`
 
 
-### 9. Code Comments Language
 
-- **All code comments must be in English**
-- **Exceptions**: Inline strings and translations (JSX text, i18n keys) are Japanese as per UI requirements
+### 9. Code Comments & Documentation Language
+
+- **All code comments and documentation (including SKILL.md, AGENTS.md, and markdown files) must be written in English.**
+- **Exceptions**: Inline UI strings and translation keys (JSX text, i18n keys) may be in Japanese as per UI requirements.
 
 ---
 
@@ -372,7 +373,22 @@ Your role is NOT to:
 
 ---
 
-# Reference: See also README.md and BLOCKCHAIN_AGENT_README.md for further integration and environment details.
+
+
+---
+
+
+## Commit Timing Guidance
+
+To maintain a clean and auditable history, always commit at適切なタイミング:
+
+- After completing a logical unit of work (e.g., feature, bugfix, refactor, or major cleanup)
+- Before starting a new major task or context switch
+- After any breaking or structural change (e.g., file moves, removals, or large refactors)
+- When resolving a set of related errors or warnings
+- Before and after merging or rebasing branches
+
+**Tip:** Small, frequent, and descriptive commits are strongly encouraged. If in doubt, commit early and often.
 
 ---
 
