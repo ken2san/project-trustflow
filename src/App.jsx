@@ -10,20 +10,9 @@ import {
   Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4, Star
 } from 'lucide-react';
 
-// --- Custom Hooks ---
-
-const useInterval = (callback, delay) => {
-  const savedCallback = useRef();
-  useEffect(() => { savedCallback.current = callback; }, [callback]);
-  useEffect(() => {
-    if (delay !== null) {
-      const id = setInterval(() => savedCallback.current(), delay);
-      return () => clearInterval(id);
-    }
-  }, [delay]);
-};
-
-// --- Constants (Data Layer) ---
+/* ========================================================================
+   1. CONSTANTS & MOCK DATA
+   ======================================================================== */
 
 const USER_PROFILE = {
   id: 999, name: "Felix", role: "Product Designer", location: "Tokyo, Japan", joined: "2024", level: "42",
@@ -48,7 +37,24 @@ const TRANSACTIONS_DATA = [
 
 const STEPS_DATA = [ { id: 1, label: 'PROTOCOL' }, { id: 2, label: 'ESCROW' }, { id: 3, label: 'INSPECT' }, { id: 4, label: 'RATING' } ];
 
-// --- UI Components ---
+/* ========================================================================
+   2. CUSTOM HOOKS
+   ======================================================================== */
+
+const useInterval = (callback, delay) => {
+  const savedCallback = useRef();
+  useEffect(() => { savedCallback.current = callback; }, [callback]);
+  useEffect(() => {
+    if (delay !== null) {
+      const id = setInterval(() => savedCallback.current(), delay);
+      return () => clearInterval(id);
+    }
+  }, [delay]);
+};
+
+/* ========================================================================
+   3. UI COMPONENTS (ATOMS & MOLECULES)
+   ======================================================================== */
 
 const NeuralBackground = React.memo(() => (
   <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -91,13 +97,11 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
   const [isCompleted, setIsCompleted] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  // Cooldown effect on mount to prevent accidental double-clicks
   useEffect(() => {
     const timer = setTimeout(() => setIsReady(true), 500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Reset if disabled changes
   useEffect(() => {
     if (disabled) {
       setIsHolding(false);
@@ -106,19 +110,17 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
     }
   }, [disabled]);
 
-  // Update progress while holding
   useInterval(() => {
     if (isHolding && !isCompleted && !disabled && isReady) {
       setProgress((prev) => Math.min(prev + 5, 100));
     }
   }, isHolding ? 16 : null);
 
-  // Trigger action when progress reaches 100%
   useEffect(() => {
     if (progress >= 100 && !isCompleted) {
       setIsCompleted(true);
       setIsHolding(false);
-      onClick(); // Execute action in useEffect to avoid render-phase updates
+      setTimeout(() => onClick(), 0);
     }
   }, [progress, isCompleted, onClick]);
 
@@ -213,7 +215,9 @@ const MatchCircle = ({ score }) => (
     <div className="w-32 h-32 flex flex-col items-center justify-center relative"><div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" /><svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90"><circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" /><circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - score / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" /><defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs></svg><div className="relative z-10 text-center"><span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${score}%`} /></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span></div></div>
 );
 
-// --- Modals ---
+/* ========================================================================
+   4. FEATURE MODALS
+   ======================================================================== */
 
 const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToast }) => {
   if (!isOpen || !profile) return null;
@@ -260,7 +264,7 @@ const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
   );
 };
 
-// --- Sub-View Components ---
+// --- Page Views ---
 
 const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger }) => (
     <div className="space-y-16 animate-fade-in-up">
@@ -273,7 +277,7 @@ const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProj
                 {jobs.map(item => (
                     <SpotlightCard key={item.id} className="rounded-[40px] p-8 cursor-pointer group" onClick={() => onSelect(item)}>
                         <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center w-full">
-                            <div className="shrink-0"><div className="w-32 h-32 flex flex-col items-center justify-center relative"><div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" /><svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90"><circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" /><circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - item.aiScore / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" /><defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs></svg><div className="relative z-10 text-center"><span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${item.aiScore}%`} /></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span></div></div></div>
+                            <div className="shrink-0"><MatchCircle score={item.aiScore} /></div>
                             <div className="flex-1 space-y-6 text-center md:text-left min-w-0">
                                 <div><h3 className="text-3xl font-black text-white mb-2">{item.title}</h3><p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{item.client}</p></div>
                                 <div className="relative pl-6 border-l-2 border-indigo-500/30"><p className="text-sm sm:text-lg font-medium leading-relaxed text-slate-300 italic">"{item.matchReason}"</p></div>
