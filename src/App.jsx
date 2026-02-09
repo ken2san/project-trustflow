@@ -82,44 +82,15 @@ const ScrambleText = ({ text, className, trigger }) => {
   return <span className={className}>{display}</span>;
 };
 
-const Typewriter = ({ text = "", delay = 30 }) => {
-  const [currentText, setCurrentText] = useState('');
-  const [index, setIndex] = useState(0);
-  useEffect(() => { setCurrentText(''); setIndex(0); }, [text]);
-  useInterval(() => { if (text && index < text.length) { setCurrentText((prev) => prev + text.charAt(index)); setIndex(prev => prev + 1); } }, (text && index < text.length) ? delay : null);
-  return <span>{currentText}</span>;
-};
+// Typewriter moved to components/visual/Typewriter.jsx
+import Typewriter from './components/visual/Typewriter';
 
 // ToastContainer moved to components/ui/ToastContainer.jsx
 import ToastContainer from './components/ui/ToastContainer';
 
-const AnalyticsGraph = React.memo(() => {
-    const data = [20, 45, 30, 60, 55, 85, 70];
-    const width = 100;
-    const height = 40;
-    const max = Math.max(...data);
-    const d = useMemo(() => {
-        const points = data.map((val, i) => { const x = (i / (data.length - 1)) * width; const y = height - (val / max) * height; return {x, y}; });
-        let path = `M ${points[0].x},${points[0].y}`;
-        for (let i = 1; i < points.length; i++) { const cp1x = points[i-1].x + (points[i].x - points[i-1].x) / 2; const cp1y = points[i-1].y; const cp2x = points[i-1].x + (points[i].x - points[i-1].x) / 2; const cp2y = points[i].y; path += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${points[i].x},${points[i].y}`; }
-        return { path, points };
-    }, []);
-
-    return (
-        <div className="w-full h-32 relative group">
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <defs><linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity="0.5" /><stop offset="100%" stopColor="#818cf8" stopOpacity="0" /></linearGradient></defs>
-                <path d={`${d.path} L ${width},${height} L 0,${height} Z`} fill="url(#graphGradient)" className="opacity-50 transition-all duration-500 group-hover:opacity-70" />
-                <path d={d.path} fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                {d.points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="1.5" fill="#fff" className="opacity-0 group-hover:opacity-100 transition-opacity duration-300" />)}
-            </svg>
-        </div>
-    );
-});
-
-const MatchCircle = ({ score }) => (
-    <div className="w-32 h-32 flex flex-col items-center justify-center relative"><div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" /><svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90"><circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" /><circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - score / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" /><defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs></svg><div className="relative z-10 text-center"><span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${score}%`} /></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span></div></div>
-);
+// AnalyticsGraph and MatchCircle moved to components/visual/
+import AnalyticsGraph from './components/visual/AnalyticsGraph';
+import MatchCircle from './components/visual/MatchCircle';
 
 /* ========================================================================
    4. FEATURE MODALS
