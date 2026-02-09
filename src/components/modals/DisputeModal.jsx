@@ -1,0 +1,13 @@
+// filepath: src/components/modals/DisputeModal.jsx
+import React, { useState, useEffect } from "react";
+import { AlertTriangle, ChevronRight, Scale, X } from "lucide-react";
+
+const DisputeModal = ({ isOpen, onClose, onResolve }) => {
+  const [step, setStep] = useState(1);
+  useEffect(() => { if(isOpen) setStep(1); }, [isOpen]);
+  return !isOpen ? null : (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4"><div className="absolute inset-0 bg-rose-950/20 backdrop-blur-lg" onClick={onClose} /><div className="relative bg-[#0f172a] border border-rose-500/30 w-full max-w-lg rounded-[40px] p-8 shadow-[0_0_50px_rgba(244,63,94,0.1)] overflow-hidden animate-scale-up">{step === 1 && (<div className="space-y-6"><div className="flex items-center gap-3 text-rose-500 mb-2"><AlertTriangle className="w-8 h-8" /><h3 className="text-2xl font-black italic">Reject Deliverable</h3></div><p className="text-slate-400 text-sm">Initiating arbitration protocol...</p><div className="space-y-3">{['Incomplete Feature Set', 'Quality Below Threshold'].map(r => (<button key={r} onClick={() => { setStep(2); setTimeout(() => setStep(3), 2000); }} className="w-full text-left p-4 rounded-2xl border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all font-bold text-sm flex justify-between group">{r} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" /></button>))}</div></div>)}{step === 2 && (<div className="flex flex-col items-center justify-center py-10 space-y-6 text-center"><div className="w-20 h-20 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" /><div><h3 className="text-xl font-black text-rose-500 mb-2">AI Arbitrator Analyzing</h3><p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">Comparing Codebase vs. Spec...</p></div></div>)}{step === 3 && (<div className="space-y-6"><div className="flex items-center gap-3 text-indigo-400 mb-2"><Scale className="w-8 h-8" /><h3 className="text-2xl font-black italic">Fair Resolution</h3></div><div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl"><p className="text-sm text-indigo-200 font-bold mb-2">Analysis Result:</p><p className="text-xs text-slate-400 leading-relaxed">Recommendation: <span className="text-white font-bold">24h extension</span>.</p></div><div className="flex gap-3"><button onClick={onResolve} className="flex-1 py-4 rounded-xl bg-white text-black font-black text-sm hover:bg-indigo-50 transition-all">Accept 24h Extension</button></div></div>)}</div></div>
+  );
+};
+
+export default DisputeModal;
