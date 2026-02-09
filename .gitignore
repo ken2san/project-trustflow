@@ -16,23 +16,54 @@ yarn-error.log*
 Thumbs.db
 
 # Misc
+
+# Node.js & Package
+yarn.lock
+package-lock.json
+
+# Environment
+.env
+.env.*
+.env.local
+local.env
+
 *.log
 *.tmp
 
+.cache/
+
+# Logs
 # VS Code
 .vscode/
 
+npm-debug.log
+
+# OS
 # Mac
+.DS_Store
+
+# Misc
 *.DS_Store
 
+
+# Editor/IDE
+.vscode/
+.idea/
+.history/
+
 # Docker
+# Docker
+
 *.pid
+
 
 # Ignore local files
 local.env
 
+
 # Ignore coverage
 coverage/
+
 
 # Ignore by default
 *.swp
