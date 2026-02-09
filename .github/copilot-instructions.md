@@ -1,7 +1,8 @@
-# Copilot Instructions
+
+# Copilot Instructions (TrustFlow)
 
 ## Purpose
-Project-specific coding standards and operational rules for TrustFlow.
+TrustFlow-specific coding standards and operational rules. Swap or edit this file for other projects.
 
 ---
 
@@ -37,6 +38,6 @@ Project-specific coding standards and operational rules for TrustFlow.
 ---
 
 ## Reference
-See AGENT.md and SKILLS.md for further details and rationale.
+See AGENT.md and skills/ for further details and rationale.
 
 _Last updated: 2026-02-10_
