@@ -9,7 +9,7 @@ const STEPS_DATA = [
   { id: 4, label: 'RATING' }
 ];
 
-const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status }) => {
+const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber }) => {
     const [rating, setRating] = useState(0);
     return (
     <div className="animate-fade-in-up space-y-16">

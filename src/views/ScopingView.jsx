@@ -2,7 +2,7 @@ import React from "react";
 import { ArrowLeft, ListChecks, CheckCircle2, Fingerprint } from "lucide-react";
 import ScrambleText from "../components/ui/ScrambleText";
 
-const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger }) => (
+const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, formatNumber }) => (
     <div className="space-y-12 animate-fade-in-up">
         <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] group pl-2"><ArrowLeft className="w-3 h-3" /> Abort Sequence</button>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -13,7 +13,7 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger }) => (
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-[#0f172a]/80 rounded-[48px] p-10 border border-white/10 shadow-2xl sticky top-32 backdrop-blur-xl">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Total Contract Value</p>
-                    <h2 className="text-5xl font-black italic text-white mb-10 leading-none tracking-tighter"><ScrambleText text={selectedItem.totalPoints.toLocaleString()} trigger={scrambleTrigger} /> <span className="text-sm not-italic text-slate-500 block mt-2 uppercase tracking-widest font-bold">TrustPoints</span></h2>
+                    <h2 className="text-5xl font-black italic text-white mb-10 leading-none tracking-tighter"><ScrambleText text={formatNumber(selectedItem.totalPoints)} trigger={scrambleTrigger} /> <span className="text-sm not-italic text-slate-500 block mt-2 uppercase tracking-widest font-bold">TrustPoints</span></h2>
                     <button onClick={onInitiate} className="w-full bg-white text-[#020617] py-6 rounded-[24px] font-black text-lg hover:bg-indigo-500 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2"><Fingerprint className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /> Sign & Fund</button>
                 </div>
             </div>
