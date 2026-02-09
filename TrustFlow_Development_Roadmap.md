@@ -28,3 +28,9 @@
 
 - Use Copilot Chat with code context for best results.
 - Store API keys in `.env` and load them securely.
+- Use shared utility functions in `src/lib/utils.js` for:
+  - Number formatting (`formatNumber`)
+  - Date formatting (`formatDate`)
+  - String truncation (`truncate`)
+  - Array uniqueness (`uniqueArray`)
+- Always import and use these utilities in components and views for consistency and maintainability.

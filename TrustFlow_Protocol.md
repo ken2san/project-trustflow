@@ -104,14 +104,24 @@ stateDiagram-v2
 - `execute_escrow(contract_id, amount) -> boolean`
 - `scan_deliverable(file_hash) -> AnalysisReport`
 
-## 8. Technical Architecture
+## 8. Technical Architecture & Coding Standards
 
-| Layer    | Technology   | Description                              |
-| -------- | ------------ | ---------------------------------------- |
-| Frontend | React 18     | High-performance rendering engine.       |
-| Styling  | Tailwind CSS | Glassmorphism & Neural Gradients system. |
-| Icons    | Lucide React | Vector-based iconography.                |
-| Build    | Vite         | Next-generation frontend tooling.        |
+| Layer     | Technology       | Description                                   |
+| --------- | ---------------- | --------------------------------------------- |
+| Frontend  | React 18         | High-performance rendering engine.            |
+| Styling   | Tailwind CSS     | Glassmorphism & Neural Gradients system.      |
+| Icons     | Lucide React     | Vector-based iconography.                     |
+| Build     | Vite             | Next-generation frontend tooling.             |
+| Utilities | src/lib/utils.js | Shared utility functions for formatting, etc. |
+
+### Coding Standards
+
+- All number formatting (e.g., points, rates, balances) must use `formatNumber` from `src/lib/utils.js` for consistency and localization.
+- Date formatting should use `formatDate` from `src/lib/utils.js`.
+- String truncation and array uniqueness should use `truncate` and `uniqueArray` utilities, respectively.
+- Utility functions are imported and used in all relevant components and views (see App.jsx, WalletView.jsx, MarketplaceView.jsx, etc.).
+
+This ensures robust, maintainable, and locale-consistent UI logic across the codebase.
 
 ## 9. Directory Structure
 

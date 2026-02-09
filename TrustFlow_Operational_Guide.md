@@ -40,3 +40,9 @@
 - Use Copilot/VSCode context for best results.
 - Store API keys in `.env` files.
 - Use prompts to guide Copilot for modularization, AI, and backend logic.
+- For all formatting and data handling, use shared utility functions in `src/lib/utils.js`:
+  - `formatNumber` for numbers
+  - `formatDate` for dates
+  - `truncate` for strings
+  - `uniqueArray` for arrays
+    This ensures robust, consistent, and maintainable code.
