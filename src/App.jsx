@@ -143,142 +143,17 @@ const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
 
 // --- Page Views ---
 
-const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger }) => (
-    <div className="space-y-16 animate-fade-in-up">
-        <div className="flex flex-col md:flex-row gap-10 items-center">
-            <div className="shrink-0 relative group"><div className="w-32 h-32 relative flex items-center justify-center"><div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[40px] opacity-20 blur-2xl group-hover:opacity-40 transition-opacity duration-700" /><div className="w-full h-full bg-[#0a0f1e] border border-white/10 rounded-[40px] flex items-center justify-center shadow-2xl relative z-10 overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent blur-[0.5px] animate-scan shadow-[0_0_8px_rgba(255,255,255,0.8)]" /><BrainCircuit className="text-indigo-400 w-16 h-16 relative z-10 drop-shadow-[0_0_20px_rgba(129,140,248,0.6)] animate-pulse" /></div></div><div className="absolute -bottom-2 -right-2 z-20"><div className="w-12 h-12 bg-[#050b14] rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] text-emerald-400 backdrop-blur-md"><ShieldCheck className="w-6 h-6" /></div></div></div>
-            <div className="flex-1 space-y-4 text-center md:text-left"><h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]"><Typewriter text={mode === 'earner' ? "Ready to earn, Felix?" : "Build your team, Felix."} /></h1><p className="text-slate-400 text-lg">AI has curated <span className="text-indigo-400 font-bold">2 prime vectors</span> based on your profile.</p></div>
-        </div>
-        {mode === 'earner' ? (
-            <div className="grid grid-cols-1 gap-8">
-                {jobs.map(item => (
-                    <SpotlightCard key={item.id} className="rounded-[40px] p-8 cursor-pointer group" onClick={() => onSelect(item)}>
-                        <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center w-full">
-                            <div className="shrink-0"><MatchCircle score={item.aiScore} /></div>
-                            <div className="flex-1 space-y-6 text-center md:text-left min-w-0">
-                                <div><h3 className="text-3xl font-black text-white mb-2">{item.title}</h3><p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{item.client}</p></div>
-                                <div className="relative pl-6 border-l-2 border-indigo-500/30"><p className="text-sm sm:text-lg font-medium leading-relaxed text-slate-300 italic">"{item.matchReason}"</p></div>
-                                <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2"><div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Reward</p><p className="text-2xl font-black italic text-white leading-none tracking-tight"><ScrambleText text={item.totalPoints.toLocaleString()} trigger={scrambleTrigger} /> <span className="text-xs not-italic text-slate-500 font-bold">PTS</span></p></div></div>
-                            </div>
-                            <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0 md:ml-auto"><button className="w-full md:w-auto bg-white text-[#020617] px-10 py-5 rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">Initialize <ArrowRight className="w-5 h-5" /></button></div>
-                        </div>
-                    </SpotlightCard>
-                ))}
-            </div>
-        ) : (
-            <div className="space-y-16 animate-fade-in-up">
-                {!aiSuggestions ? (
-                    <div className="max-w-3xl mx-auto text-center space-y-10">
-                        <div className="w-20 h-20 bg-emerald-600/20 rounded-3xl flex items-center justify-center mx-auto border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)]"><BrainCircuit className="w-10 h-10 text-emerald-400" /></div>
-                        <div><h1 className="text-5xl font-black text-white tracking-tighter mb-4">AI Project Architect</h1><p className="text-slate-400 text-lg">Describe what you need. I'll define the scope, budget, and find the perfect talent.</p></div>
-                        <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt && projectPrompt !== ''} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Architect Project</button></div></div>
-                    </div>
-                ) : (
-                    <div className="space-y-12">
-                        <div className="bg-[#0f172a] border border-white/10 rounded-[48px] p-10 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-indigo-500" />
-                            <div className="flex items-start gap-6 mb-8"><div className="p-3 bg-emerald-500/10 rounded-xl"><FileSignature className="w-6 h-6 text-emerald-400" /></div><div><h2 className="text-2xl font-black text-white mb-2">Project Scope Defined</h2><p className="text-slate-400">{aiSuggestions.summary}</p></div></div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Generated DoD</h4><ul className="space-y-3">{aiSuggestions.dod.map((item, i) => (<li key={i} className="flex items-center gap-3 text-sm font-bold text-slate-300"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> {item}</li>))}</ul></div>
-                                <div className="bg-white/5 rounded-3xl p-6"><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Recommended Budget</h4><p className="text-3xl font-black text-white">{aiSuggestions.budget}</p></div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {aiSuggestions.candidates.map(talent => (
-                                <SpotlightCard key={talent.id} className="rounded-[32px] p-8 cursor-pointer group" onClick={() => onSelect(talent)}>
-                                    <div className="flex justify-between items-start mb-6"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-white">{talent.name[0]}</div><div><h4 className="font-bold text-white text-lg">{talent.name}</h4><p className="text-xs text-slate-400 uppercase tracking-wider">{talent.role}</p></div></div><div className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-black">{talent.aiScore}% Match</div></div>
-                                    <p className="text-sm text-slate-300 mb-6 italic border-l-2 border-indigo-500/30 pl-4 py-1">"{talent.matchReason}"</p>
-                                    <div className="flex items-center justify-between border-t border-white/5 pt-4"><div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Est. Rate</p><p className="text-white font-mono font-bold text-lg">{talent.rate.toLocaleString()} <span className="text-slate-500 text-xs">PTS / day</span></p></div><button className="bg-white text-black px-6 py-2 rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors">Hire</button></div>
-                                </SpotlightCard>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        )}
-    </div>
-);
+// MarketplaceView moved to views/MarketplaceView.jsx
+import MarketplaceView from './views/MarketplaceView';
 
-const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger }) => (
-    <div className="space-y-12 animate-fade-in-up">
-        <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] group pl-2"><ArrowLeft className="w-3 h-3" /> Abort Sequence</button>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-8 bg-[#0f172a]/60 rounded-[48px] p-10 sm:p-14 border border-white/5 shadow-2xl backdrop-blur-xl">
-                <div className="flex items-center gap-4 mb-8"><div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20"><ListChecks className="w-6 h-6 text-indigo-400" /></div><div><h1 className="text-3xl sm:text-4xl font-black tracking-tighter italic text-white leading-none">Acceptance Protocol</h1><p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Definition of Done (DoD)</p></div></div>
-                <div className="space-y-4">{selectedItem.acceptanceCriteria.map((c, i) => (<div key={i} className="flex items-start gap-5 p-5 bg-white/[0.02] rounded-[24px] border border-white/5 hover:bg-white/[0.04] transition-all"><CheckCircle2 className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" /><p className="font-bold text-slate-300 text-sm leading-relaxed">{c}</p></div>))}</div>
-            </div>
-            <div className="lg:col-span-4 space-y-6">
-                <div className="bg-[#0f172a]/80 rounded-[48px] p-10 border border-white/10 shadow-2xl sticky top-32 backdrop-blur-xl">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Total Contract Value</p>
-                    <h2 className="text-5xl font-black italic text-white mb-10 leading-none tracking-tighter"><ScrambleText text={selectedItem.totalPoints.toLocaleString()} trigger={scrambleTrigger} /> <span className="text-sm not-italic text-slate-500 block mt-2 uppercase tracking-widest font-bold">TrustPoints</span></h2>
-                    <button onClick={onInitiate} className="w-full bg-white text-[#020617] py-6 rounded-[24px] font-black text-lg hover:bg-indigo-500 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2"><Fingerprint className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /> Sign & Fund</button>
-                </div>
-            </div>
-        </div>
-    </div>
-);
+// ScopingView moved to views/ScopingView.jsx
+import ScopingView from './views/ScopingView';
 
-const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status }) => {
-    const [rating, setRating] = useState(0);
+// ContractView moved to views/ContractView.jsx
+import ContractView from './views/ContractView';
 
-    return (
-    <div className="animate-fade-in-up space-y-16">
-        <div className="mb-16 flex justify-between items-center max-w-2xl mx-auto relative px-4">
-            {STEPS_DATA.map((s, idx) => (
-                <React.Fragment key={s.id}>
-                    <div className="flex flex-col items-center z-10"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 transition-all duration-700 ${step > s.id ? 'bg-emerald-500 text-white shadow-lg' : step === s.id ? 'bg-indigo-600 text-white scale-110 shadow-2xl' : 'bg-slate-800 border border-white/5 text-slate-600'}`}>{step > s.id ? <CheckCircle2 className="w-6 h-6" /> : <span className="font-black italic text-lg tracking-tighter">{s.id}</span>}</div><span className={`text-[9px] font-black uppercase tracking-[0.2em] ${step === s.id ? 'text-white' : 'text-slate-600'}`}>{s.label}</span></div>
-                    {idx < STEPS_DATA.length - 1 && (<div className="flex-1 h-0.5 bg-slate-800 mx-2 -mt-10 relative overflow-hidden"><div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: step > s.id ? '100%' : '0%' }} /></div>)}
-                </React.Fragment>
-            ))}
-        </div>
-        <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[56px] p-8 sm:p-16 border border-white/[0.05] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
-            {step === 1 && (<div className="space-y-10 animate-fade-in-up"><h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2><p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds are moving to the decentralized vault. <br/> This action is immutable.</p><HoldButton key="btn-1" onClick={handleNextStep} label="Activate Trust Stream" icon={ArrowRight} className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" color="white" disabled={status !== 'idle'} /></div>)}
-            {step === 2 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-indigo-500/10 rounded-[48px] flex items-center justify-center border border-indigo-500/20 rotate-12 mx-auto"><Lock className="w-14 h-14 text-indigo-400 -rotate-12" /></div><h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">Vault Secured</h2>{isUploading ? (<div className="space-y-8 max-w-md mx-auto"><div className="w-32 h-32 mx-auto relative flex items-center justify-center"><svg className="w-full h-full -rotate-90"><circle cx="64" cy="64" r="50" fill="none" stroke="#1e293b" strokeWidth="8" /><circle cx="64" cy="64" r="50" fill="none" stroke="#6366f1" strokeWidth="8" strokeDasharray="314" strokeDashoffset={314 - (314 * uploadProgress / 100)} strokeLinecap="round" className="transition-all duration-100" /></svg><span className="absolute text-2xl font-black text-white">{uploadProgress}%</span></div><p className="text-indigo-400 font-black tracking-widest uppercase animate-pulse">Scanning Artifacts...</p></div>) : (<div className="max-w-md mx-auto space-y-4"><div className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 hover:border-indigo-500/50 hover:bg-white/5 transition-all cursor-pointer group" onClick={handleFileUpload}><div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform"><UploadCloud className="w-8 h-8 text-indigo-400" /></div><h3 className="text-xl font-black text-white">Upload Deliverables</h3></div><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Or skip to next phase</p><HoldButton key="btn-2" onClick={handleNextStep} label="Enter Build Phase" className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} /></div>)}</div>)}
-            {step === 3 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-amber-500/10 rounded-[48px] flex items-center justify-center border border-amber-500/20 mx-auto animate-pulse"><Scan className="w-14 h-14 text-amber-500" /></div><h2 className="text-5xl font-black text-white italic tracking-tighter">Neural Inspection</h2><div className="bg-black/20 p-6 rounded-2xl border border-white/5 max-w-md mx-auto"><p className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4"/> 98.2% Match Verified</p></div><div className="flex justify-center gap-4 max-w-md mx-auto"><button onClick={handleReject} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button><HoldButton key="btn-3" onClick={handleNextStep} label="Release Funds" className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} /></div></div>)}
-            {step === 4 && (
-                <div className="space-y-12 animate-fade-in-up">
-                    <div className="flex flex-col items-center gap-6"><div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px]"><div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden"><User className="w-12 h-12 text-slate-300" /></div></div><div><h2 className="text-4xl font-black text-white mb-2">Rate Experience</h2><p className="text-slate-400">Feedback updates the Neural Trust Score.</p></div><div className="flex gap-4">{[1, 2, 3, 4, 5].map((star) => (<button key={star} onClick={() => setRating(star)} className="group focus:outline-none transition-transform active:scale-90"><Star className={`w-10 h-10 transition-colors ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-slate-700 group-hover:text-slate-500'}`} /></button>))}</div></div>
-                    {rating > 0 ? (<div className="animate-fade-in-up"><HoldButton key="btn-4" onClick={handleNextStep} label="Commit & Close" className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} /></div>) : (<p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Select stars to finalize</p>)}
-                </div>
-            )}
-            {step === 5 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-emerald-500/10 rounded-[48px] flex items-center justify-center border border-emerald-500/20 mx-auto"><CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" /></div><h2 className="text-6xl font-black text-white italic tracking-tighter uppercase">Settled</h2><button onClick={handleNextStep} className="px-10 py-4 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button></div>)}
-        </div>
-    </div>
-    );
-};
-
-const WalletView = ({ onBack, isFlipped, setIsFlipped, userPoints, transactions, onDeposit, setIsPaymentModalOpen }) => (
-    <div className="space-y-12 animate-fade-in-up">
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] pl-2 group"><ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Feed</button>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            <div className="lg:col-span-4">
-                <SpotlightCard className="bg-gradient-to-br from-indigo-600 to-violet-900 rounded-[56px] p-8 sm:p-12 text-white shadow-[0_30px_80px_rgba(79,70,229,0.3)] group">
-                    <div className="flex flex-col relative z-10 w-full h-full cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
-                        <div className={`transition-all duration-500 ${isFlipped ? 'opacity-0 absolute' : 'opacity-100'}`}>
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full group-hover:scale-110 transition-transform duration-1000" />
-                            <div className="flex justify-between items-start mb-6"><p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Net Liquidity</p><RefreshCw className="w-4 h-4 opacity-50" /></div>
-                            <h2 className="text-5xl sm:text-6xl lg:text-7xl font-black italic mb-12 leading-none tracking-tighter break-words"><ScrambleText text={userPoints.toLocaleString()} /> <span className="text-sm not-italic opacity-60 block mt-4 uppercase tracking-widest font-bold">TrustPoints</span></h2>
-                        </div>
-                        <div className={`transition-all duration-500 ${isFlipped ? 'opacity-100' : 'opacity-0 absolute inset-0'}`}>
-                            <div className="flex flex-col h-full justify-between"><div className="flex justify-between items-start"><QrCode className="w-32 h-32 text-white/90" /><RefreshCw className="w-4 h-4 opacity-50" /></div><div className="space-y-2"><p className="text-[10px] font-black uppercase tracking-widest opacity-60">Wallet Address</p><p className="font-mono text-xs opacity-80 break-all">0x71C...9A21</p></div></div>
-                        </div>
-                        <div className={`space-y-5 relative z-10 transition-all duration-300 ${isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                            <button onClick={(e) => { e.stopPropagation(); setIsPaymentModalOpen(true); }} className="w-full bg-white text-indigo-900 py-6 rounded-[32px] font-black text-lg hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl"><PlusCircle className="w-6 h-6" /> Charge Wallet</button>
-                            <button className="w-full bg-black/20 border border-white/20 text-white py-6 rounded-[32px] font-black text-lg hover:bg-white/10 transition-all active:scale-95">Withdraw Fiat</button>
-                        </div>
-                    </div>
-                </SpotlightCard>
-            </div>
-            <div className="lg:col-span-8 space-y-8">
-                <div className="bg-[#0f172a]/60 rounded-[56px] p-12 border border-white/5 shadow-2xl backdrop-blur-xl">
-                    <div className="flex items-center justify-between mb-8"><h3 className="text-2xl font-black italic text-white uppercase tracking-tighter flex items-center gap-4"><Activity className="w-8 h-8 text-indigo-500" /> Revenue Stream</h3></div>
-                    <AnalyticsGraph />
-                    <div className="space-y-6 mt-8">{TRANSACTIONS_DATA.map(tx => (<div key={tx.id} className="flex items-center justify-between p-8 bg-white/[0.02] rounded-[36px] border border-white/5 hover:bg-white/[0.05] transition-all group cursor-pointer"><div className="flex items-center gap-8"><div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${tx.type === 'in' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}><TrendingUp className={`w-8 h-8 ${tx.type === 'out' ? 'rotate-180' : ''}`} /></div><div><p className="font-black text-white text-xl tracking-tight group-hover:text-indigo-300 transition-colors">{tx.title}</p><p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-2">{tx.id} • {tx.date}</p></div></div><div className="text-right"><p className={`text-3xl font-black italic tracking-tight ${tx.type === 'in' ? 'text-emerald-500' : 'text-slate-300'}`}>{tx.type === 'in' ? '+' : '-'}{tx.points.toLocaleString()}</p><span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] leading-none">PTS</span></div></div>))}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-);
+// WalletView moved to views/WalletView.jsx
+import WalletView from './views/WalletView';
 
 // --- Main App Component ---
 
