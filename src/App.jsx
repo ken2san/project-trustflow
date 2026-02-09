@@ -241,7 +241,17 @@ const App = () => {
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
       {/* BiometricModal removed for MVP slimdown */}
       <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} />
-      <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} commands={commands} />
+      {isCommandOpen && (
+        <>
+          {/* Overlay for command palette modal: semi-transparent, blur, background visible */}
+          <div className="fixed inset-0 z-[100] bg-[#0a0f1a]/70 backdrop-blur-[6px] transition-opacity" onClick={() => setIsCommandOpen(false)} />
+          <div className="fixed inset-0 z-[110] flex items-center justify-center">
+            <div className="w-[540px] max-w-full bg-[#23263a] rounded-[36px] shadow-[0_16px_64px_0_rgba(79,70,229,0.55),0_2px_16px_0_rgba(0,0,0,0.25)] border border-indigo-500/30 p-12 flex flex-col items-center">
+              <CommandPalette isOpen={true} onClose={() => setIsCommandOpen(false)} commands={commands} />
+            </div>
+          </div>
+        </>
+      )}
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} profile={profileData} addToast={addToast} actionLabel={profileData?.id !== USER_PROFILE.id ? "Initiate Contract" : null} onAction={profileData?.id !== USER_PROFILE.id ? () => handleSelect(profileData) : null} />
 
       {(status === 'processing' || status === 'switching') && (<div className="fixed inset-0 z-[100] bg-[#020617]/90 backdrop-blur-md flex flex-col items-center justify-center"><Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-6" /><p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">{status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}</p></div>)}
@@ -302,10 +312,10 @@ const App = () => {
       </div>
 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-2xl border-t border-white/10 px-8 py-5 flex justify-between items-center z-50 shadow-[0_-15px_40px_rgba(0,0,0,0.6)]">
-        <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setView('marketplace'); }}><LayoutGrid className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500" onClick={() => { setIsProfileOpen(false); setIsCommandOpen(true); }}><Search className="w-6 h-6" /></button>
-        <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setView('wallet'); }}><Wallet className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500" onClick={() => handleViewProfile(USER_PROFILE)}>
+        <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('marketplace'); }}><LayoutGrid className="w-6 h-6" /></button>
+        <button className="p-3 text-slate-500" onClick={() => { setIsProfileOpen(false); setProfileData(null); setIsCommandOpen(true); }}><Search className="w-6 h-6" /></button>
+        <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('wallet'); }}><Wallet className="w-6 h-6" /></button>
+        <button className="p-3 text-slate-500" onClick={() => { setIsCommandOpen(false); setView('marketplace'); setProfileData(USER_PROFILE); setIsProfileOpen(true); }}>
           {/* Avatar icon for mobile bottom bar (same as header) */}
           <span className="block w-6 h-6 rounded-full overflow-hidden border-2 border-indigo-400 bg-slate-800">
             {USER_PROFILE.avatarUrl ? (
