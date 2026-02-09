@@ -7,7 +7,7 @@ import {
   BrainCircuit, Target, UserCheck, LayoutGrid, Bell, CreditCard,
   Loader2, Check, MousePointer2, FileSignature, Scan, Hash,
   RefreshCw, QrCode, Briefcase, Users, ChevronRight, User, Gavel, AlertTriangle,
-  Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4
+  Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4, Star
 } from 'lucide-react';
 
 // --- Custom Hooks ---
@@ -46,9 +46,9 @@ const TRANSACTIONS_DATA = [
   { id: 'TX-982', title: 'Network Fee', type: 'out', points: 5000, date: '2026.01.20' }
 ];
 
-const STEPS_DATA = [ { id: 1, label: 'PROTOCOL' }, { id: 2, label: 'ESCROW' }, { id: 3, label: 'INSPECT' }, { id: 4, label: 'RELEASE' } ];
+const STEPS_DATA = [ { id: 1, label: 'PROTOCOL' }, { id: 2, label: 'ESCROW' }, { id: 3, label: 'INSPECT' }, { id: 4, label: 'RATING' } ];
 
-// --- UI Components (Design System Layer) ---
+// --- UI Components ---
 
 const NeuralBackground = React.memo(() => (
   <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -85,29 +85,45 @@ const SpotlightCard = React.memo(({ children, className = "", onClick }) => {
   );
 });
 
-const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white" }) => {
+const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white", disabled = false }) => {
   const [progress, setProgress] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const intervalRef = useRef(null);
+  const [isReady, setIsReady] = useState(false);
 
+  // Cooldown effect on mount to prevent accidental double-clicks
+  useEffect(() => {
+    const timer = setTimeout(() => setIsReady(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Reset if disabled changes
+  useEffect(() => {
+    if (disabled) {
+      setIsHolding(false);
+      setProgress(0);
+      setIsCompleted(false);
+    }
+  }, [disabled]);
+
+  // Update progress while holding
+  useInterval(() => {
+    if (isHolding && !isCompleted && !disabled && isReady) {
+      setProgress((prev) => Math.min(prev + 5, 100));
+    }
+  }, isHolding ? 16 : null);
+
+  // Trigger action when progress reaches 100%
   useEffect(() => {
     if (progress >= 100 && !isCompleted) {
-      clearInterval(intervalRef.current);
       setIsCompleted(true);
-      setTimeout(() => onClick(), 0);
+      setIsHolding(false);
+      onClick(); // Execute action in useEffect to avoid render-phase updates
     }
   }, [progress, isCompleted, onClick]);
 
-  const startHold = () => {
-    if (isCompleted) return;
-    intervalRef.current = setInterval(() => setProgress((prev) => Math.min(prev + 4, 100)), 16);
-  };
-
-  const endHold = () => {
-    if (isCompleted) return;
-    clearInterval(intervalRef.current);
-    setProgress(0);
-  };
+  const startHold = () => { if (!isCompleted && !disabled && isReady) setIsHolding(true); };
+  const endHold = () => { if (!isCompleted) { setIsHolding(false); setProgress(0); } };
 
   const bgClass = color === "indigo" ? "bg-indigo-600" : "bg-white";
   const textClass = color === "indigo" ? "text-white" : "text-[#020617]";
@@ -115,20 +131,18 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
   const labelClass = color === "red" ? "text-rose-500" : "";
   const bgClassFinal = color === "red" ? "bg-rose-950/30 border border-rose-500/30" : bgClass;
   const fillClassFinal = color === "red" ? "bg-rose-500" : fillClass;
+  const isInteractive = !disabled && isReady;
 
   return (
     <button
-      onMouseDown={startHold}
-      onMouseUp={endHold}
-      onMouseLeave={endHold}
-      onTouchStart={startHold}
-      onTouchEnd={endHold}
-      className={`relative overflow-hidden group select-none ${bgClassFinal} ${textClass} ${className}`}
-      style={{ WebkitTapHighlightColor: 'transparent' }}
+        onMouseDown={startHold} onMouseUp={endHold} onMouseLeave={endHold} onTouchStart={startHold} onTouchEnd={endHold}
+        disabled={!isInteractive}
+        className={`relative overflow-hidden group select-none ${bgClassFinal} ${textClass} ${className} ${!isInteractive ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
+        style={{ WebkitTapHighlightColor: 'transparent', transition: 'all 0.2s', transform: isHolding ? 'scale(0.98)' : 'scale(1)' }}
     >
       <div className={`absolute inset-0 ${fillClassFinal} transition-all duration-75 ease-linear opacity-50`} style={{ width: `${progress}%` }} />
       <div className="relative z-10 flex items-center justify-center gap-3 w-full h-full">
-        {isCompleted ? <CheckCircle2 className="w-6 h-6 animate-scale-up" /> : <><span className={`font-black text-lg transition-transform group-active:scale-95 ${labelClass}`}>{label}</span>{Icon && <Icon className={`w-5 h-5 group-hover:translate-x-1 transition-transform ${labelClass}`} />}</>}
+        {isCompleted ? <CheckCircle2 className="w-6 h-6 animate-scale-up" /> : <><span className={`font-black text-lg transition-transform ${labelClass}`}>{label}</span>{Icon && <Icon className={`w-5 h-5 transition-transform ${labelClass}`} />}</>}
       </div>
     </button>
   );
@@ -196,15 +210,7 @@ const AnalyticsGraph = React.memo(() => {
 });
 
 const MatchCircle = ({ score }) => (
-    <div className="w-32 h-32 flex flex-col items-center justify-center relative">
-      <div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" />
-      <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90">
-        <circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" />
-        <circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - score / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-        <defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs>
-      </svg>
-      <div className="relative z-10 text-center"><span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${score}%`} /></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span></div>
-    </div>
+    <div className="w-32 h-32 flex flex-col items-center justify-center relative"><div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" /><svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full -rotate-90"><circle cx="60" cy="60" r="50" fill="none" stroke="#1E293B" strokeWidth="6" /><circle cx="60" cy="60" r="50" fill="none" stroke="url(#indigoGradient)" strokeWidth="6" strokeDasharray={2 * Math.PI * 50} strokeDashoffset={(2 * Math.PI * 50) * (1 - score / 100)} strokeLinecap="round" className="transition-all duration-1000 ease-out" /><defs><linearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs></svg><div className="relative z-10 text-center"><span className="text-4xl font-black italic text-white leading-none tracking-tighter"><ScrambleText text={`${score}%`} /></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 block">Match</span></div></div>
 );
 
 // --- Modals ---
@@ -213,44 +219,8 @@ const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToas
   if (!isOpen || !profile) return null;
   const handleExport = () => addToast('Export Successful', 'Trust Passport downloaded as PDF.');
   const handleAction = () => { if (onAction) { onAction(); onClose(); } };
-
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-lg" onClick={onClose} />
-      <div className="relative w-full max-w-4xl bg-[#0f172a] border border-white/10 rounded-[48px] shadow-2xl overflow-hidden animate-scale-up flex flex-col md:flex-row">
-        <div className="md:w-1/3 bg-white/[0.02] p-8 border-b md:border-b-0 md:border-r border-white/5 flex flex-col items-center text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />
-            <div className="relative z-10 w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-indigo-500 to-emerald-500 mb-6 pointer-events-none">
-                <div className="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center overflow-hidden"><User className="w-16 h-16 text-slate-300" /></div>
-                <div className="absolute bottom-1 right-1 w-8 h-8 bg-[#0f172a] rounded-full border border-white/10 flex items-center justify-center text-emerald-400"><BadgeCheck className="w-5 h-5" /></div>
-            </div>
-            <h2 className="text-3xl font-black text-white mb-1 relative z-10 pointer-events-none">{profile.name}</h2>
-            <p className="text-indigo-400 font-bold text-xs uppercase tracking-widest mb-6 relative z-10 pointer-events-none">{profile.role || "Elite Node"}</p>
-            <div className="space-y-4 w-full relative z-10 pointer-events-none">
-                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><MapPin className="w-4 h-4 text-indigo-500" /> {profile.location || "Tokyo, Japan"}</div>
-                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Calendar className="w-4 h-4 text-indigo-500" /> Member since {profile.joined || "2024"}</div>
-                <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Hexagon className="w-4 h-4 text-indigo-500" /> Level {profile.level || "42"} Architect</div>
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); actionLabel ? handleAction() : handleExport(); }} className={`mt-auto w-full py-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-colors relative z-20 ${actionLabel ? 'bg-indigo-600 text-white hover:bg-indigo-500 rounded-2xl mb-2 shadow-lg' : 'text-slate-500 hover:text-white'}`}>
-                {actionLabel ? <>Initiate Contract <ArrowRight className="w-4 h-4" /></> : <><Share2 className="w-4 h-4" /> Export Identity</>}
-            </button>
-        </div>
-        <div className="flex-1 p-8 md:p-12 space-y-10 relative">
-            <div className="flex justify-between items-center relative z-10"><h3 className="text-xl font-black text-white flex items-center gap-3"><Activity className="w-5 h-5 text-emerald-500" /> Performance Metrics</h3><span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-white/5">Top 1% Global</span></div>
-            <div className="grid grid-cols-2 gap-4 relative z-10">
-                {['Reliability', 'Speed', 'Quality', 'Communication'].map((stat, i) => (
-                    <div key={stat} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                        <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>{stat}</span><span className="text-indigo-400">9{i+5}%</span></div>
-                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `9${i+5}%` }} /></div>
-                    </div>
-                ))}
-            </div>
-            <div className="relative z-10"><h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Reputation Heatmap</h4><div className="flex gap-1 h-12">{[...Array(30)].map((_, i) => (<div key={i} className={`flex-1 rounded-sm ${Math.random() > 0.5 ? 'bg-indigo-500/80' : Math.random() > 0.5 ? 'bg-indigo-500/40' : 'bg-white/5'}`} style={{ opacity: Math.random() * 0.5 + 0.5 }} />))}</div></div>
-            <div className="p-6 bg-indigo-900/20 border border-indigo-500/20 rounded-3xl flex items-center gap-4 relative z-10"><div className="p-3 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-500/30"><ShieldCheck className="w-6 h-6" /></div><div><h4 className="text-white font-bold">TrustFlow Guarantee</h4><p className="text-xs text-indigo-300">Identity verified via decentralized ledger.</p></div><div className="ml-auto text-2xl font-black text-white italic">100%</div></div>
-        </div>
-        <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors z-50"><X className="w-5 h-5" /></button>
-      </div>
-    </div>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4"><div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-lg" onClick={onClose} /><div className="relative w-full max-w-4xl bg-[#0f172a] border border-white/10 rounded-[48px] shadow-2xl overflow-hidden animate-scale-up flex flex-col md:flex-row"><div className="md:w-1/3 bg-white/[0.02] p-8 border-b md:border-b-0 md:border-r border-white/5 flex flex-col items-center text-center relative overflow-hidden"><div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" /><div className="relative z-10 w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-indigo-500 to-emerald-500 mb-6 pointer-events-none"><div className="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center overflow-hidden"><User className="w-16 h-16 text-slate-300" /></div><div className="absolute bottom-1 right-1 w-8 h-8 bg-[#0f172a] rounded-full border border-white/10 flex items-center justify-center text-emerald-400"><BadgeCheck className="w-5 h-5" /></div></div><h2 className="text-3xl font-black text-white mb-1 relative z-10 pointer-events-none">{profile.name}</h2><p className="text-indigo-400 font-bold text-xs uppercase tracking-widest mb-6 relative z-10 pointer-events-none">{profile.role || "Elite Node"}</p><div className="space-y-4 w-full relative z-10 pointer-events-none"><div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><MapPin className="w-4 h-4 text-indigo-500" /> {profile.location || "Tokyo, Japan"}</div><div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Calendar className="w-4 h-4 text-indigo-500" /> Member since {profile.joined || "2024"}</div><div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Hexagon className="w-4 h-4 text-indigo-500" /> Level {profile.level || "42"} Architect</div></div><button onClick={(e) => { e.stopPropagation(); actionLabel ? handleAction() : handleExport(); }} className={`mt-auto w-full py-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-colors relative z-20 ${actionLabel ? 'bg-indigo-600 text-white hover:bg-indigo-500 rounded-2xl mb-2 shadow-lg' : 'text-slate-500 hover:text-white'}`}>{actionLabel ? <>Initiate Contract <ArrowRight className="w-4 h-4" /></> : <><Share2 className="w-4 h-4" /> Export Identity</>}</button></div><div className="flex-1 p-8 md:p-12 space-y-10 relative"><div className="flex justify-between items-center relative z-10"><h3 className="text-xl font-black text-white flex items-center gap-3"><Activity className="w-5 h-5 text-emerald-500" /> Performance Metrics</h3><span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-white/5">Top 1% Global</span></div><div className="grid grid-cols-2 gap-4 relative z-10">{['Reliability', 'Speed', 'Quality', 'Communication'].map((stat, i) => (<div key={stat} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5"><div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>{stat}</span><span className="text-indigo-400">9{i+5}%</span></div><div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `9${i+5}%` }} /></div></div>))}</div><div className="relative z-10"><h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Reputation Heatmap</h4><div className="flex gap-1 h-12">{[...Array(30)].map((_, i) => (<div key={i} className={`flex-1 rounded-sm ${Math.random() > 0.5 ? 'bg-indigo-500/80' : Math.random() > 0.5 ? 'bg-indigo-500/40' : 'bg-white/5'}`} style={{ opacity: Math.random() * 0.5 + 0.5 }} />))}</div></div><div className="p-6 bg-indigo-900/20 border border-indigo-500/20 rounded-3xl flex items-center gap-4 relative z-10"><div className="p-3 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-500/30"><ShieldCheck className="w-6 h-6" /></div><div><h4 className="text-white font-bold">TrustFlow Guarantee</h4><p className="text-xs text-indigo-300">Identity verified via decentralized ledger.</p></div><div className="ml-auto text-2xl font-black text-white italic">100%</div></div></div><button onClick={onClose} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors z-50"><X className="w-5 h-5" /></button></div></div>
   );
 };
 
@@ -261,19 +231,7 @@ const CommandPalette = ({ isOpen, onClose, commands }) => {
   const filteredCommands = useMemo(() => commands.filter(cmd => cmd.label.toLowerCase().includes(query.toLowerCase())), [commands, query]);
   useEffect(() => { if (isOpen) { setTimeout(() => inputRef.current?.focus(), 50); setQuery(''); setActiveIndex(0); } }, [isOpen]);
   return !isOpen ? null : (
-    <div className="fixed inset-0 z-[90] flex items-start justify-center pt-[15vh] px-4">
-      <div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/5"><Search className="w-5 h-5 text-slate-500" /><input ref={inputRef} type="text" placeholder="Type a command..." value={query} onChange={e => { setQuery(e.target.value); setActiveIndex(0); }} className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 text-base" /><span className="text-[10px] font-mono text-slate-500 border border-white/10 px-1.5 py-0.5 rounded">ESC</span></div>
-        <div className="py-2 max-h-[300px] overflow-y-auto">
-          {filteredCommands.length === 0 ? <div className="px-4 py-8 text-center text-slate-500 text-sm">No commands found.</div> :
-            filteredCommands.map((cmd, idx) => (
-              <button key={cmd.id} onClick={() => { cmd.action(); onClose(); }} className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${idx === activeIndex ? 'bg-indigo-600/10 border-l-2 border-indigo-500' : 'hover:bg-white/5 border-l-2 border-transparent'}`} onMouseEnter={() => setActiveIndex(idx)}><div className={`p-2 rounded-lg ${idx === activeIndex ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>{React.createElement(cmd.icon, { size: 16 })}</div><span className={`text-sm ${idx === activeIndex ? 'text-white font-bold' : 'text-slate-300'}`}>{cmd.label}</span>{idx === activeIndex && <ArrowRight className="ml-auto w-4 h-4 text-indigo-400" />}</button>
-            ))
-          }
-        </div>
-      </div>
-    </div>
+    <div className="fixed inset-0 z-[90] flex items-start justify-center pt-[15vh] px-4"><div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" onClick={onClose} /><div className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up"><div className="flex items-center gap-3 px-4 py-4 border-b border-white/5"><Search className="w-5 h-5 text-slate-500" /><input ref={inputRef} type="text" placeholder="Type a command..." value={query} onChange={e => { setQuery(e.target.value); setActiveIndex(0); }} className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 text-base" /><span className="text-[10px] font-mono text-slate-500 border border-white/10 px-1.5 py-0.5 rounded">ESC</span></div><div className="py-2 max-h-[300px] overflow-y-auto">{filteredCommands.length === 0 ? <div className="px-4 py-8 text-center text-slate-500 text-sm">No commands found.</div> : filteredCommands.map((cmd, idx) => (<button key={cmd.id} onClick={() => { cmd.action(); onClose(); }} className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${idx === activeIndex ? 'bg-indigo-600/10 border-l-2 border-indigo-500' : 'hover:bg-white/5 border-l-2 border-transparent'}`} onMouseEnter={() => setActiveIndex(idx)}><div className={`p-2 rounded-lg ${idx === activeIndex ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>{React.createElement(cmd.icon, { size: 16 })}</div><span className={`text-sm ${idx === activeIndex ? 'text-white font-bold' : 'text-slate-300'}`}>{cmd.label}</span>{idx === activeIndex && <ArrowRight className="ml-auto w-4 h-4 text-indigo-400" />}</button>))}</div><div className="px-4 py-2 bg-white/[0.02] border-t border-white/5 flex justify-between items-center text-[10px] text-slate-500 font-mono"><span>TrustFlow Command Line</span><span>v3.5</span></div></div></div>
   );
 };
 
@@ -281,32 +239,14 @@ const DisputeModal = ({ isOpen, onClose, onResolve }) => {
   const [step, setStep] = useState(1);
   useEffect(() => { if(isOpen) setStep(1); }, [isOpen]);
   return !isOpen ? null : (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-rose-950/20 backdrop-blur-lg" onClick={onClose} />
-      <div className="relative bg-[#0f172a] border border-rose-500/30 w-full max-w-lg rounded-[40px] p-8 shadow-[0_0_50px_rgba(244,63,94,0.1)] overflow-hidden animate-scale-up">
-        {step === 1 && (<div className="space-y-6"><div className="flex items-center gap-3 text-rose-500 mb-2"><AlertTriangle className="w-8 h-8" /><h3 className="text-2xl font-black italic">Reject Deliverable</h3></div><p className="text-slate-400 text-sm">Initiating arbitration protocol...</p><div className="space-y-3">{['Incomplete Feature Set', 'Quality Below Threshold'].map(r => (<button key={r} onClick={() => { setStep(2); setTimeout(() => setStep(3), 2000); }} className="w-full text-left p-4 rounded-2xl border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all font-bold text-sm flex justify-between group">{r} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" /></button>))}</div></div>)}
-        {step === 2 && (<div className="flex flex-col items-center justify-center py-10 space-y-6 text-center"><div className="w-20 h-20 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" /><div><h3 className="text-xl font-black text-rose-500 mb-2">AI Arbitrator Analyzing</h3><p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">Comparing Codebase vs. Spec...</p></div></div>)}
-        {step === 3 && (<div className="space-y-6"><div className="flex items-center gap-3 text-indigo-400 mb-2"><Scale className="w-8 h-8" /><h3 className="text-2xl font-black italic">Fair Resolution</h3></div><div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl"><p className="text-sm text-indigo-200 font-bold mb-2">Analysis Result:</p><p className="text-xs text-slate-400 leading-relaxed">Recommendation: <span className="text-white font-bold">24h extension</span>.</p></div><div className="flex gap-3"><button onClick={onResolve} className="flex-1 py-4 rounded-xl bg-white text-black font-black text-sm hover:bg-indigo-50 transition-all">Accept 24h Extension</button></div></div>)}
-      </div>
-    </div>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4"><div className="absolute inset-0 bg-rose-950/20 backdrop-blur-lg" onClick={onClose} /><div className="relative bg-[#0f172a] border border-rose-500/30 w-full max-w-lg rounded-[40px] p-8 shadow-[0_0_50px_rgba(244,63,94,0.1)] overflow-hidden animate-scale-up">{step === 1 && (<div className="space-y-6"><div className="flex items-center gap-3 text-rose-500 mb-2"><AlertTriangle className="w-8 h-8" /><h3 className="text-2xl font-black italic">Reject Deliverable</h3></div><p className="text-slate-400 text-sm">Initiating arbitration protocol...</p><div className="space-y-3">{['Incomplete Feature Set', 'Quality Below Threshold'].map(r => (<button key={r} onClick={() => { setStep(2); setTimeout(() => setStep(3), 2000); }} className="w-full text-left p-4 rounded-2xl border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all font-bold text-sm flex justify-between group">{r} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" /></button>))}</div></div>)}{step === 2 && (<div className="flex flex-col items-center justify-center py-10 space-y-6 text-center"><div className="w-20 h-20 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" /><div><h3 className="text-xl font-black text-rose-500 mb-2">AI Arbitrator Analyzing</h3><p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">Comparing Codebase vs. Spec...</p></div></div>)}{step === 3 && (<div className="space-y-6"><div className="flex items-center gap-3 text-indigo-400 mb-2"><Scale className="w-8 h-8" /><h3 className="text-2xl font-black italic">Fair Resolution</h3></div><div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl"><p className="text-sm text-indigo-200 font-bold mb-2">Analysis Result:</p><p className="text-xs text-slate-400 leading-relaxed">Recommendation: <span className="text-white font-bold">24h extension</span>.</p></div><div className="flex gap-3"><button onClick={onResolve} className="flex-1 py-4 rounded-xl bg-white text-black font-black text-sm hover:bg-indigo-50 transition-all">Accept 24h Extension</button></div></div>)}</div></div>
   );
 };
 
 const PaymentModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[#0f172a] border border-white/10 w-full max-w-md rounded-[40px] p-8 shadow-2xl animate-scale-up overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none" />
-        <div className="flex justify-between items-center mb-8 relative z-10"><h3 className="text-2xl font-black text-white italic tracking-tighter">Add Funds</h3><button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-5 h-5 text-slate-400" /></button></div>
-        <div className="space-y-6 relative z-10">
-          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group"><div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" /><div className="relative z-10"><div className="flex justify-between items-start mb-8"><CreditCard className="w-8 h-8 opacity-80" /><span className="font-mono text-lg opacity-80">•••• 4242</span></div><div><p className="text-[10px] uppercase opacity-60 tracking-widest mb-1">Balance</p><p className="text-2xl font-black tracking-widest">$12,450.00</p></div></div></div>
-          <div className="space-y-4"><div><label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2 mb-2 block">Amount (USD)</label><div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-4"><span className="text-slate-400 font-bold">$</span><input type="number" defaultValue="1000" className="bg-transparent border-none outline-none text-white font-mono text-xl flex-1" /></div></div></div>
-          <HoldButton onClick={onConfirm} label="Confirm Deposit" icon={ArrowRight} className="w-full py-5 rounded-2xl shadow-xl" color="white" />
-        </div>
-      </div>
-    </div>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4"><div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" onClick={onClose} /><div className="relative bg-[#0f172a] border border-white/10 w-full max-w-md rounded-[40px] p-8 shadow-2xl animate-scale-up overflow-hidden"><div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none" /><div className="flex justify-between items-center mb-8 relative z-10"><h3 className="text-2xl font-black text-white italic tracking-tighter">Add Funds</h3><button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-5 h-5 text-slate-400" /></button></div><div className="space-y-6 relative z-10"><div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group"><div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" /><div className="relative z-10"><div className="flex justify-between items-start mb-8"><CreditCard className="w-8 h-8 opacity-80" /><span className="font-mono text-lg opacity-80">•••• 4242</span></div><div><p className="text-[10px] uppercase opacity-60 tracking-widest mb-1">Balance</p><p className="text-2xl font-black tracking-widest">$12,450.00</p></div></div></div><div className="space-y-4"><div><label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2 mb-2 block">Amount (USD)</label><div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-4"><span className="text-slate-400 font-bold">$</span><input type="number" defaultValue="1000" className="bg-transparent border-none outline-none text-white font-mono text-xl flex-1" /></div></div></div><HoldButton onClick={onConfirm} label="Confirm Deposit" icon={ArrowRight} className="w-full py-5 rounded-2xl shadow-xl" color="white" /></div></div></div>
   );
 };
 
@@ -316,38 +256,17 @@ const BiometricModal = ({ isOpen, onClose, onAuthenticated }) => {
   const handleScan = () => { setScanStatus('scanning'); setTimeout(() => { setScanStatus('success'); setTimeout(onAuthenticated, 800); }, 2000); };
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-md" onClick={onClose} />
-      <div className="relative flex flex-col items-center">
-        <div className={`w-32 h-32 rounded-[32px] border-2 flex items-center justify-center cursor-pointer transition-all duration-500 relative overflow-hidden group ${scanStatus === 'success' ? 'border-emerald-500 bg-emerald-500/10' : scanStatus === 'scanning' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/20 bg-white/5 hover:border-indigo-400'}`} onClick={scanStatus === 'idle' ? handleScan : undefined}>
-            {scanStatus === 'scanning' && (<div className="absolute inset-0 bg-indigo-500/20 animate-scan-vertical" />)}
-            {scanStatus === 'success' ? (<CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" />) : (<Fingerprint className={`w-16 h-16 transition-colors ${scanStatus === 'scanning' ? 'text-indigo-400 animate-pulse' : 'text-slate-500 group-hover:text-indigo-400'}`} />)}
-        </div>
-        <p className="mt-8 text-sm font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">{scanStatus === 'idle' ? 'Touch to Authorize' : scanStatus === 'scanning' ? 'Verifying Biometrics...' : 'Identity Confirmed'}</p>
-      </div>
-    </div>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4"><div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-md" onClick={onClose} /><div className="relative flex flex-col items-center"><div className={`w-32 h-32 rounded-[32px] border-2 flex items-center justify-center cursor-pointer transition-all duration-500 relative overflow-hidden group ${scanStatus === 'success' ? 'border-emerald-500 bg-emerald-500/10' : scanStatus === 'scanning' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/20 bg-white/5 hover:border-indigo-400'}`} onClick={scanStatus === 'idle' ? handleScan : undefined}>{scanStatus === 'scanning' && (<div className="absolute inset-0 bg-indigo-500/20 animate-scan-vertical" />)}{scanStatus === 'success' ? (<CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" />) : (<Fingerprint className={`w-16 h-16 transition-colors ${scanStatus === 'scanning' ? 'text-indigo-400 animate-pulse' : 'text-slate-500 group-hover:text-indigo-400'}`} />)}</div><p className="mt-8 text-sm font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">{scanStatus === 'idle' ? 'Touch to Authorize' : scanStatus === 'scanning' ? 'Verifying Biometrics...' : 'Identity Confirmed'}</p></div></div>
   );
 };
 
-// --- Sub-View Components (Separated for clarity) ---
+// --- Sub-View Components ---
 
 const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger }) => (
     <div className="space-y-16 animate-fade-in-up">
         <div className="flex flex-col md:flex-row gap-10 items-center">
-            <div className="shrink-0 relative group">
-                <div className="w-32 h-32 relative flex items-center justify-center">
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[40px] opacity-20 blur-2xl group-hover:opacity-40 transition-opacity duration-700" />
-                    <div className="w-full h-full bg-[#0a0f1e] border border-white/10 rounded-[40px] flex items-center justify-center shadow-2xl relative z-10 overflow-hidden backdrop-blur-3xl">
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent blur-[0.5px] animate-scan shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-                        <BrainCircuit className="text-indigo-400 w-16 h-16 relative z-10 drop-shadow-[0_0_20px_rgba(129,140,248,0.6)] animate-pulse" />
-                    </div>
-                </div>
-                <div className="absolute -bottom-2 -right-2 z-20"><div className="w-12 h-12 bg-[#050b14] rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] text-emerald-400 backdrop-blur-md"><ShieldCheck className="w-6 h-6" /></div></div>
-            </div>
-            <div className="flex-1 space-y-4 text-center md:text-left">
-                <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]"><Typewriter text={mode === 'earner' ? "Ready to earn, Felix?" : "Build your team, Felix."} /></h1>
-                <p className="text-slate-400 text-lg">AI has curated <span className="text-indigo-400 font-bold">2 prime vectors</span> based on your profile.</p>
-            </div>
+            <div className="shrink-0 relative group"><div className="w-32 h-32 relative flex items-center justify-center"><div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[40px] opacity-20 blur-2xl group-hover:opacity-40 transition-opacity duration-700" /><div className="w-full h-full bg-[#0a0f1e] border border-white/10 rounded-[40px] flex items-center justify-center shadow-2xl relative z-10 overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent blur-[0.5px] animate-scan shadow-[0_0_8px_rgba(255,255,255,0.8)]" /><BrainCircuit className="text-indigo-400 w-16 h-16 relative z-10 drop-shadow-[0_0_20px_rgba(129,140,248,0.6)] animate-pulse" /></div></div><div className="absolute -bottom-2 -right-2 z-20"><div className="w-12 h-12 bg-[#050b14] rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] text-emerald-400 backdrop-blur-md"><ShieldCheck className="w-6 h-6" /></div></div></div>
+            <div className="flex-1 space-y-4 text-center md:text-left"><h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]"><Typewriter text={mode === 'earner' ? "Ready to earn, Felix?" : "Build your team, Felix."} /></h1><p className="text-slate-400 text-lg">AI has curated <span className="text-indigo-400 font-bold">2 prime vectors</span> based on your profile.</p></div>
         </div>
         {mode === 'earner' ? (
             <div className="grid grid-cols-1 gap-8">
@@ -418,7 +337,10 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger }) => (
     </div>
 );
 
-const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload }) => (
+const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status }) => {
+    const [rating, setRating] = useState(0);
+
+    return (
     <div className="animate-fade-in-up space-y-16">
         <div className="mb-16 flex justify-between items-center max-w-2xl mx-auto relative px-4">
             {STEPS_DATA.map((s, idx) => (
@@ -429,13 +351,20 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
             ))}
         </div>
         <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[56px] p-8 sm:p-16 border border-white/[0.05] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
-            {step === 1 && (<div className="space-y-10 animate-fade-in-up"><h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2><p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds are moving to the decentralized vault. <br/> This action is immutable.</p><HoldButton onClick={handleNextStep} label="Activate Trust Stream" icon={ArrowRight} className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" color="white" /></div>)}
-            {step === 2 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-indigo-500/10 rounded-[48px] flex items-center justify-center border border-indigo-500/20 rotate-12 mx-auto"><Lock className="w-14 h-14 text-indigo-400 -rotate-12" /></div><h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">Vault Secured</h2>{isUploading ? (<div className="space-y-8 max-w-md mx-auto"><div className="w-32 h-32 mx-auto relative flex items-center justify-center"><svg className="w-full h-full -rotate-90"><circle cx="64" cy="64" r="50" fill="none" stroke="#1e293b" strokeWidth="8" /><circle cx="64" cy="64" r="50" fill="none" stroke="#6366f1" strokeWidth="8" strokeDasharray="314" strokeDashoffset={314 - (314 * uploadProgress / 100)} strokeLinecap="round" className="transition-all duration-100" /></svg><span className="absolute text-2xl font-black text-white">{uploadProgress}%</span></div><p className="text-indigo-400 font-black tracking-widest uppercase animate-pulse">Scanning Artifacts...</p></div>) : (<div className="max-w-md mx-auto space-y-4"><div className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 hover:border-indigo-500/50 hover:bg-white/5 transition-all cursor-pointer group" onClick={handleFileUpload}><div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform"><UploadCloud className="w-8 h-8 text-indigo-400" /></div><h3 className="text-xl font-black text-white">Upload Deliverables</h3></div><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Or skip to next phase</p><HoldButton onClick={handleNextStep} label="Enter Build Phase" className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" /></div>)}</div>)}
-            {step === 3 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-amber-500/10 rounded-[48px] flex items-center justify-center border border-amber-500/20 mx-auto animate-pulse"><Scan className="w-14 h-14 text-amber-500" /></div><h2 className="text-5xl font-black text-white italic tracking-tighter">Neural Inspection</h2><div className="bg-black/20 p-6 rounded-2xl border border-white/5 max-w-md mx-auto"><p className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4"/> 98.2% Match Verified</p></div><div className="flex justify-center gap-4 max-w-md mx-auto"><button onClick={handleReject} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button><HoldButton onClick={handleNextStep} label="Release Funds" className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" /></div></div>)}
-            {step === 4 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-emerald-500/10 rounded-[48px] flex items-center justify-center border border-emerald-500/20 mx-auto"><CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" /></div><h2 className="text-6xl font-black text-white italic tracking-tighter uppercase">Settled</h2><button onClick={handleNextStep} className="px-10 py-4 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button></div>)}
+            {step === 1 && (<div className="space-y-10 animate-fade-in-up"><h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2><p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds are moving to the decentralized vault. <br/> This action is immutable.</p><HoldButton key="btn-1" onClick={handleNextStep} label="Activate Trust Stream" icon={ArrowRight} className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" color="white" disabled={status !== 'idle'} /></div>)}
+            {step === 2 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-indigo-500/10 rounded-[48px] flex items-center justify-center border border-indigo-500/20 rotate-12 mx-auto"><Lock className="w-14 h-14 text-indigo-400 -rotate-12" /></div><h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">Vault Secured</h2>{isUploading ? (<div className="space-y-8 max-w-md mx-auto"><div className="w-32 h-32 mx-auto relative flex items-center justify-center"><svg className="w-full h-full -rotate-90"><circle cx="64" cy="64" r="50" fill="none" stroke="#1e293b" strokeWidth="8" /><circle cx="64" cy="64" r="50" fill="none" stroke="#6366f1" strokeWidth="8" strokeDasharray="314" strokeDashoffset={314 - (314 * uploadProgress / 100)} strokeLinecap="round" className="transition-all duration-100" /></svg><span className="absolute text-2xl font-black text-white">{uploadProgress}%</span></div><p className="text-indigo-400 font-black tracking-widest uppercase animate-pulse">Scanning Artifacts...</p></div>) : (<div className="max-w-md mx-auto space-y-4"><div className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 hover:border-indigo-500/50 hover:bg-white/5 transition-all cursor-pointer group" onClick={handleFileUpload}><div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform"><UploadCloud className="w-8 h-8 text-indigo-400" /></div><h3 className="text-xl font-black text-white">Upload Deliverables</h3></div><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Or skip to next phase</p><HoldButton key="btn-2" onClick={handleNextStep} label="Enter Build Phase" className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} /></div>)}</div>)}
+            {step === 3 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-amber-500/10 rounded-[48px] flex items-center justify-center border border-amber-500/20 mx-auto animate-pulse"><Scan className="w-14 h-14 text-amber-500" /></div><h2 className="text-5xl font-black text-white italic tracking-tighter">Neural Inspection</h2><div className="bg-black/20 p-6 rounded-2xl border border-white/5 max-w-md mx-auto"><p className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4"/> 98.2% Match Verified</p></div><div className="flex justify-center gap-4 max-w-md mx-auto"><button onClick={handleReject} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button><HoldButton key="btn-3" onClick={handleNextStep} label="Release Funds" className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} /></div></div>)}
+            {step === 4 && (
+                <div className="space-y-12 animate-fade-in-up">
+                    <div className="flex flex-col items-center gap-6"><div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px]"><div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden"><User className="w-12 h-12 text-slate-300" /></div></div><div><h2 className="text-4xl font-black text-white mb-2">Rate Experience</h2><p className="text-slate-400">Feedback updates the Neural Trust Score.</p></div><div className="flex gap-4">{[1, 2, 3, 4, 5].map((star) => (<button key={star} onClick={() => setRating(star)} className="group focus:outline-none transition-transform active:scale-90"><Star className={`w-10 h-10 transition-colors ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-slate-700 group-hover:text-slate-500'}`} /></button>))}</div></div>
+                    {rating > 0 ? (<div className="animate-fade-in-up"><HoldButton key="btn-4" onClick={handleNextStep} label="Commit & Close" className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} /></div>) : (<p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Select stars to finalize</p>)}
+                </div>
+            )}
+            {step === 5 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-emerald-500/10 rounded-[48px] flex items-center justify-center border border-emerald-500/20 mx-auto"><CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" /></div><h2 className="text-6xl font-black text-white italic tracking-tighter uppercase">Settled</h2><button onClick={handleNextStep} className="px-10 py-4 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button></div>)}
         </div>
     </div>
-);
+    );
+};
 
 const WalletView = ({ onBack, isFlipped, setIsFlipped, userPoints, transactions, onDeposit, setIsPaymentModalOpen }) => (
     <div className="space-y-12 animate-fade-in-up">
@@ -479,6 +408,7 @@ const App = () => {
   const [userPoints, setUserPoints] = useState(500000);
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');
+  const lastActionTime = useRef(0); // Safety guard for global transitions
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
@@ -502,8 +432,30 @@ const App = () => {
 
   useEffect(() => { const handleKeyDown = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsCommandOpen(prev => !prev); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, []);
 
+  // Confetti Trigger separate from step logic to ensure it fires
+  useEffect(() => {
+     if (step === 5) {
+         setShowConfetti(true);
+         const timer = setTimeout(() => setShowConfetti(false), 5000);
+         return () => clearTimeout(timer);
+     }
+  }, [step]);
+
   const addToast = useCallback((title, message, type = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, title, message, type }]); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
-  const toggleMode = () => { setStatus('switching'); setTimeout(() => { setMode(prev => { const newMode = prev === 'earner' ? 'hirer' : 'earner'; setView('marketplace'); return newMode; }); setSelectedItem(null); setStatus('idle'); addToast('Mode Switched', `Active Interface: ${mode === 'earner' ? 'Client (Hirer)' : 'Professional (Earner)'}`); }, 800); };
+
+  const toggleMode = () => {
+    if (status !== 'idle') return;
+    setStatus('switching');
+    setTimeout(() => {
+        setMode(prev => { const newMode = prev === 'earner' ? 'hirer' : 'earner'; setView('marketplace'); return newMode; });
+        setSelectedItem(null);
+        setAiSuggestions(null);
+        setProjectPrompt('');
+        setStatus('idle');
+        addToast('Mode Switched', `Active Interface: ${mode === 'earner' ? 'Client (Hirer)' : 'Professional (Earner)'}`);
+    }, 800);
+  };
+
   const handleSelect = (item) => { setSelectedItem(item); setIsProfileOpen(false); setView('scoping'); };
   const handleViewProfile = (data) => { setProfileData(data); setIsProfileOpen(true); };
   const handleAIArchitectSubmit = () => { setStatus('processing'); setTimeout(() => { setAiSuggestions({ summary: "Based on your request, I've architected a project scope.", dod: ["React Native Codebase", "Stripe Integration", "Biometric Auth Flow"], budget: "250,000 - 300,000 PTS", candidates: TALENTS_DATA }); setStatus('idle'); }, 1500); };
@@ -511,20 +463,58 @@ const App = () => {
   const handleBiometricSuccess = () => { setIsBiometricOpen(false); setView('contract'); setStep(1); addToast('Identity Verified', 'Biometric signature applied to contract.', 'success'); };
 
   const handleNextStep = useCallback(() => {
+    const now = Date.now();
+    // Strong guard: Prevent double execution within 1.5 seconds or if already processing
+    if (status === 'processing' || now - lastActionTime.current < 1500) return;
+
+    lastActionTime.current = now;
     setStatus('processing');
+
     setTimeout(() => {
+      // Logic execution
       if (step === 2) { if (mode === 'hirer') setUserPoints(p => p - selectedItem.totalPoints); else setUserPoints(p => p + selectedItem.totalPoints); }
-      if (step === 3) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 4000); }
-      if (step === 4) { setView('marketplace'); setSelectedItem(null); setStep(1); setStatus('idle'); return; }
+
+      // Navigation
+      if (step === 5) {
+          // Reset everything for next cycle
+          setView('marketplace');
+          setSelectedItem(null);
+          setStep(1);
+          setIsUploading(false);
+          setUploadProgress(0);
+          setStatus('idle');
+          return;
+      }
+
       setStep(prev => prev + 1);
       setStatus('idle');
     }, 1200);
-  }, [step, mode, selectedItem]);
+  }, [step, mode, selectedItem, status]);
 
   const handleReject = () => { setIsDisputeOpen(true); };
   const handleDisputeResolve = () => { setIsDisputeOpen(false); addToast('Dispute Resolved', 'Extension time added to contract.', 'success'); };
 
-  const handleFileUpload = () => { setIsUploading(true); let progress = 0; const interval = setInterval(() => { progress += 5; setUploadProgress(progress); if (progress >= 100) { clearInterval(interval); setIsUploading(false); setUploadProgress(0); handleNextStep(); addToast('Upload Complete', 'AI Inspection initiated.'); } }, 80); };
+  const handleFileUpload = () => {
+      if (isUploading) return;
+      setIsUploading(true);
+      let progress = 0;
+      const interval = setInterval(() => {
+          progress += 5;
+          setUploadProgress(progress);
+          if (progress >= 100) {
+              clearInterval(interval);
+              setIsUploading(false);
+              setUploadProgress(0);
+              // Directly call handleNextStep logic here to avoid race conditions with button state
+              setStatus('processing');
+              setTimeout(() => {
+                  setStep(prev => prev + 1);
+                  setStatus('idle');
+                  addToast('Upload Complete', 'AI Inspection initiated.');
+              }, 1200);
+          }
+      }, 80);
+  };
   const handleDeposit = () => { setIsPaymentModalOpen(false); setStatus('processing'); setTimeout(() => { setUserPoints(prev => prev + 100000); setStatus('idle'); addToast('Deposit Successful', '100,000 PTS added to Vault.', 'success'); }, 1000); };
 
   const triggerSmartContractUpdate = () => { const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' }; setMessages(prev => [...prev, userMsg]); setTimeout(() => { const aiProposal = { id: Date.now() + 1, sender: 'ai', type: 'contract_update', data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 }, time: 'Now' }; setMessages(prev => [...prev, aiProposal]); }, 1500); };
@@ -570,7 +560,7 @@ const App = () => {
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
         {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onSelect={mode === 'earner' ? handleSelect : handleViewProfile} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} />}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('marketplace')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} />}
         {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={userPoints} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} />}
       </main>
 
