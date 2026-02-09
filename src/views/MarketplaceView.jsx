@@ -1,7 +1,5 @@
 import React from "react";
-import Typewriter from "../components/visual/Typewriter";
 import SpotlightCard from "../components/ui/SpotlightCard";
-import MatchCircle from "../components/visual/MatchCircle";
 import ScrambleText from "../components/ui/ScrambleText";
 import { ArrowRight, BrainCircuit, ShieldCheck, Sparkles, FileSignature, CheckCircle2 } from "lucide-react";
 
@@ -24,7 +22,7 @@ const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProj
             </div>
             <div className="flex-1 space-y-4 text-center md:text-left">
                 <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]">
-                    <Typewriter text={mode === 'earner' ? "Ready to earn, Felix?" : "Build your team, Felix."} />
+                    {/* Typewriter removed for MVP slimdown */}
                 </h1>
                 <p className="text-slate-400 text-lg">AI has curated <span className="text-indigo-400 font-bold">2 prime vectors</span> based on your profile.</p>
             </div>
@@ -34,7 +32,7 @@ const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProj
                 {jobs.map(item => (
                     <SpotlightCard key={item.id} className="rounded-[40px] p-8 cursor-pointer group" onClick={() => onSelect(item)}>
                         <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center w-full">
-                            <div className="shrink-0"><MatchCircle score={item.aiScore} /></div>
+                            {/* MatchCircle removed for MVP slimdown */}
                             <div className="flex-1 space-y-6 text-center md:text-left min-w-0">
                                 <div><h3 className="text-3xl font-black text-white mb-2">{item.title}</h3><p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{item.client}</p></div>
                                 <div className="relative pl-6 border-l-2 border-indigo-500/30"><p className="text-sm sm:text-lg font-medium leading-relaxed text-slate-300 italic">"{item.matchReason}"</p></div>

@@ -60,15 +60,10 @@ const ScrambleText = ({ text, className, trigger }) => {
   return <span className={className}>{display}</span>;
 };
 
-// Typewriter moved to components/visual/Typewriter.jsx
-import Typewriter from './components/visual/Typewriter';
 
 // ToastContainer moved to components/ui/ToastContainer.jsx
 import ToastContainer from './components/ui/ToastContainer';
 
-// AnalyticsGraph and MatchCircle moved to components/visual/
-import AnalyticsGraph from './components/visual/AnalyticsGraph';
-import MatchCircle from './components/visual/MatchCircle';
 
 /* ========================================================================
    4. FEATURE MODALS
@@ -79,8 +74,6 @@ import MatchCircle from './components/visual/MatchCircle';
 import ProfileModal from './components/modals/ProfileModal';
 
 
-// CommandPalette moved to components/modals/CommandPalette.jsx
-import CommandPalette from './components/modals/CommandPalette';
 
 
 // DisputeModal moved to components/modals/DisputeModal.jsx
@@ -91,8 +84,6 @@ import DisputeModal from './components/modals/DisputeModal';
 import PaymentModal from './components/modals/PaymentModal';
 
 
-// BiometricModal moved to components/modals/BiometricModal.jsx
-import BiometricModal from './components/modals/BiometricModal';
 
 // --- Page Views ---
 
@@ -168,8 +159,8 @@ const App = () => {
   const handleSelect = (item) => { setSelectedItem(item); setIsProfileOpen(false); setView('scoping'); };
   const handleViewProfile = (data) => { setProfileData(data); setIsProfileOpen(true); };
   const handleAIArchitectSubmit = () => { setStatus('processing'); setTimeout(() => { setAiSuggestions({ summary: "Based on your request, I've architected a project scope.", dod: ["React Native Codebase", "Stripe Integration", "Biometric Auth Flow"], budget: "250,000 - 300,000 PTS", candidates: TALENTS_DATA }); setStatus('idle'); }, 1500); };
-  const initiateContract = () => setIsBiometricOpen(true);
-  const handleBiometricSuccess = () => { setIsBiometricOpen(false); setView('contract'); setStep(1); addToast('Identity Verified', 'Biometric signature applied to contract.', 'success'); };
+  // BiometricModal removed: go directly to contract view
+  const initiateContract = () => { setView('contract'); setStep(1); addToast('Contract Initiated', 'Contract flow started.'); };
 
   const handleNextStep = useCallback(() => {
     const now = Date.now();
@@ -245,9 +236,9 @@ const App = () => {
       {showConfetti && (<div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden flex justify-center">{[...Array(20)].map((_, i) => (<div key={i} className="absolute top-0 w-2 h-2 bg-emerald-400 rounded-full animate-fall" style={{ left: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 2}s`, animationDuration: `${2 + Math.random() * 3}s` }} />))}</div>)}
       <ToastContainer toasts={toasts} removeToast={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
-      <BiometricModal isOpen={isBiometricOpen} onClose={() => setIsBiometricOpen(false)} onAuthenticated={handleBiometricSuccess} />
+      {/* BiometricModal removed for MVP slimdown */}
       <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} />
-      <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} commands={commands} />
+      {/* CommandPalette removed for MVP slimdown */}
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} profile={profileData} addToast={addToast} actionLabel={profileData?.id !== USER_PROFILE.id ? "Initiate Contract" : null} onAction={profileData?.id !== USER_PROFILE.id ? () => handleSelect(profileData) : null} />
 
       {(status === 'processing' || status === 'switching') && (<div className="fixed inset-0 z-[100] bg-[#020617]/90 backdrop-blur-md flex flex-col items-center justify-center"><Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-6" /><p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">{status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}</p></div>)}

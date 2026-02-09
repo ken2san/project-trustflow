@@ -2,7 +2,6 @@ import React from "react";
 import { ArrowLeft, PlusCircle, QrCode, RefreshCw, Coins, Activity, TrendingUp, User } from "lucide-react";
 import SpotlightCard from "../components/ui/SpotlightCard";
 import ScrambleText from "../components/ui/ScrambleText";
-import AnalyticsGraph from "../components/visual/AnalyticsGraph";
 
 const WalletView = ({ onBack, isFlipped, setIsFlipped, userPoints, transactions, onDeposit, setIsPaymentModalOpen, formatNumber }) => (
     <div className="space-y-12 animate-fade-in-up">
@@ -29,7 +28,7 @@ const WalletView = ({ onBack, isFlipped, setIsFlipped, userPoints, transactions,
             <div className="lg:col-span-8 space-y-8">
                 <div className="bg-[#0f172a]/60 rounded-[56px] p-12 border border-white/5 shadow-2xl backdrop-blur-xl">
                     <div className="flex items-center justify-between mb-8"><h3 className="text-2xl font-black italic text-white uppercase tracking-tighter flex items-center gap-4"><Activity className="w-8 h-8 text-indigo-500" /> Revenue Stream</h3></div>
-                    <AnalyticsGraph />
+                    {/* AnalyticsGraph removed for MVP slimdown */}
                     <div className="space-y-6 mt-8">{transactions.map(tx => (<div key={tx.id} className="flex items-center justify-between p-8 bg-white/[0.02] rounded-[36px] border border-white/5 hover:bg-white/[0.05] transition-all group cursor-pointer"><div className="flex items-center gap-8"><div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${tx.type === 'in' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}><TrendingUp className={`w-8 h-8 ${tx.type === 'out' ? 'rotate-180' : ''}`} /></div><div><p className="font-black text-white text-xl tracking-tight group-hover:text-indigo-300 transition-colors">{tx.title}</p><p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-2">{tx.id} • {tx.date}</p></div></div><div className="text-right"><p className={`text-3xl font-black italic tracking-tight ${tx.type === 'in' ? 'text-emerald-500' : 'text-slate-300'}`}>{tx.type === 'in' ? '+' : '-'}{formatNumber(tx.points)}</p><span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] leading-none">PTS</span></div></div>))}</div>
                 </div>
             </div>
