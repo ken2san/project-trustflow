@@ -73,6 +73,9 @@ import ToastContainer from './components/ui/ToastContainer';
 // ProfileModal moved to components/modals/ProfileModal.jsx
 import ProfileModal from './components/modals/ProfileModal';
 
+// CommandPalette restored from archive for command modal
+import CommandPalette from '../archive/CommandPalette.jsx';
+
 
 
 
@@ -238,7 +241,7 @@ const App = () => {
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
       {/* BiometricModal removed for MVP slimdown */}
       <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} />
-      {/* CommandPalette removed for MVP slimdown */}
+      <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} commands={commands} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} profile={profileData} addToast={addToast} actionLabel={profileData?.id !== USER_PROFILE.id ? "Initiate Contract" : null} onAction={profileData?.id !== USER_PROFILE.id ? () => handleSelect(profileData) : null} />
 
       {(status === 'processing' || status === 'switching') && (<div className="fixed inset-0 z-[100] bg-[#020617]/90 backdrop-blur-md flex flex-col items-center justify-center"><Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-6" /><p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">{status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}</p></div>)}
@@ -251,9 +254,22 @@ const App = () => {
         </div>
         <div onClick={() => setIsCommandOpen(true)} className="hidden md:flex flex-1 max-w-md mx-6 items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 px-4 py-2.5 rounded-xl cursor-pointer transition-all group"><Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" /><span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span><div className="ml-auto flex gap-1"><span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span></div></div>
         <div className="flex gap-4 items-center">
-          <button onClick={toggleMode} className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all"><div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" /></button>
+          <button onClick={toggleMode} className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all"><div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" /></button>
           <div className="flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setView('wallet')}><Coins className="w-3.5 h-3.5 text-amber-500" /><span className="font-mono font-bold text-xs">{formatNumber(userPoints)}</span></div>
-          <div className="flex items-center gap-3 pl-2 border-l border-white/10"><button className="relative p-2 hover:bg-white/5 rounded-full transition-colors group"><Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" /></button><div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[1px] cursor-pointer hover:scale-105 transition-transform" onClick={() => handleViewProfile(USER_PROFILE)}><div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden"><User className="w-5 h-5 text-slate-300" /></div></div></div>
+          <div className="flex items-center gap-3 pl-2 border-l border-white/10">
+            <button className="relative p-2 hover:bg-white/5 rounded-full transition-colors group"><Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" /></button>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[1px] cursor-pointer hover:scale-105 transition-transform hidden sm:block" onClick={() => handleViewProfile(USER_PROFILE)}>
+              <div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden">
+                {USER_PROFILE.avatarUrl ? (
+                  <img src={USER_PROFILE.avatarUrl} alt={USER_PROFILE.name} className="w-full h-full object-cover" />
+                ) : USER_PROFILE.name ? (
+                  <span className="w-full h-full flex items-center justify-center text-base font-bold text-indigo-300">{USER_PROFILE.name[0]}</span>
+                ) : (
+                  <User className="w-5 h-5 text-slate-300" />
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -286,10 +302,21 @@ const App = () => {
       </div>
 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-2xl border-t border-white/10 px-8 py-5 flex justify-between items-center z-50 shadow-[0_-15px_40px_rgba(0,0,0,0.6)]">
-        <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => setView('marketplace')}><LayoutGrid className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500" onClick={() => setIsCommandOpen(true)}><Search className="w-6 h-6" /></button>
-        <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => setView('wallet')}><Wallet className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500"><UserCheck className="w-6 h-6" /></button>
+        <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setView('marketplace'); }}><LayoutGrid className="w-6 h-6" /></button>
+        <button className="p-3 text-slate-500" onClick={() => { setIsProfileOpen(false); setIsCommandOpen(true); }}><Search className="w-6 h-6" /></button>
+        <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setView('wallet'); }}><Wallet className="w-6 h-6" /></button>
+        <button className="p-3 text-slate-500" onClick={() => handleViewProfile(USER_PROFILE)}>
+          {/* Avatar icon for mobile bottom bar (same as header) */}
+          <span className="block w-6 h-6 rounded-full overflow-hidden border-2 border-indigo-400 bg-slate-800">
+            {USER_PROFILE.avatarUrl ? (
+              <img src={USER_PROFILE.avatarUrl} alt={USER_PROFILE.name} className="w-full h-full object-cover" />
+            ) : USER_PROFILE.name ? (
+              <span className="w-full h-full flex items-center justify-center text-xs font-bold text-indigo-300">{USER_PROFILE.name[0]}</span>
+            ) : (
+              <User className="w-4 h-4 text-slate-400" />
+            )}
+          </span>
+        </button>
       </nav>
 
       <style>{`
