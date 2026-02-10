@@ -238,6 +238,9 @@ const App = () => {
       { id: 'chat', label: 'Toggle Chat', icon: MessageSquare, action: () => setIsChatOpen(prev => !prev) },
   ], [mode]);
 
+  // Strategy level (Conservative / Normal / Aggressive)
+  const [strategy, setStrategy] = useState('Balanced');
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
       <NeuralBackground />
@@ -307,7 +310,6 @@ const App = () => {
             missionLogs={DUMMY_MISSION_LOGS}
             onOperationClick={op => {
               setSelectedItem(op);
-              // Progress to step mapping: 0-24:1, 25-49:2, 50-74:3, 75-99:4, 100:5
               let stepNum = 1;
               if (op.progress >= 100) stepNum = 5;
               else if (op.progress >= 75) stepNum = 4;
@@ -316,8 +318,11 @@ const App = () => {
               setStep(stepNum);
               setView('contract');
             }}
+            strategy={strategy}
+            onStrategyChange={setStrategy}
           />
         )}
+
       </main>
 
       {/* Floating Chat Overlay */}
