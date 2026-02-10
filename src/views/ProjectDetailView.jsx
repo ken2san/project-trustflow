@@ -138,20 +138,29 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
       <hr className="border-white/10 my-8" />
       {/* Section: Actions */}
       <div className="flex justify-between items-center mt-8">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-3 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] group pl-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          Back to Marketplace
-        </button>
-        <button
-          className={`px-6 py-3 rounded-full font-black text-lg transition-all ${agreed ? "bg-emerald-500 text-white" : "bg-indigo-500 text-white hover:bg-indigo-600"}`}
-          onClick={handleAgreement}
-          disabled={agreed}
-        >
-          {agreed ? "Agreement Formed" : "Initiate Protocol"}
-        </button>
+        <div className="flex flex-col items-end w-full md:w-auto md:flex-row md:items-center md:justify-between gap-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-3 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] group pl-2"
+            title="Return to Marketplace"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            Back to Marketplace
+          </button>
+          <div className="flex flex-col items-center">
+            <button
+              className={`px-8 py-4 rounded-full font-black text-lg transition-all shadow-xl ${agreed ? "bg-emerald-500 text-white" : "bg-indigo-500 text-white hover:bg-indigo-600"}`}
+              onClick={handleAgreement}
+              disabled={agreed}
+              title={agreed ? "Agreement already formed" : "Start contract protocol"}
+            >
+              {agreed ? "Agreement Formed" : "Initiate Protocol"}
+            </button>
+            {!agreed && (
+              <span className="mt-3 text-sm text-slate-400 font-medium text-center">Initiate contract flow after negotiation is complete.<br className="hidden md:block" /> Please review all terms before proceeding.</span>
+            )}
+          </div>
+        </div>
       </div>
       {isProfileOpen && (
         <ProfileModal
