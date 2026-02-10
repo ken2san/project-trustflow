@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
+import ToastContainer from "../components/ui/ToastContainer";
 import ProfileModal from "../components/modals/ProfileModal";
 
 // ProjectDetailView: Dashboard for project specs and negotiation stream
@@ -11,6 +13,8 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
     { sender: "client", text: "Dark mode should cover all screens. Atomic design compliance is required for component structure.", time: "09:05", important: true },
   ];
   const [messages, setMessages] = useState(negotiationHistory && negotiationHistory.length > 0 ? negotiationHistory : initialMessages);
+  const [loading, setLoading] = useState(false);
+  const [toasts, setToasts] = useState([]);
   const [agreed, setAgreed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -21,12 +25,18 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
   };
 
   const handleAgreement = () => {
-    setAgreed(true);
-    if (onAgreement) onAgreement();
+    setLoading(true);
+    setTimeout(() => {
+      setAgreed(true);
+      setLoading(false);
+      setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Contract flow initiated.", type: "success" }]);
+      if (onAgreement) onAgreement();
+    }, 1200);
   };
 
   return (
     <div className="max-w-3xl mx-auto p-8 space-y-12 animate-fade-in-up">
+        <ToastContainer toasts={toasts} removeToast={id => setToasts(prev => prev.filter(t => t.id !== id))} />
       {/* Section: Project Specs */}
       <div>
         <h2 className="text-2xl font-black text-white mb-6">Project Overview</h2>
@@ -151,10 +161,10 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
             <button
               className={`px-8 py-4 rounded-full font-black text-lg transition-all shadow-xl ${agreed ? "bg-emerald-500 text-white" : "bg-indigo-500 text-white hover:bg-indigo-600"}`}
               onClick={handleAgreement}
-              disabled={agreed}
+              disabled={agreed || loading}
               title={agreed ? "Agreement already formed" : "Start contract protocol"}
             >
-              {agreed ? "Agreement Formed" : "Initiate Protocol"}
+              {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : (agreed ? "Agreement Formed" : "Initiate Protocol")}
             </button>
             {!agreed && (
               <span className="mt-3 text-sm text-slate-400 font-medium text-center">Initiate contract flow after negotiation is complete.<br className="hidden md:block" /> Please review all terms before proceeding.</span>
