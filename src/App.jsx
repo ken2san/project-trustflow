@@ -301,7 +301,23 @@ const App = () => {
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('marketplace')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} />}
         {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={userPoints} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}
-        {view === 'command-center' && <CommandCenterView activeOperations={DUMMY_ACTIVE_OPERATIONS} missionLogs={DUMMY_MISSION_LOGS} />}
+        {view === 'command-center' && (
+          <CommandCenterView
+            activeOperations={DUMMY_ACTIVE_OPERATIONS}
+            missionLogs={DUMMY_MISSION_LOGS}
+            onOperationClick={op => {
+              setSelectedItem(op);
+              // Progress to step mapping: 0-24:1, 25-49:2, 50-74:3, 75-99:4, 100:5
+              let stepNum = 1;
+              if (op.progress >= 100) stepNum = 5;
+              else if (op.progress >= 75) stepNum = 4;
+              else if (op.progress >= 50) stepNum = 3;
+              else if (op.progress >= 25) stepNum = 2;
+              setStep(stepNum);
+              setView('contract');
+            }}
+          />
+        )}
       </main>
 
       {/* Floating Chat Overlay */}
