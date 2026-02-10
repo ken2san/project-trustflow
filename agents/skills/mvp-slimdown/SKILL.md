@@ -16,7 +16,9 @@ _Tips:_
 
 ---
 
-_Last updated: 2026-02-10_# Skill: MVP Slimdown Procedure
+_Last updated: 2026-02-10_
+
+# Skill: MVP Slimdown Procedure
 
 ## Purpose
 Standardize the process for reducing a project to its Minimum Viable Product (MVP) core, ensuring maintainability and clarity.
@@ -38,8 +40,3 @@ Standardize the process for reducing a project to its Minimum Viable Product (MV
 8. **Commit at each logical milestone**
 
 ## Tips
-- Archived files can be restored from archive/ at any time
-- Make small, frequent commits
-- Centralize rules and guidelines in copilot-instructions.md
-
----
