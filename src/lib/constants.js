@@ -7,8 +7,34 @@ export const USER_PROFILE = {
 };
 
 export const JOBS_DATA = [
-  { id: 1, type: 'job', title: "Mobile App Design System", client: "Neo-Digital Inc.", totalPoints: 300000, aiScore: 98, matchReason: "85% skill overlap. Optimal budget.", acceptanceCriteria: ["Definitive Figma Library", "Dark Mode Tokens", "Atomic Design Compliance"] },
-  { id: 2, type: 'job', title: "AI Chatbot UI Kit", client: "Future Labs", totalPoints: 150000, aiScore: 94, matchReason: "High efficiency potential.", acceptanceCriteria: ["WCAG 2.1 Compliance", "12 Screen Layouts", "Motion JSON"] }
+  {
+    id: 1,
+    type: 'job',
+    title: "Mobile App Design System",
+    client: "Neo-Digital Inc.",
+    totalPoints: 300000,
+    aiScore: 98,
+    matchReason: "85% skill overlap. Optimal budget.",
+    description: "Design a scalable mobile app UI system for Neo-Digital Inc. Includes Figma library, dark mode, and atomic design compliance.",
+    budget: "¥3,000,000",
+    skills: ["Figma", "React", "Design Systems", "UX"],
+    deadline: "2026-03-15",
+    acceptanceCriteria: ["Definitive Figma Library", "Dark Mode Tokens", "Atomic Design Compliance"]
+  },
+  {
+    id: 2,
+    type: 'job',
+    title: "AI Chatbot UI Kit",
+    client: "Future Labs",
+    totalPoints: 150000,
+    aiScore: 94,
+    matchReason: "High efficiency potential.",
+    description: "Create a UI kit for AI chatbot products. Must meet WCAG 2.1, include 12 screens, and motion JSON assets.",
+    budget: "¥1,500,000",
+    skills: ["Accessibility", "Motion Design", "React", "Lottie"],
+    deadline: "2026-02-28",
+    acceptanceCriteria: ["WCAG 2.1 Compliance", "12 Screen Layouts", "Motion JSON"]
+  }
 ];
 
 export const TALENTS_DATA = [

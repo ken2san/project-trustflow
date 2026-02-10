@@ -106,6 +106,9 @@ import WalletView from './views/WalletView';
 // CommandCenterView moved to views/CommandCenterView.jsx
 import CommandCenterView from './views/CommandCenterView';
 
+// ProjectDetailView moved to views/ProjectDetailView.jsx
+import ProjectDetailView from './views/ProjectDetailView';
+
 // --- Main App Component ---
 
 const App = () => {
@@ -115,6 +118,8 @@ const App = () => {
   const [userPoints, setUserPoints] = useState(500000);
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');
+  // Add projectDetail state for Project Detail & Negotiation flow
+  const [projectDetail, setProjectDetail] = useState(null);
   const lastActionTime = useRef(0); // Safety guard for global transitions
 
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -300,7 +305,15 @@ const App = () => {
       </nav>
 
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
-        {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onSelect={mode === 'earner' ? handleSelect : handleViewProfile} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
+        {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
+        {view === 'project-detail' && projectDetail && (
+          <ProjectDetailView
+            project={projectDetail}
+            negotiationHistory={[]}
+            onAgreement={() => { setSelectedItem(projectDetail); setView('scoping'); }}
+            onBack={() => setView('marketplace')}
+          />
+        )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('marketplace')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} />}
         {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={userPoints} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}

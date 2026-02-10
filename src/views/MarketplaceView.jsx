@@ -3,7 +3,7 @@ import SpotlightCard from "../components/ui/SpotlightCard";
 import ScrambleText from "../components/ui/ScrambleText";
 import { ArrowRight, BrainCircuit, ShieldCheck, Sparkles, FileSignature, CheckCircle2 } from "lucide-react";
 
-const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger, formatNumber }) => (
+const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger, formatNumber }) => (
     <div className="space-y-16 animate-fade-in-up">
         <div className="flex flex-col md:flex-row gap-10 items-center">
             <div className="shrink-0 relative group">
@@ -30,7 +30,7 @@ const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProj
         {mode === 'earner' ? (
             <div className="grid grid-cols-1 gap-8">
                 {jobs.map(item => (
-                    <SpotlightCard key={item.id} className="rounded-[40px] p-8 cursor-pointer group" onClick={() => onSelect(item)}>
+                    <SpotlightCard key={item.id} className="rounded-[40px] p-8 group">
                         <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center w-full">
                             {/* MatchCircle removed for MVP slimdown */}
                             <div className="flex-1 space-y-6 text-center md:text-left min-w-0">
@@ -38,7 +38,11 @@ const MarketplaceView = ({ mode, jobs, talents, onSelect, projectPrompt, setProj
                                 <div className="relative pl-6 border-l-2 border-indigo-500/30"><p className="text-sm sm:text-lg font-medium leading-relaxed text-slate-300 italic">"{item.matchReason}"</p></div>
                                 <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2"><div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Reward</p><p className="text-2xl font-black italic text-white leading-none tracking-tight"><ScrambleText text={formatNumber(item.totalPoints)} trigger={scrambleTrigger} /> <span className="text-xs not-italic text-slate-500 font-bold">PTS</span></p></div></div>
                             </div>
-                            <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0 md:ml-auto"><button className="w-full md:w-auto bg-white text-[#020617] px-10 py-5 rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">Initialize <ArrowRight className="w-5 h-5" /></button></div>
+                            <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0 md:ml-auto">
+                              <button className="w-full md:w-auto bg-white text-[#020617] px-10 py-5 rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3" onClick={() => onViewDetails(item)}>
+                                View Details <ArrowRight className="w-5 h-5" />
+                              </button>
+                            </div>
                         </div>
                     </SpotlightCard>
                 ))}
