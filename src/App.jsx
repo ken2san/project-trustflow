@@ -7,7 +7,8 @@ import {
   BrainCircuit, Target, UserCheck, LayoutGrid, Bell, CreditCard,
   Loader2, Check, MousePointer2, FileSignature, Scan, Hash,
   RefreshCw, QrCode, Briefcase, Users, ChevronRight, User, Gavel, AlertTriangle,
-  Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4, Star
+  Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4, Star,
+  Layers
 } from 'lucide-react';
 
 
@@ -101,6 +102,9 @@ import ContractView from './views/ContractView';
 
 // WalletView moved to views/WalletView.jsx
 import WalletView from './views/WalletView';
+
+// CommandCenterView moved to views/CommandCenterView.jsx
+import CommandCenterView from './views/CommandCenterView';
 
 // --- Main App Component ---
 
@@ -228,6 +232,7 @@ const App = () => {
   const commands = useMemo(() => [
       { id: 'home', label: 'Go to Marketplace', icon: LayoutGrid, action: () => setView('marketplace') },
       { id: 'wallet', label: 'Open Wallet', icon: Wallet, action: () => setView('wallet') },
+      { id: 'command-center', label: 'Open Command Center', icon: Layers, action: () => setView('command-center') },
       { id: 'profile', label: 'View Trust Passport', icon: User, action: () => handleViewProfile(USER_PROFILE) },
       { id: 'switch', label: `Switch to ${mode === 'earner' ? 'Hirer' : 'Earner'} Mode`, icon: RefreshCw, action: toggleMode },
       { id: 'chat', label: 'Toggle Chat', icon: MessageSquare, action: () => setIsChatOpen(prev => !prev) },
@@ -266,6 +271,14 @@ const App = () => {
         <div className="flex gap-4 items-center">
           <button onClick={toggleMode} className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all"><div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" /></button>
           <div className="hidden sm:flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setView('wallet')}><Coins className="w-3.5 h-3.5 text-amber-500" /><span className="font-mono font-bold text-xs">{formatNumber(userPoints)}</span></div>
+          {/* Command Center icon (PC/tablet only) */}
+          <button
+            className={`hidden sm:inline-flex p-2 ml-2 rounded-full border border-white/10 transition-colors ${view === 'command-center' ? 'bg-indigo-500/20 text-indigo-400 scale-110 shadow-[0_0_12px_rgba(99,102,241,0.15)]' : 'text-slate-400 hover:text-indigo-300 hover:bg-white/10'}`}
+            title="Command Center"
+            onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('command-center'); }}
+          >
+            <Layers className="w-6 h-6" />
+          </button>
           <div className="flex items-center gap-3 pl-2 border-l border-white/10">
             <button className="relative p-2 hover:bg-white/5 rounded-full transition-colors group"><Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" /></button>
             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[1px] cursor-pointer hover:scale-105 transition-transform hidden sm:block" onClick={() => handleViewProfile(USER_PROFILE)}>
@@ -288,6 +301,7 @@ const App = () => {
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('marketplace')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} />}
         {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={userPoints} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}
+        {view === 'command-center' && <CommandCenterView activeOperations={DUMMY_ACTIVE_OPERATIONS} missionLogs={DUMMY_MISSION_LOGS} />}
       </main>
 
       {/* Floating Chat Overlay */}
@@ -313,9 +327,10 @@ const App = () => {
 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-2xl border-t border-white/10 px-8 py-5 flex justify-between items-center z-50 shadow-[0_-15px_40px_rgba(0,0,0,0.6)]">
         <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('marketplace'); }}><LayoutGrid className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500" onClick={() => { setIsProfileOpen(false); setProfileData(null); setIsCommandOpen(true); }}><Search className="w-6 h-6" /></button>
         <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('wallet'); }}><Wallet className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500" onClick={() => { setIsCommandOpen(false); setView('marketplace'); setProfileData(USER_PROFILE); setIsProfileOpen(true); }}>
+        {/* Command Centerアイコン（Mobileのみ表示） */}
+        <button className={`p-3 transition-all duration-300 ${view === 'command-center' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'} inline-flex sm:hidden`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('command-center'); }}><Layers className="w-6 h-6" /></button>
+        <button className="p-3 text-slate-500 inline-flex" onClick={() => { setIsCommandOpen(false); setView('marketplace'); setProfileData(USER_PROFILE); setIsProfileOpen(true); }}>
           {/* Avatar icon for mobile bottom bar (same as header) */}
           <span className="block w-6 h-6 rounded-full overflow-hidden border-2 border-indigo-400 bg-slate-800">
             {USER_PROFILE.avatarUrl ? (
@@ -349,3 +364,13 @@ const App = () => {
 };
 
 export default App;
+
+const DUMMY_ACTIVE_OPERATIONS = [
+  { id: 1, phase: 'INSPECT PHASE', title: 'Fintech Dashboard V2', client: 'Alpha Bank', progress: 75, nextAction: 'Review Codebase' },
+  { id: 2, phase: 'ESCROW PHASE', title: 'E-Commerce Micro-interactions', client: 'ShopFlow', progress: 25, nextAction: 'Await Deposit' },
+];
+const DUMMY_MISSION_LOGS = [
+  { id: 1, title: 'Health App UI Kit', client: 'MedCore', date: '2026.01.15', rating: 5, earned: 280000 },
+  { id: 2, title: 'Crypto Wallet Icons', client: 'ChainLink', date: '2025.12.20', rating: 4.8, earned: 50000 },
+  { id: 3, title: 'Landing Page Refresh', client: 'StartUp Inc', date: '2025.11.10', rating: 5, earned: 150000 },
+];
