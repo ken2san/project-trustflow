@@ -76,14 +76,16 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
             ))}
           </div>
           {/* Timeline visualization */}
-          <div className="flex items-center gap-6 mt-4">
+          <div className="flex flex-wrap items-center gap-4 mt-4">
             <div className="text-xs text-slate-400">Budget: <span className="font-bold text-indigo-300">{project.budget}</span></div>
             <div className="text-xs text-slate-400">Deadline: <span className="font-bold text-indigo-300">{project.deadline}</span></div>
-            {/* Simple progress bar for timeline */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-500">Timeline</span>
-              <div className="w-24 h-2 bg-indigo-800 rounded-full overflow-hidden">
-                <div className="h-2 bg-emerald-400 rounded-full" style={{ width: '60%' }}></div>
+            {/* Responsive progress bar for timeline */}
+            <div className="flex items-center gap-2 min-w-0 w-full max-w-xs">
+              <span className="text-[10px] text-slate-500 whitespace-nowrap">Timeline</span>
+              <div className="flex-1 min-w-0">
+                <div className="w-full h-2 bg-indigo-800 rounded-full overflow-hidden">
+                  <div className="h-2 bg-emerald-400 rounded-full" style={{ width: '60%' }}></div>
+                </div>
               </div>
             </div>
           </div>
@@ -107,10 +109,10 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
                   <span className="block text-[9px] opacity-50 mt-1 text-right">{msg.time}</span>
                   {/* Quick actions for negotiation messages */}
                   {msg.sender !== "me" && idx === messages.length - 1 && !agreed && (
-                    <div className="flex gap-2 mt-2">
-                      <button className="px-2 py-1 rounded bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 transition-all" onClick={handleAgreement}>Accept</button>
-                      <button className="px-2 py-1 rounded bg-indigo-500 text-white text-[10px] font-bold hover:bg-indigo-600 transition-all">Counter</button>
-                      <button className="px-2 py-1 rounded bg-rose-500 text-white text-[10px] font-bold hover:bg-rose-600 transition-all">Reject</button>
+                    <div className="flex flex-wrap gap-2 mt-2 w-full max-w-xs">
+                      <button className="px-2 py-1 rounded bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 transition-all flex-shrink" onClick={handleAgreement}>Accept</button>
+                      <button className="px-2 py-1 rounded bg-indigo-500 text-white text-[10px] font-bold hover:bg-indigo-600 transition-all flex-shrink">Counter</button>
+                      <button className="px-2 py-1 rounded bg-rose-500 text-white text-[10px] font-bold hover:bg-rose-600 transition-all flex-shrink">Reject</button>
                     </div>
                   )}
                 </div>
