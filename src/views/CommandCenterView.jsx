@@ -1,7 +1,7 @@
 import React from "react";
 import { Sparkles as SparklesIcon, AlertTriangle as AlertTriangleIcon } from "lucide-react";
 
-// Command Center: 一元管理ダッシュボード
+// Command Center: Unified dashboard for operations and mission logs
 const AI_INSIGHT = {
   Conservative: "AI Insight: Conservative mode prioritizes low-risk, stable contracts. Expect steady but moderate growth.",
   Balanced: "AI Insight: Balanced mode optimizes for both opportunity and safety. Good for consistent progress with some upside.",
@@ -15,7 +15,7 @@ const AI_RATIONALE = {
 };
 
 const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperationClick, strategy, onStrategyChange }) => {
-  // Demo: filter/sort logic based on strategy
+  // Filter and sort operations based on selected strategy
   let sortedOps = [...activeOperations];
   if (strategy === 'Conservative') {
     sortedOps.sort((a, b) => a.progress - b.progress); // lowest progress (risk) first
@@ -25,31 +25,33 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
     sortedOps.sort((a, b) => a.client.localeCompare(b.client)); // by client name
   }
 
-  // AI Action Suggestion: pick the operation with lowest progress
-  const nextOp = sortedOps.length > 0 ? sortedOps[0] : null;
-  const aiActionSuggestion = nextOp ? `AI Suggestion: ${nextOp.title} (${nextOp.client}) - ${nextOp.nextAction}` : 'AI Suggestion: No active operations.';
+  // AI Action Suggestion: Only show if next action is meaningful
+  const nextOp = sortedOps.length > 0 && sortedOps[0].nextAction ? sortedOps[0] : null;
+  const aiActionSuggestion = nextOp ? `AI Suggestion: ${nextOp.title} (${nextOp.client}) - ${nextOp.nextAction}` : '';
 
-  // Smart Notification: show if any operation is below 30% progress
-  const lowProgressOp = sortedOps.find(op => op.progress < 30);
-  const smartNotification = lowProgressOp ? `Notice: ${lowProgressOp.title} for ${lowProgressOp.client} is behind schedule. Consider prioritizing this operation.` : null;
+  // Smart Notification: show only if progress is critically low (<15%)
+  const lowProgressOp = sortedOps.find(op => op.progress < 15);
+  const smartNotification = lowProgressOp ? `Notice: ${lowProgressOp.title} for ${lowProgressOp.client} is critically behind schedule. Immediate action recommended.` : null;
 
   return (
     <div className="space-y-12 animate-fade-in-up">
-      {/* AI Action Suggestion & Smart Notification */}
+      {/* AI Action Suggestion and Smart Notification */}
       <div className="mb-6">
-        <div className="mb-2 px-4 py-3 rounded-xl bg-emerald-900/60 border border-emerald-500/20 flex items-center gap-3">
-          <SparklesIcon className="w-5 h-5 text-emerald-300 mr-2" />
-          <span className="text-xs text-emerald-100 font-semibold">{aiActionSuggestion}</span>
-          {nextOp && (
-            <button
-              className="ml-4 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold shadow hover:bg-emerald-600 transition-all"
-              onClick={() => onOperationClick && onOperationClick(nextOp)}
-              type="button"
-            >
-              Execute
-            </button>
-          )}
-        </div>
+        {aiActionSuggestion && (
+          <div className="mb-2 px-4 py-3 rounded-xl bg-emerald-900/60 border border-emerald-500/20 flex items-center gap-3">
+            <SparklesIcon className="w-5 h-5 text-emerald-300 mr-2" />
+            <span className="text-xs text-emerald-100 font-semibold">{aiActionSuggestion}</span>
+            {nextOp && (
+              <button
+                className="ml-4 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold shadow hover:bg-emerald-600 transition-all"
+                onClick={() => onOperationClick && onOperationClick(nextOp)}
+                type="button"
+              >
+                Execute
+              </button>
+            )}
+          </div>
+        )}
         {smartNotification && (
           <div className="mt-2 px-4 py-2 rounded-lg bg-rose-900/60 border border-rose-500/20 flex items-center gap-2">
             <AlertTriangleIcon className="w-4 h-4 text-rose-300 mr-2" />
@@ -57,39 +59,30 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
           </div>
         )}
       </div>
-      {/* Strategy and Active Operations */}
+      {/* Strategy selector and Active Operations */}
       <div>
         <div className="mb-4">
-          <div className="mb-2 px-4 py-3 rounded-xl bg-indigo-900/60 border border-indigo-500/20 flex flex-col gap-2">
+          <div className="px-4 py-3 rounded-xl bg-indigo-900/60 border border-indigo-500/20 flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <span className="text-yellow-300"><svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 17v.01M12 7v4m0 8a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
               <span className="text-xs text-indigo-100 font-semibold">{AI_INSIGHT[strategy]}</span>
             </div>
-            <div className="mt-1 px-3 py-2 rounded-lg bg-indigo-950/70 border border-indigo-800/40">
-              <span className="text-[11px] text-indigo-200 font-medium">{AI_RATIONALE[strategy]}</span>
-            </div>
+            <span className="text-[11px] text-indigo-200 font-medium mt-2">{AI_RATIONALE[strategy]}</span>
           </div>
         </div>
         <div className="mb-8 flex items-center gap-4">
           <span className="text-lg font-black uppercase tracking-widest text-indigo-400">Strategy</span>
           <div className="flex gap-2">
-            {['Conservative','Balanced','Aggressive'].map(level => {
-              // For now, AI always recommends 'Balanced'.
-              const isRecommended = level === 'Balanced';
-              return (
-                <button
-                  key={level}
-                  className={`px-4 py-2 rounded-full font-bold text-xs border transition-all duration-200 ${strategy === level ? 'bg-indigo-500 text-white border-indigo-500 scale-110' : 'bg-white/10 text-indigo-400 border-white/10 hover:bg-indigo-400/10 hover:text-indigo-500'} ${isRecommended ? 'ring-2 ring-amber-400 ring-offset-2' : ''}`}
-                  onClick={() => onStrategyChange(level)}
-                  type="button"
-                >
-                  {level}
-                  {isRecommended && (
-                    <span className="ml-2 text-amber-400 text-[10px] font-bold align-middle">AI</span>
-                  )}
-                </button>
-              );
-            })}
+            {['Conservative','Balanced','Aggressive'].map(level => (
+              <button
+                key={level}
+                className={`px-4 py-2 rounded-full font-bold text-xs border transition-all duration-200 ${strategy === level ? 'bg-indigo-500 text-white border-indigo-500 scale-110' : 'bg-white/10 text-indigo-400 border-white/10 hover:bg-indigo-400/10 hover:text-indigo-500'}`}
+                onClick={() => onStrategyChange(level)}
+                type="button"
+              >
+                {level}
+              </button>
+            ))}
           </div>
           <span className="text-xs text-slate-400 ml-2">Selected: <span className="font-bold text-indigo-300">{strategy}</span></span>
         </div>
@@ -116,7 +109,7 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
           ))}
         </div>
       </div>
-      {/* Mission Logs */}
+      {/* Mission Logs section */}
       <div>
         <h2 className="text-lg font-black uppercase tracking-widest text-indigo-400 mt-12 mb-4">Mission Logs</h2>
         <div className="space-y-4">
