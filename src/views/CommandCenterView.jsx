@@ -1,4 +1,5 @@
 import React from "react";
+import { Sparkles as SparklesIcon, AlertTriangle as AlertTriangleIcon } from "lucide-react";
 
 // Command Center: 一元管理ダッシュボード
 const AI_INSIGHT = {
@@ -23,8 +24,39 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
   } else if (strategy === 'Balanced') {
     sortedOps.sort((a, b) => a.client.localeCompare(b.client)); // by client name
   }
+
+  // AI Action Suggestion: pick the operation with lowest progress
+  const nextOp = sortedOps.length > 0 ? sortedOps[0] : null;
+  const aiActionSuggestion = nextOp ? `AI Suggestion: ${nextOp.title} (${nextOp.client}) - ${nextOp.nextAction}` : 'AI Suggestion: No active operations.';
+
+  // Smart Notification: show if any operation is below 30% progress
+  const lowProgressOp = sortedOps.find(op => op.progress < 30);
+  const smartNotification = lowProgressOp ? `Notice: ${lowProgressOp.title} for ${lowProgressOp.client} is behind schedule. Consider prioritizing this operation.` : null;
+
   return (
     <div className="space-y-12 animate-fade-in-up">
+      {/* AI Action Suggestion & Smart Notification */}
+      <div className="mb-6">
+        <div className="mb-2 px-4 py-3 rounded-xl bg-emerald-900/60 border border-emerald-500/20 flex items-center gap-3">
+          <SparklesIcon className="w-5 h-5 text-emerald-300 mr-2" />
+          <span className="text-xs text-emerald-100 font-semibold">{aiActionSuggestion}</span>
+          {nextOp && (
+            <button
+              className="ml-4 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold shadow hover:bg-emerald-600 transition-all"
+              onClick={() => onOperationClick && onOperationClick(nextOp)}
+              type="button"
+            >
+              Execute
+            </button>
+          )}
+        </div>
+        {smartNotification && (
+          <div className="mt-2 px-4 py-2 rounded-lg bg-rose-900/60 border border-rose-500/20 flex items-center gap-2">
+            <AlertTriangleIcon className="w-4 h-4 text-rose-300 mr-2" />
+            <span className="text-xs text-rose-100 font-medium">{smartNotification}</span>
+          </div>
+        )}
+      </div>
       {/* Strategy and Active Operations */}
       <div>
         <div className="mb-4">
