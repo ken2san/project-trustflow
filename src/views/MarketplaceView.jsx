@@ -3,7 +3,7 @@ import SpotlightCard from "../components/ui/SpotlightCard";
 import ScrambleText from "../components/ui/ScrambleText";
 import { ArrowRight, BrainCircuit, ShieldCheck, Sparkles, FileSignature, CheckCircle2 } from "lucide-react";
 
-const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger, formatNumber }) => (
+const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger, formatNumber, onHire }) => (
     <div className="space-y-16 animate-fade-in-up">
         <div className="flex flex-col md:flex-row gap-10 items-center">
             <div className="shrink-0 relative group">
@@ -70,7 +70,7 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
                                 <SpotlightCard key={talent.id} className="rounded-[32px] p-8 cursor-pointer group" onClick={() => onSelect(talent)}>
                                     <div className="flex justify-between items-start mb-6"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-white">{talent.name[0]}</div><div><h4 className="font-bold text-white text-lg">{talent.name}</h4><p className="text-xs text-slate-400 uppercase tracking-wider">{talent.role}</p></div></div><div className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-black">{talent.aiScore}% Match</div></div>
                                     <p className="text-sm text-slate-300 mb-6 italic border-l-2 border-indigo-500/30 pl-4 py-1">"{talent.matchReason}"</p>
-                                    <div className="flex items-center justify-between border-t border-white/5 pt-4"><div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Est. Rate</p><p className="text-white font-mono font-bold text-lg">{formatNumber(talent.rate)} <span className="text-slate-500 text-xs">PTS / day</span></p></div><button className="bg-white text-black px-6 py-2 rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors">Hire</button></div>
+                                    <div className="flex items-center justify-between border-t border-white/5 pt-4"><div><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Est. Rate</p><p className="text-white font-mono font-bold text-lg">{formatNumber(talent.rate)} <span className="text-slate-500 text-xs">PTS / day</span></p></div><button className="bg-white text-black px-6 py-2 rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors" onClick={e => { e.stopPropagation(); onHire && onHire(talent); }}>Hire</button></div>
                                 </SpotlightCard>
                             ))}
                         </div>
