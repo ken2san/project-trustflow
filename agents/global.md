@@ -8,6 +8,7 @@ Global agent rules and standards for all environments.
 
 - Follow AGENTS.md for base rules
 - Apply project-specific instructions as needed
+- Follow the Git Command Policy in AGENTS.md: Always use the latest Git recommended commands (e.g., git switch, git restore) and avoid deprecated commands like git checkout.
 
 ---
 
