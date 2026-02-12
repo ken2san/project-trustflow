@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles as SparklesIcon, AlertTriangle as AlertTriangleIcon } from "lucide-react";
+import { Sparkles as SparklesIcon, AlertTriangle as AlertTriangleIcon, User } from "lucide-react";
 
 // Command Center: Unified dashboard for operations and mission logs
 const AI_INSIGHT = {
@@ -14,7 +14,7 @@ const AI_RATIONALE = {
   Aggressive: "Rationale: Market momentum is strong and your recent actions indicate a higher risk tolerance. Aggressive mode is recommended if you seek rapid growth and can accept higher volatility."
 };
 
-const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperationClick, strategy, onStrategyChange }) => {
+const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperationClick, strategy, onStrategyChange, unifiedProfile, onViewProfile }) => {
   // Filter and sort operations based on selected strategy
   let sortedOps = [...activeOperations];
   if (strategy === 'Conservative') {
@@ -35,6 +35,24 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
 
   return (
     <div className="space-y-12 animate-fade-in-up">
+      {/* User Parameter Summary */}
+      {unifiedProfile && (
+        <div className="mb-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-10 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-900/80 to-emerald-900/60 border border-indigo-500/10 shadow-lg">
+          <div className="flex items-center gap-4">
+            <span className="text-2xl font-black text-emerald-300 drop-shadow">Lv.{unifiedProfile.level || 1}</span>
+            <span className="text-xs text-slate-400 font-bold">{(unifiedProfile.badges && unifiedProfile.badges[0]) || 'No Badge'}</span>
+            <span className="text-lg font-black text-indigo-300">{unifiedProfile.trustScore ?? unifiedProfile.reliability ?? 80}% <span className='text-xs text-slate-400'>Reliability</span></span>
+            <span className="text-lg font-black text-yellow-300">{unifiedProfile.avgRating ?? 5.0}★ <span className='text-xs text-slate-400'>Rating</span></span>
+          </div>
+          <button
+            className="mt-4 sm:mt-0 px-4 py-2 rounded-full bg-indigo-500 text-white text-xs font-bold shadow hover:bg-indigo-600 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            onClick={() => onViewProfile && onViewProfile(unifiedProfile)}
+            type="button"
+          >
+            <User className="w-4 h-4 mr-2 inline-block" /> View Profile
+          </button>
+        </div>
+      )}
       {/* AI Action Suggestion and Smart Notification */}
       <div className="mb-6">
         {aiActionSuggestion && (

@@ -9,9 +9,48 @@ const STEPS_DATA = [
   { id: 4, label: 'RATING' }
 ];
 
-const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber }) => {
+
+const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast }) => {
     const [rating, setRating] = useState(0);
-    return (
+    const [hasUpdatedStats, setHasUpdatedStats] = useState(false);
+
+    // Always update userStats on contract settlement (step 5), even if no rating
+    React.useEffect(() => {
+        if (step === 5 && setUserStats && userStats && !hasUpdatedStats) {
+            setUserStats(prev => {
+                const newCompleted = (prev.completedContracts || 0) + 1;
+                const newExp = (prev.exp || 0) + 50 + (rating * 10);
+                const newAvgRating = prev.completedContracts
+                    ? ((prev.avgRating * prev.completedContracts + (rating || prev.avgRating)) / newCompleted)
+                    : (rating || prev.avgRating);
+                // Level up if exp threshold reached (example: every 1000 exp)
+                const expForNextLevel = 1000;
+                const leveledUp = Math.floor(newExp / expForNextLevel) > Math.floor((prev.exp || 0) / expForNextLevel);
+                if (addToast) {
+                    if (leveledUp) {
+                        addToast('Level Up!', `You reached level ${prev.level + 1}.`, 'success');
+                    } else {
+                        addToast('Profile Updated', 'Your Trust Score has been updated.', 'info');
+                    }
+                }
+                setHasUpdatedStats(true);
+                return {
+                    ...prev,
+                    exp: newExp,
+                    level: prev.level + (leveledUp ? 1 : 0),
+                    completedContracts: newCompleted,
+                    avgRating: rating > 0 ? parseFloat(newAvgRating.toFixed(2)) : prev.avgRating,
+                    recentHistory: [
+                        { type: 'contract', rating, date: new Date().toISOString() },
+                        ...(prev.recentHistory || [])
+                    ].slice(0, 10)
+                };
+            });
+        }
+        // eslint-disable-next-line
+    }, [step, rating, setUserStats, userStats, hasUpdatedStats, addToast]);
+
+        return (
     <div className="animate-fade-in-up space-y-16">
         <div className="mb-16 flex justify-between items-center max-w-2xl mx-auto relative px-4">
             {STEPS_DATA.map((s, idx) => (

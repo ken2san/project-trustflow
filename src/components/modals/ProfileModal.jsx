@@ -2,8 +2,8 @@
 import React from "react";
 import { User, BadgeCheck, MapPin, Calendar, Hexagon, Activity, ShieldCheck, ArrowRight, Share2 } from "lucide-react";
 
-const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToast }) => {
-  if (!isOpen || !profile) return null;
+const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, onAction, addToast }) => {
+  if (!isOpen || !unifiedProfile) return null;
   const handleExport = () => addToast('Export Successful', 'Trust Passport downloaded as PDF.');
   const handleAction = () => { if (onAction) { onAction(); onClose(); } };
   return (
@@ -20,12 +20,12 @@ const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToas
               <BadgeCheck className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white mb-1 relative z-10 pointer-events-none">{profile.name}</h2>
-          <p className="text-indigo-400 font-bold text-xs uppercase tracking-widest mb-6 relative z-10 pointer-events-none">{profile.role || "Elite Node"}</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-white mb-1 relative z-10 pointer-events-none">{unifiedProfile.name}</h2>
+          <p className="text-indigo-400 font-bold text-xs uppercase tracking-widest mb-6 relative z-10 pointer-events-none">{unifiedProfile.role || "Elite Node"}</p>
           <div className="space-y-4 w-full relative z-10 pointer-events-none">
-            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><MapPin className="w-4 h-4 text-indigo-500" /> {profile.location || "Tokyo, Japan"}</div>
-            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Calendar className="w-4 h-4 text-indigo-500" /> Member since {profile.joined || "2024"}</div>
-            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Hexagon className="w-4 h-4 text-indigo-500" /> Level {profile.level || "42"} Architect</div>
+            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><MapPin className="w-4 h-4 text-indigo-500" /> {unifiedProfile.location || "Tokyo, Japan"}</div>
+            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Calendar className="w-4 h-4 text-indigo-500" /> Member since {unifiedProfile.joined || "2024"}</div>
+            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Hexagon className="w-4 h-4 text-indigo-500" /> Level {unifiedProfile.level || "42"} Architect</div>
           </div>
           <button onClick={(e) => { e.stopPropagation(); actionLabel ? handleAction() : handleExport(); }} className={`mt-auto w-full py-3 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-colors relative z-20 ${actionLabel ? 'bg-indigo-600 text-white hover:bg-indigo-500 rounded-2xl mb-1 shadow-lg' : 'text-slate-500 hover:text-white'}`}>{actionLabel ? <>Initiate Contract <ArrowRight className="w-4 h-4" /></> : <><Share2 className="w-4 h-4" /> Export Identity</>}</button>
         </div>
@@ -35,10 +35,16 @@ const ProfileModal = ({ isOpen, onClose, profile, actionLabel, onAction, addToas
             <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-white/5">Top 1% Global</span>
           </div>
           <div className="grid grid-cols-2 gap-4 relative z-10">
-            {['Reliability', 'Speed', 'Quality', 'Communication'].map((stat, i) => (
+            {/* Reliability (trustScore) is always first and synced */}
+            <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
+              <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>Reliability</span><span className="text-indigo-400">{unifiedProfile.trustScore ?? 80}%</span></div>
+              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `${unifiedProfile.trustScore ?? 80}%` }} /></div>
+            </div>
+            {/* Fallback demo stats for other metrics */}
+            {['Speed', 'Quality', 'Communication'].map((stat, i) => (
               <div key={stat} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>{stat}</span><span className="text-indigo-400">9{i+5}%</span></div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `9${i+5}%` }} /></div>
+                <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>{stat}</span><span className="text-indigo-400">9{i+6}%</span></div>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `9${i+6}%` }} /></div>
               </div>
             ))}
           </div>

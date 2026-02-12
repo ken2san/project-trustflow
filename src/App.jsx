@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   ShieldCheck, ArrowRight, Lock, Unlock, CheckCircle2, AlertCircle,
@@ -10,6 +11,8 @@ import {
   Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4, Star,
   Layers
 } from 'lucide-react';
+// Returns a unified profile object merging static and dynamic user data
+// (moved below imports)
 
 
 // Centralized constants and mock data
@@ -116,6 +119,15 @@ const App = () => {
   const [view, setView] = useState('marketplace');
   const [step, setStep] = useState(1);
   const [userPoints, setUserPoints] = useState(500000);
+  // User parameter system (userStats)
+  const [userStats, setUserStats] = useState({
+    completedContracts: 0,
+    disputesResolved: 0,
+    trustScore: 80,
+    totalEarned: 0,
+    totalSpent: 0,
+    badges: [],
+  });
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');
   // Add projectDetail state for Project Detail & Negotiation flow
@@ -246,6 +258,18 @@ const App = () => {
   // Strategy level (Conservative / Normal / Aggressive)
   const [strategy, setStrategy] = useState('Balanced');
 
+
+  // Returns a unified profile object merging static and dynamic user data
+  const getUnifiedProfile = useCallback(() => {
+    return {
+      ...USER_PROFILE,
+      ...userStats,
+    };
+  }, [userStats]);
+
+  // Always use unifiedProfile for profile data
+  const unifiedProfile = getUnifiedProfile();
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
       <NeuralBackground />
@@ -333,6 +357,11 @@ const App = () => {
             }}
             strategy={strategy}
             onStrategyChange={setStrategy}
+            unifiedProfile={unifiedProfile}
+            onViewProfile={() => {
+              setProfileData(unifiedProfile);
+              setIsProfileOpen(true);
+            }}
           />
         )}
 
