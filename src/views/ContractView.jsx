@@ -2,6 +2,9 @@ import React, { useState, useCallback } from "react";
 import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
 
+// Ensure animation always appears when step 5 is rendered
+// (moved below inside component)
+
 const STEPS_DATA = [
   { id: 1, label: 'PROTOCOL' },
   { id: 2, label: 'ESCROW' },
@@ -10,11 +13,12 @@ const STEPS_DATA = [
 ];
 
 
-const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast }) => {
+const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp }) => {
     const [rating, setRating] = useState(0);
     const [hasUpdatedStats, setHasUpdatedStats] = useState(false);
 
     // Always update userStats on contract settlement (step 5), even if no rating
+    // 1. Update userStats only
     React.useEffect(() => {
         if (step === 5 && setUserStats && userStats && !hasUpdatedStats) {
             setUserStats(prev => {
@@ -23,17 +27,11 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                 const newAvgRating = prev.completedContracts
                     ? ((prev.avgRating * prev.completedContracts + (rating || prev.avgRating)) / newCompleted)
                     : (rating || prev.avgRating);
-                // Level up if exp threshold reached (example: every 1000 exp)
-                const expForNextLevel = 1000;
+                // Level up if exp threshold reached (demo: every 50 exp for testing)
+                const expForNextLevel = 50;
                 const leveledUp = Math.floor(newExp / expForNextLevel) > Math.floor((prev.exp || 0) / expForNextLevel);
-                if (addToast) {
-                    if (leveledUp) {
-                        addToast('Level Up!', `You reached level ${prev.level + 1}.`, 'success');
-                    } else {
-                        addToast('Profile Updated', 'Your Trust Score has been updated.', 'info');
-                    }
-                }
-                setHasUpdatedStats(true);
+                // Store leveledUp in a ref for use in next effect
+                window.__lastLeveledUp = leveledUp;
                 return {
                     ...prev,
                     exp: newExp,
@@ -46,9 +44,27 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                     ].slice(0, 10)
                 };
             });
+            setHasUpdatedStats(true);
         }
         // eslint-disable-next-line
-    }, [step, rating, setUserStats, userStats, hasUpdatedStats, addToast]);
+    }, [step, rating, setUserStats, userStats, hasUpdatedStats]);
+
+    // 2. Handle side effects (animation, toast) after userStats update
+    React.useEffect(() => {
+        if (step === 5 && hasUpdatedStats) {
+            const leveledUp = window.__lastLeveledUp;
+            setTimeout(() => {
+                if (leveledUp) {
+                    if (triggerLevelUp) triggerLevelUp();
+                    if (addToast) addToast('Level Up!', `You reached level ${(userStats.level) + 1}.`, 'success');
+                } else {
+                    if (triggerParamUp) triggerParamUp();
+                    if (addToast) addToast('Profile Updated', 'Your Trust Score has been updated.', 'info');
+                }
+            }, 100);
+        }
+        // eslint-disable-next-line
+    }, [step, hasUpdatedStats]);
 
         return (
     <div className="animate-fade-in-up space-y-16">
@@ -70,7 +86,14 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                     {rating > 0 ? (<div className="animate-fade-in-up"><HoldButton key="btn-4" onClick={handleNextStep} label="Commit & Close" className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} /></div>) : (<p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Select stars to finalize</p>)}
                 </div>
             )}
-            {step === 5 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-emerald-500/10 rounded-[48px] flex items-center justify-center border border-emerald-500/20 mx-auto"><CheckCircle2 className="w-16 h-16 text-emerald-500 animate-scale-up" /></div><h2 className="text-6xl font-black text-white italic tracking-tighter uppercase">Settled</h2><button onClick={handleNextStep} className="px-10 py-4 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button></div>)}
+            {step === 5 && (
+                <div className="relative flex flex-col items-center justify-center min-h-[300px]">
+                    {/* Minimal Settled UI */}
+                    <h2 className="text-4xl font-black text-white tracking-tight uppercase mb-8">Settled</h2>
+                    <button onClick={handleNextStep} className="px-8 py-3 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button>
+                </div>
+            )}
+
         </div>
     </div>
     );

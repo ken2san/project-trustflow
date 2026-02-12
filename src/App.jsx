@@ -14,10 +14,13 @@ import {
 // Returns a unified profile object merging static and dynamic user data
 // (moved below imports)
 
-
 // Centralized constants and mock data
 import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, TRANSACTIONS_DATA, STEPS_DATA } from './lib/constants';
 import { formatNumber } from './lib/utils';
+
+
+// ...existing code...
+
 
 /* ========================================================================
    2. CUSTOM HOOKS
@@ -115,6 +118,20 @@ import ProjectDetailView from './views/ProjectDetailView';
 // --- Main App Component ---
 
 const App = () => {
+  // Animation state for level/parameter up
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [showParamUp, setShowParamUp] = useState(false);
+
+  // Animation triggers
+  const triggerLevelUp = useCallback(() => {
+    setShowLevelUp(true);
+    setTimeout(() => setShowLevelUp(false), 1800);
+  }, []);
+  const triggerParamUp = useCallback(() => {
+    setShowParamUp(true);
+    setTimeout(() => setShowParamUp(false), 1200);
+  }, []);
+
   const [mode, setMode] = useState('earner');
   const [view, setView] = useState('marketplace');
   const [step, setStep] = useState(1);
@@ -127,6 +144,10 @@ const App = () => {
     totalEarned: 0,
     totalSpent: 0,
     badges: [],
+    exp: 0,
+    level: 1,
+    avgRating: 0,
+    recentHistory: [],
   });
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -143,7 +164,7 @@ const App = () => {
   const [isDisputeOpen, setIsDisputeOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [profileData, setProfileData] = useState(null);
-  const [showConfetti, setShowConfetti] = useState(false);
+
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -156,14 +177,7 @@ const App = () => {
 
   useEffect(() => { const handleKeyDown = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsCommandOpen(prev => !prev); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, []);
 
-  // Confetti Trigger separate from step logic to ensure it fires
-  useEffect(() => {
-     if (step === 5) {
-         setShowConfetti(true);
-         const timer = setTimeout(() => setShowConfetti(false), 5000);
-         return () => clearTimeout(timer);
-     }
-  }, [step]);
+
 
   const addToast = useCallback((title, message, type = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, title, message, type }]); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
 
@@ -273,7 +287,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
       <NeuralBackground />
-      {showConfetti && (<div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden flex justify-center">{[...Array(20)].map((_, i) => (<div key={i} className="absolute top-0 w-2 h-2 bg-emerald-400 rounded-full animate-fall" style={{ left: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 2}s`, animationDuration: `${2 + Math.random() * 3}s` }} />))}</div>)}
+
       <ToastContainer toasts={toasts} removeToast={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
       {/* BiometricModal removed for MVP slimdown */}
@@ -339,7 +353,18 @@ const App = () => {
           />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('project-detail')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={userStats} setUserStats={setUserStats} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} />}
+              {/* Global Level Up/Param Up Animation */}
+              {showLevelUp && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
+                  <div className="text-5xl font-black text-emerald-400 drop-shadow-lg animate-pop-scale">LEVEL UP!</div>
+                </div>
+              )}
+              {showParamUp && !showLevelUp && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
+                  <div className="text-3xl font-black text-indigo-300 drop-shadow animate-pop-fade">+1 PARAMETER</div>
+                </div>
+              )}
         {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={userPoints} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}
         {view === 'command-center' && (
           <CommandCenterView
