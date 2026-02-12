@@ -43,7 +43,13 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
             <span className="text-xs text-slate-400 font-bold">{(unifiedProfile.badges && unifiedProfile.badges[0]) || 'No Badge'}</span>
             <span className="text-lg font-black text-indigo-300">{unifiedProfile.trustScore ?? unifiedProfile.reliability ?? 80}% <span className='text-xs text-slate-400'>Reliability</span></span>
             <span className="text-lg font-black text-yellow-300">{unifiedProfile.avgRating ?? 5.0}★ <span className='text-xs text-slate-400'>Rating</span></span>
-            <span className="text-sm font-bold text-indigo-200 bg-white/10 rounded-full px-3 py-1">Skill Endorsements: {unifiedProfile.skillEndorsements ?? 0}</span>
+            <span className="text-sm font-bold text-indigo-200 bg-white/10 rounded-full px-3 py-1">
+              Skill Endorsements: {
+                typeof unifiedProfile.skillEndorsements === 'object' && unifiedProfile.skillEndorsements !== null
+                  ? Object.values(unifiedProfile.skillEndorsements).reduce((a, b) => a + b, 0)
+                  : (unifiedProfile.skillEndorsements ?? 0)
+              }
+            </span>
             <span className="text-sm font-bold text-indigo-200 bg-white/10 rounded-full px-3 py-1">Response Speed: {unifiedProfile.responseSpeed ?? '—'}</span>
             <span className="text-sm font-bold text-indigo-200 bg-white/10 rounded-full px-3 py-1">Repeat Clients: {unifiedProfile.repeatClients ?? 0}</span>
           </div>

@@ -55,7 +55,13 @@ const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, o
           </div>
           {/* Subtle badge row for secondary metrics */}
           <div className="flex flex-wrap gap-2 my-4">
-            <span className="px-3 py-1 bg-indigo-900/40 text-indigo-200 rounded-full text-xs font-bold">Skill Endorsements: {unifiedProfile.skillEndorsements ?? 0}</span>
+            <span className="px-3 py-1 bg-indigo-900/40 text-indigo-200 rounded-full text-xs font-bold">
+              Skill Endorsements: {
+                typeof unifiedProfile.skillEndorsements === 'object' && unifiedProfile.skillEndorsements !== null
+                  ? Object.values(unifiedProfile.skillEndorsements).reduce((a, b) => a + b, 0)
+                  : (unifiedProfile.skillEndorsements ?? 0)
+              }
+            </span>
             <span className="px-3 py-1 bg-indigo-900/40 text-indigo-200 rounded-full text-xs font-bold">Repeat Clients: {unifiedProfile.repeatClients ?? 0}</span>
             {unifiedProfile.responseSpeed && unifiedProfile.responseSpeed !== '—' && (
               <span className="px-3 py-1 bg-indigo-900/40 text-indigo-200 rounded-full text-xs font-bold">Response Speed: {unifiedProfile.responseSpeed}</span>
