@@ -194,13 +194,10 @@ const App = () => {
   const [internalProfile, setInternalProfile] = useState(initialInternalProfileStats);
 
   // Returns a minimal AI-ready user profile payload
+  // Returns only internal profile data for AI extraction
   const getAIProfilePayload = useCallback(() => {
-    // Merge UI and internal profile for AI payload
-    return {
-      ...uiProfile,
-      ...internalProfile
-    };
-  }, [uiProfile, internalProfile]);
+    return { ...internalProfile };
+  }, [internalProfile]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');
   // Add projectDetail state for Project Detail & Negotiation flow
