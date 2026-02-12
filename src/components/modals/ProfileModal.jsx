@@ -35,18 +35,31 @@ const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, o
             <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-white/5">Top 1% Global</span>
           </div>
           <div className="grid grid-cols-2 gap-4 relative z-10">
-            {/* Reliability (trustScore) is always first and synced */}
+            {/* Core metrics only: Reliability, Avg. Rating, Completed Contracts, Disputes Resolved */}
             <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
               <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>Reliability</span><span className="text-indigo-400">{unifiedProfile.trustScore ?? 80}%</span></div>
               <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `${unifiedProfile.trustScore ?? 80}%` }} /></div>
             </div>
-            {/* Fallback demo stats for other metrics */}
-            {['Speed', 'Quality', 'Communication'].map((stat, i) => (
-              <div key={stat} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>{stat}</span><span className="text-indigo-400">9{i+6}%</span></div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `9${i+6}%` }} /></div>
-              </div>
-            ))}
+            <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
+              <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>Avg. Rating</span><span className="text-yellow-300">{unifiedProfile.avgRating ?? 5.0}★</span></div>
+              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-yellow-300 to-yellow-500" style={{ width: `${(unifiedProfile.avgRating ?? 5.0) * 20}%` }} /></div>
+            </div>
+            <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
+              <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>Completed</span><span className="text-emerald-400">{unifiedProfile.completedContracts ?? 0}</span></div>
+              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: `${Math.min((unifiedProfile.completedContracts ?? 0) * 10, 100)}%` }} /></div>
+            </div>
+            <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
+              <div className="flex justify-between text-xs text-slate-400 font-bold mb-2"><span>Disputes Resolved</span><span className="text-indigo-200">{unifiedProfile.disputesResolved ?? 0}</span></div>
+              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-200 to-indigo-400" style={{ width: `${Math.min((unifiedProfile.disputesResolved ?? 0) * 20, 100)}%` }} /></div>
+            </div>
+          </div>
+          {/* Subtle badge row for secondary metrics */}
+          <div className="flex flex-wrap gap-2 my-4">
+            <span className="px-3 py-1 bg-indigo-900/40 text-indigo-200 rounded-full text-xs font-bold">Skill Endorsements: {unifiedProfile.skillEndorsements ?? 0}</span>
+            <span className="px-3 py-1 bg-indigo-900/40 text-indigo-200 rounded-full text-xs font-bold">Repeat Clients: {unifiedProfile.repeatClients ?? 0}</span>
+            {unifiedProfile.responseSpeed && unifiedProfile.responseSpeed !== '—' && (
+              <span className="px-3 py-1 bg-indigo-900/40 text-indigo-200 rounded-full text-xs font-bold">Response Speed: {unifiedProfile.responseSpeed}</span>
+            )}
           </div>
           <div className="relative z-10">
             <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Reputation Heatmap</h4>

@@ -148,6 +148,9 @@ const App = () => {
     level: 1,
     avgRating: 0,
     recentHistory: [],
+    skillEndorsements: 0,
+    responseSpeed: '—',
+    repeatClients: 0
   });
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');

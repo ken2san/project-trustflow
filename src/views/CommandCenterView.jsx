@@ -38,11 +38,14 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
       {/* User Parameter Summary */}
       {unifiedProfile && (
         <div className="mb-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-10 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-900/80 to-emerald-900/60 border border-indigo-500/10 shadow-lg">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <span className="text-2xl font-black text-emerald-300 drop-shadow">Lv.{unifiedProfile.level || 1}</span>
             <span className="text-xs text-slate-400 font-bold">{(unifiedProfile.badges && unifiedProfile.badges[0]) || 'No Badge'}</span>
             <span className="text-lg font-black text-indigo-300">{unifiedProfile.trustScore ?? unifiedProfile.reliability ?? 80}% <span className='text-xs text-slate-400'>Reliability</span></span>
             <span className="text-lg font-black text-yellow-300">{unifiedProfile.avgRating ?? 5.0}★ <span className='text-xs text-slate-400'>Rating</span></span>
+            <span className="text-sm font-bold text-indigo-200 bg-white/10 rounded-full px-3 py-1">Skill Endorsements: {unifiedProfile.skillEndorsements ?? 0}</span>
+            <span className="text-sm font-bold text-indigo-200 bg-white/10 rounded-full px-3 py-1">Response Speed: {unifiedProfile.responseSpeed ?? '—'}</span>
+            <span className="text-sm font-bold text-indigo-200 bg-white/10 rounded-full px-3 py-1">Repeat Clients: {unifiedProfile.repeatClients ?? 0}</span>
           </div>
           <button
             className="mt-4 sm:mt-0 px-4 py-2 rounded-full bg-indigo-500 text-white text-xs font-bold shadow hover:bg-indigo-600 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400"
