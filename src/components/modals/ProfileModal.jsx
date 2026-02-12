@@ -25,7 +25,7 @@ const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, o
           <div className="space-y-4 w-full relative z-10 pointer-events-none">
             <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><MapPin className="w-4 h-4 text-indigo-500" /> {unifiedProfile.location || "Tokyo, Japan"}</div>
             <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Calendar className="w-4 h-4 text-indigo-500" /> Member since {unifiedProfile.joined || "2024"}</div>
-            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Hexagon className="w-4 h-4 text-indigo-500" /> Level {unifiedProfile.level || "42"} Architect</div>
+            <div className="flex items-center gap-3 text-slate-400 text-xs font-bold bg-white/5 p-3 rounded-xl"><Hexagon className="w-4 h-4 text-indigo-500" /> Level {unifiedProfile.level || 1} Architect</div>
           </div>
           <button onClick={(e) => { e.stopPropagation(); actionLabel ? handleAction() : handleExport(); }} className={`mt-auto w-full py-3 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-colors relative z-20 ${actionLabel ? 'bg-indigo-600 text-white hover:bg-indigo-500 rounded-2xl mb-1 shadow-lg' : 'text-slate-500 hover:text-white'}`}>{actionLabel ? <>Initiate Contract <ArrowRight className="w-4 h-4" /></> : <><Share2 className="w-4 h-4" /> Export Identity</>}</button>
         </div>

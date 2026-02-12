@@ -425,7 +425,7 @@ const App = () => {
         <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('wallet'); }}><Wallet className="w-6 h-6" /></button>
         {/* Command Centerアイコン（Mobileのみ表示） */}
         <button className={`p-3 transition-all duration-300 ${view === 'command-center' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'} inline-flex sm:hidden`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('command-center'); }}><Layers className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500 inline-flex" onClick={() => { setIsCommandOpen(false); setView('marketplace'); setProfileData(USER_PROFILE); setIsProfileOpen(true); }}>
+        <button className="p-3 text-slate-500 inline-flex" onClick={() => { setIsCommandOpen(false); setView('marketplace'); setProfileData(unifiedProfile); setIsProfileOpen(true); }}>
           {/* Avatar icon for mobile bottom bar (same as header) */}
           <span className="block w-6 h-6 rounded-full overflow-hidden border-2 border-indigo-400 bg-slate-800">
             {USER_PROFILE.avatarUrl ? (
