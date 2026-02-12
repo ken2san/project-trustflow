@@ -356,8 +356,15 @@ const App = () => {
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={userStats} setUserStats={setUserStats} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
-                  <div className="text-5xl font-black text-emerald-400 drop-shadow-lg animate-pop-scale">LEVEL UP!</div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                  {/* Overlay background */}
+                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                  <div className="relative flex flex-col items-center justify-center">
+                    <div className="text-5xl font-black text-emerald-400 drop-shadow-[0_4px_32px_rgba(16,185,129,0.7)] animate-pop-scale mb-4 text-center" style={{textShadow:'0 2px 16px #059669, 0 0 2px #fff'}}>LEVEL UP!</div>
+                    <div className="text-xl font-bold text-indigo-200 drop-shadow animate-fade-in-up text-center">
+                      New ability unlocked: <span className="text-white">Priority Support</span>
+                    </div>
+                  </div>
                 </div>
               )}
               {showParamUp && !showLevelUp && (
