@@ -1,3 +1,20 @@
+/**
+ * @typedef {Object} UserStats
+ * @property {number} completedContracts
+ * @property {number} disputesResolved
+ * @property {number} trustScore
+ * @property {number} totalEarned
+ * @property {number} totalSpent
+ * @property {Array<string>} badges
+ * @property {number} exp
+ * @property {number} level
+ * @property {number} avgRating
+ * @property {Array<Object>} recentHistory
+ * @property {number} skillEndorsements
+ * @property {string} responseSpeed
+ * @property {number} repeatClients
+ */
+
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
@@ -135,8 +152,6 @@ const App = () => {
   const [mode, setMode] = useState('earner');
   const [view, setView] = useState('marketplace');
   const [step, setStep] = useState(1);
-  const [userPoints, setUserPoints] = useState(500000);
-  // User parameter system (userStats)
   const [userStats, setUserStats] = useState({
     completedContracts: 0,
     disputesResolved: 0,
@@ -149,9 +164,42 @@ const App = () => {
     avgRating: 0,
     recentHistory: [],
     skillEndorsements: 0,
-    responseSpeed: '—',
-    repeatClients: 0
+    points: 0,
   });
+
+  // Returns a minimal AI-ready user profile payload
+  const getAIProfilePayload = useCallback(() => {
+    const {
+      completedContracts,
+      disputesResolved,
+      trustScore,
+      totalEarned,
+      totalSpent,
+      badges,
+      exp,
+      level,
+      avgRating,
+      recentHistory,
+      skillEndorsements,
+      responseSpeed,
+      repeatClients
+    } = userStats;
+    return {
+      completedContracts,
+      disputesResolved,
+      trustScore,
+      totalEarned,
+      totalSpent,
+      badges,
+      exp,
+      level,
+      avgRating,
+      recentHistory,
+      skillEndorsements,
+      responseSpeed,
+      repeatClients
+    };
+  }, [userStats]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');
   // Add projectDetail state for Project Detail & Negotiation flow
@@ -213,7 +261,7 @@ const App = () => {
 
     setTimeout(() => {
       // Logic execution
-      if (step === 2) { if (mode === 'hirer') setUserPoints(p => p - selectedItem.totalPoints); else setUserPoints(p => p + selectedItem.totalPoints); }
+      if (step === 2) { if (mode === 'hirer') setUserStats(s => ({ ...s, points: (s.points ?? 0) - selectedItem.totalPoints })); else setUserStats(s => ({ ...s, points: (s.points ?? 0) + selectedItem.totalPoints })); }
 
       // Navigation
       if (step === 5) {
@@ -256,7 +304,7 @@ const App = () => {
           }
       }, 80);
   };
-  const handleDeposit = () => { setIsPaymentModalOpen(false); setStatus('processing'); setTimeout(() => { setUserPoints(prev => prev + 100000); setStatus('idle'); addToast('Deposit Successful', '100,000 PTS added to Vault.', 'success'); }, 1000); };
+  const handleDeposit = () => { setIsPaymentModalOpen(false); setStatus('processing'); setTimeout(() => { setUserStats(s => ({ ...s, points: (s.points ?? 0) + 100000 })); setStatus('idle'); addToast('Deposit Successful', '100,000 PTS added to Vault.', 'success'); }, 1000); };
 
   const triggerSmartContractUpdate = () => { const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' }; setMessages(prev => [...prev, userMsg]); setTimeout(() => { const aiProposal = { id: Date.now() + 1, sender: 'ai', type: 'contract_update', data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 }, time: 'Now' }; setMessages(prev => [...prev, aiProposal]); }, 1500); };
   const acceptContractUpdate = (updateData) => { if (selectedItem) { setSelectedItem(prev => ({ ...prev, totalPoints: updateData.newTotal, acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"] })); } setScrambleTrigger(prev => prev + 1); setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: `Contract updated. Budget increased by ${formatNumber(updateData.additionalCost)} PTS.`, time: 'Now', type: 'text' }]); addToast('Smart Contract Updated', 'New budget locked in escrow.', 'success'); };
@@ -319,7 +367,7 @@ const App = () => {
         <div onClick={() => setIsCommandOpen(true)} className="hidden md:flex flex-1 max-w-md mx-6 items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 px-4 py-2.5 rounded-xl cursor-pointer transition-all group"><Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" /><span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span><div className="ml-auto flex gap-1"><span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span></div></div>
         <div className="flex gap-4 items-center">
           <button onClick={toggleMode} className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all"><div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" /></button>
-          <div className="hidden sm:flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setView('wallet')}><Coins className="w-3.5 h-3.5 text-amber-500" /><span className="font-mono font-bold text-xs">{formatNumber(userPoints)}</span></div>
+          <div className="hidden sm:flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setView('wallet')}><Coins className="w-3.5 h-3.5 text-amber-500" /><span className="font-mono font-bold text-xs">{formatNumber(userStats.points ?? 0)}</span></div>
           {/* Command Center icon (PC/tablet only) */}
           <button
             className={`hidden sm:inline-flex p-2 ml-2 rounded-full border border-white/10 transition-colors ${view === 'command-center' ? 'bg-indigo-500/20 text-indigo-400 scale-110 shadow-[0_0_12px_rgba(99,102,241,0.15)]' : 'text-slate-400 hover:text-indigo-300 hover:bg-white/10'}`}
@@ -375,7 +423,7 @@ const App = () => {
                   <div className="text-3xl font-black text-indigo-300 drop-shadow animate-pop-fade">+1 PARAMETER</div>
                 </div>
               )}
-        {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={userPoints} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}
+        {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={userStats.points ?? 0} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}
         {view === 'command-center' && (
           <CommandCenterView
             activeOperations={DUMMY_ACTIVE_OPERATIONS}
