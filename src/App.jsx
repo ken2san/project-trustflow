@@ -104,22 +104,9 @@ import SpotlightCard from './components/ui/SpotlightCard';
 // HoldButton moved to components/ui/HoldButton.jsx
 import HoldButton from './components/ui/HoldButton';
 
-const ScrambleText = ({ text, className, trigger }) => {
-  const [display, setDisplay] = useState(text);
-  const [iteration, setIteration] = useState(0);
 
-  useEffect(() => { setIteration(0); }, [text, trigger]);
-
-  useInterval(() => {
-    const textStr = String(text);
-    if (iteration >= textStr.length) return;
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    setDisplay(textStr.split('').map((char, index) => index < iteration ? textStr[index] : chars[Math.floor(Math.random() * chars.length)]).join(''));
-    setIteration(prev => prev + 1/3);
-  }, iteration < String(text).length ? 30 : null);
-
-  return <span className={className}>{display}</span>;
-};
+// ScrambleText moved to components/ui/ScrambleText.jsx
+import ScrambleText from './components/ui/ScrambleText';
 
 
 // ToastContainer moved to components/ui/ToastContainer.jsx
