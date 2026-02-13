@@ -16,7 +16,7 @@ const AI_RATIONALE = {
   Aggressive: "Rationale: Market momentum is strong and your recent actions indicate a higher risk tolerance. Aggressive mode is recommended if you seek rapid growth and can accept higher volatility."
 };
 
-const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperationClick, strategy, onStrategyChange, unifiedProfile, onViewProfile }) => {
+const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperationClick, strategy, onStrategyChange, unifiedProfile, onViewProfile, setUIProfile }) => {
   // Defensive: If unifiedProfile is missing/null, render fallback UI
   if (!unifiedProfile || typeof unifiedProfile !== 'object') {
     return (
@@ -165,6 +165,15 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
                   );
                 })}
               </div>
+              {/* --- Dev: Level Changer --- */}
+              {typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost' && setUIProfile && (
+                <div className="flex items-center gap-3 mt-8 p-3 rounded-xl bg-slate-800/60 border border-emerald-400/20">
+                  <span className="text-xs text-slate-300">Dev: Level</span>
+                  <button className="px-2 py-1 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-700" onClick={() => setUIProfile(prev => ({ ...prev, level: Math.max(1, (prev.level || 1) - 1) }))}>-</button>
+                  <span className="text-lg font-black text-emerald-300">{userLevel}</span>
+                  <button className="px-2 py-1 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-700" onClick={() => setUIProfile(prev => ({ ...prev, level: Math.min(maxLevel, (prev.level || 1) + 1) }))}>+</button>
+                </div>
+              )}
             </div>
           </div>
         )}

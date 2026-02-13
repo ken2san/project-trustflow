@@ -512,6 +512,7 @@ const App = () => {
               setProfileData(unifiedProfile);
               setIsProfileOpen(true);
             }}
+            setUIProfile={setUIProfile}
           />
         )}
 
