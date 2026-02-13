@@ -38,4 +38,26 @@ export const FEATURE_UNLOCKS = [
       { key: 'apiIntegration', label: 'API & External Integrations' },
     ],
   },
+  // --- Post-tutorial: Special rewards at milestone levels ---
+  {
+    level: 10,
+    features: [
+      { key: 'legendTitle', label: 'Legendary Title (Profile)' },
+      { key: 'bonusPoints', label: 'Bonus Points Reward' },
+    ],
+  },
+  {
+    level: 15,
+    features: [
+      { key: 'eliteBadge', label: 'Elite Badge' },
+      { key: 'profileFrame', label: 'Profile Frame Customization' },
+    ],
+  },
+  {
+    level: 20,
+    features: [
+      { key: 'mythicTitle', label: 'Mythic Title (Profile)' },
+      { key: 'inviteCode', label: 'Invite Code for Friends' },
+    ],
+  },
 ];
