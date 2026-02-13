@@ -140,13 +140,13 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
                       <Sparkles className="w-5 h-5 text-emerald-300 animate-bounce" />
                       <span className="text-sm font-bold text-indigo-200">Next Unlocks at Level {nextUnlockLevel}:</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                       {nextUnlocks.map(f => {
                         const Icon = featureIcons[f.key] || Unlock;
                         return (
-                          <span key={f.key} className="flex items-center gap-1 px-2 py-1 rounded bg-indigo-700/60 text-indigo-100 text-xs font-bold border border-indigo-400/20">
-                            <Icon className="w-3.5 h-3.5 text-emerald-200" />
-                            {f.label}
+                          <span key={f.key} className="flex items-center gap-2 px-2 py-1 rounded bg-indigo-700/60 text-indigo-100 text-xs font-bold border border-indigo-400/20 min-w-0 break-words whitespace-normal">
+                            <Icon className="w-4 h-4 text-emerald-200 shrink-0" />
+                            <span className="break-words whitespace-normal">{f.label}</span>
                           </span>
                         );
                       })}
@@ -154,34 +154,44 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
                   </div>
                 )}
               </div>
-              <div className="w-full grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="w-full grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {/* Unlocked Features */}
                 <div>
                   <div className="mb-1 text-xs text-emerald-300 font-bold flex items-center gap-2">
                     <Sparkles className="w-4 h-4 animate-pulse text-emerald-300" /> Unlocked
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {unlockedFeatures.map(f => {
                       const Icon = featureIcons[f.key] || Unlock;
                       return (
-                        <span key={f.key} className="group flex flex-col items-center gap-1 px-2 py-2 rounded-xl bg-emerald-700/70 text-emerald-100 text-xs font-bold border border-emerald-400/30 shadow-sm animate-fade-in-up cursor-pointer" title={f.label}>
+                        <span
+                          key={f.key}
+                          className="group flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-emerald-700/70 text-emerald-100 text-xs font-bold border border-emerald-400/30 shadow-sm animate-fade-in-up cursor-pointer min-w-[110px] max-w-[140px] break-words whitespace-normal"
+                          title={f.label}
+                        >
                           <Icon className="w-6 h-6 text-emerald-300" />
-                          <span className="opacity-80 group-hover:opacity-100 text-[11px] text-center whitespace-nowrap">{f.label}</span>
+                          <span className="opacity-90 group-hover:opacity-100 text-xs text-center break-words whitespace-normal leading-tight">{f.label}</span>
                         </span>
                       );
                     })}
                   </div>
                 </div>
+                {/* Locked Features */}
                 <div>
                   <div className="mb-1 text-xs text-slate-400 font-bold flex items-center gap-2">
                     <Lock className="w-4 h-4 text-slate-400" /> Locked
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {lockedFeatures.map(f => {
                       const Icon = featureIcons[f.key] || Lock;
                       return (
-                        <span key={f.key} className="group flex flex-col items-center gap-1 px-2 py-2 rounded-xl bg-slate-700/60 text-slate-300 text-xs font-bold border border-slate-400/20 opacity-60 cursor-not-allowed" title={f.label}>
+                        <span
+                          key={f.key}
+                          className="group flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-slate-700/60 text-slate-300 text-xs font-bold border border-slate-400/20 opacity-60 cursor-not-allowed min-w-[110px] max-w-[140px] break-words whitespace-normal"
+                          title={f.label}
+                        >
                           <Icon className="w-6 h-6 text-slate-400" />
-                          <span className="opacity-80 group-hover:opacity-100 text-[11px] text-center whitespace-nowrap">{f.label} <span className="ml-1 text-xs text-slate-400">Lv.{f.level}</span></span>
+                          <span className="opacity-90 group-hover:opacity-100 text-xs text-center break-words whitespace-normal leading-tight">{f.label} <span className="ml-1 text-xs text-slate-400">Lv.{f.level}</span></span>
                         </span>
                       );
                     })}
@@ -227,15 +237,16 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
             <span className="text-[11px] text-indigo-200 font-medium mt-2">{AI_RATIONALE[strategy]}</span>
           </div>
         </div>
-        <div className="mb-8 flex items-center gap-4">
+        <div className="mb-8 flex flex-col sm:flex-row items-center gap-4">
           <span className="text-lg font-black uppercase tracking-widest text-indigo-400">Strategy</span>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap px-2 w-full sm:w-auto overflow-x-auto">
             {['Conservative','Balanced','Aggressive'].map(level => (
               <button
                 key={level}
                 className={`px-4 py-2 rounded-full font-bold text-xs border transition-all duration-200 ${strategy === level ? 'bg-indigo-500 text-white border-indigo-500 scale-110' : 'bg-white/10 text-indigo-400 border-white/10 hover:bg-indigo-400/10 hover:text-indigo-500'}`}
                 onClick={() => onStrategyChange(level)}
                 type="button"
+                style={{ minWidth: '110px' }}
               >
                 {level}
               </button>

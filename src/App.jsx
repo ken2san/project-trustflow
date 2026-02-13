@@ -388,7 +388,15 @@ const App = () => {
         <div onClick={() => setIsCommandOpen(true)} className="hidden md:flex flex-1 max-w-md mx-6 items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 px-4 py-2.5 rounded-xl cursor-pointer transition-all group"><Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" /><span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span><div className="ml-auto flex gap-1"><span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span></div></div>
         <div className="flex gap-4 items-center">
           <button onClick={toggleMode} className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all"><div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" /></button>
-          <div className="hidden sm:flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setView('wallet')}><Coins className="w-3.5 h-3.5 text-amber-500" /><span className="font-mono font-bold text-xs">{formatNumber(uiProfile.points ?? 0)}</span></div>
+          {/* Wallet button: only enabled if unlocked */}
+          <div
+            className={`hidden sm:flex items-center gap-3 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 transition-colors ${unlockedFeatures.includes('wallet') ? 'cursor-pointer hover:bg-white/10' : 'opacity-40 cursor-not-allowed'}`}
+            onClick={unlockedFeatures.includes('wallet') ? () => setView('wallet') : undefined}
+            title={unlockedFeatures.includes('wallet') ? 'Open Wallet' : 'Unlock at Level 1'}
+          >
+            <Coins className="w-3.5 h-3.5 text-amber-500" />
+            <span className="font-mono font-bold text-xs">{formatNumber(uiProfile.points ?? 0)}</span>
+          </div>
           {/* Command Center icon (PC/tablet only) */}
           <button
             className={`hidden sm:inline-flex p-2 ml-2 rounded-full border border-white/10 transition-colors ${view === 'command-center' ? 'bg-indigo-500/20 text-indigo-400 scale-110 shadow-[0_0_12px_rgba(99,102,241,0.15)]' : 'text-slate-400 hover:text-indigo-300 hover:bg-white/10'}`}
@@ -398,7 +406,15 @@ const App = () => {
             <Layers className="w-6 h-6" />
           </button>
           <div className="flex items-center gap-3 pl-2 border-l border-white/10">
-            <button className="relative p-2 hover:bg-white/5 rounded-full transition-colors group"><Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" /></button>
+            {/* Chat button: only enabled if unlocked */}
+            <button
+              className={`relative p-2 rounded-full transition-colors group ${unlockedFeatures.includes('chat') ? 'hover:bg-white/5' : 'opacity-40 cursor-not-allowed'}`}
+              onClick={unlockedFeatures.includes('chat') ? () => setIsChatOpen(true) : undefined}
+              title={unlockedFeatures.includes('chat') ? 'Open Chat' : 'Unlock at Level 2'}
+            >
+              <Bell className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+              <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full ring-2 ring-[#020617]" />
+            </button>
             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[1px] cursor-pointer hover:scale-105 transition-transform hidden sm:block" onClick={() => handleViewProfile(USER_PROFILE)}>
               <div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden">
                 {USER_PROFILE.avatarUrl ? (
@@ -473,7 +489,8 @@ const App = () => {
 
       {/* Floating Chat Overlay */}
       <div className="fixed bottom-24 sm:bottom-6 right-6 z-[60] flex flex-col items-end gap-4">
-        {isChatOpen && (
+        {/* Show chat only if unlocked */}
+        {isChatOpen && unlockedFeatures.includes('chat') && (
             <div className="w-80 sm:w-96 h-[500px] bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]"><div className="flex items-center gap-3"><div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center"><BrainCircuit className="w-5 h-5 text-white" /></div><div><p className="font-black text-white text-sm">Context Chat</p><p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Online</p></div></div><button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-white/10 rounded-full text-slate-400"><X className="w-5 h-5" /></button></div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
