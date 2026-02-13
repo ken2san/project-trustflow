@@ -121,82 +121,49 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-up">
             <div className="relative w-full max-w-lg mx-auto bg-[#181c2a] rounded-2xl shadow-2xl border border-indigo-500/20 p-8 flex flex-col items-center">
               <button className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/60 hover:bg-slate-700 text-slate-300" onClick={() => setShowUnlockModal(false)}><X className="w-5 h-5" /></button>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 w-full mb-6">
-                <div className="flex-1 min-w-[180px]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Unlock className="w-5 h-5 text-emerald-400 animate-bounce" />
-                    <span className="text-base font-black text-emerald-200 tracking-wide">Feature Progress</span>
-                  </div>
-                  <div className="relative w-full h-4 bg-slate-800/80 rounded-full overflow-hidden shadow-inner">
-                    <div className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-400 via-indigo-400 to-indigo-700 rounded-full transition-all duration-700" style={{ width: `${progressPercent}%` }} />
-                    <div className="absolute left-0 top-0 w-full h-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-emerald-200 drop-shadow">Level {userLevel} / {maxLevel}</span>
-                    </div>
+              <div className="flex flex-col gap-4 w-full mb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Unlock className="w-5 h-5 text-emerald-400 animate-bounce" />
+                  <span className="text-base font-black text-emerald-200 tracking-wide">Feature Progress</span>
+                </div>
+                <div className="relative w-full h-4 bg-slate-800/80 rounded-full overflow-hidden shadow-inner">
+                  <div className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-400 via-indigo-400 to-indigo-700 rounded-full transition-all duration-700" style={{ width: `${progressPercent}%` }} />
+                  <div className="absolute left-0 top-0 w-full h-full flex items-center justify-center">
+                    <span className="text-xs font-bold text-emerald-200 drop-shadow">Level {userLevel} / {maxLevel}</span>
                   </div>
                 </div>
-                {nextUnlocks.length > 0 && (
-                  <div className="flex-1 min-w-[180px] flex flex-col items-start md:items-end">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Sparkles className="w-5 h-5 text-emerald-300 animate-bounce" />
-                      <span className="text-sm font-bold text-indigo-200">Next Unlocks at Level {nextUnlockLevel}:</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-                      {nextUnlocks.map(f => {
-                        const Icon = featureIcons[f.key] || Unlock;
-                        return (
-                          <span key={f.key} className="flex items-center gap-2 px-2 py-1 rounded bg-indigo-700/60 text-indigo-100 text-xs font-bold border border-indigo-400/20 min-w-0 break-words whitespace-normal">
-                            <Icon className="w-4 h-4 text-emerald-200 shrink-0" />
-                            <span className="break-words whitespace-normal">{f.label}</span>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {/* Level Tabs */}
+                <div className="flex flex-wrap gap-2 justify-center mt-2">
+                  {FEATURE_UNLOCKS.map(fu => (
+                    <button
+                      key={fu.level}
+                      className={`px-4 py-1 rounded-full font-bold text-xs border transition-all duration-200 ${fu.level === userLevel ? 'bg-emerald-500 text-white border-emerald-500 scale-110' : 'bg-white/10 text-emerald-200 border-white/10 hover:bg-emerald-400/10 hover:text-emerald-500'}`}
+                      onClick={() => setShowUnlockModal(fu.level)}
+                      type="button"
+                    >
+                      Lv.{fu.level}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="w-full grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {/* Unlocked Features */}
-                <div>
-                  <div className="mb-1 text-xs text-emerald-300 font-bold flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 animate-pulse text-emerald-300" /> Unlocked
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    {unlockedFeatures.map(f => {
-                      const Icon = featureIcons[f.key] || Unlock;
-                      return (
-                        <span
-                          key={f.key}
-                          className="group flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-emerald-700/70 text-emerald-100 text-xs font-bold border border-emerald-400/30 shadow-sm animate-fade-in-up cursor-pointer min-w-[110px] max-w-[140px] break-words whitespace-normal"
-                          title={f.label}
-                        >
-                          <Icon className="w-6 h-6 text-emerald-300" />
-                          <span className="opacity-90 group-hover:opacity-100 text-xs text-center break-words whitespace-normal leading-tight">{f.label}</span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-                {/* Locked Features */}
-                <div>
-                  <div className="mb-1 text-xs text-slate-400 font-bold flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-slate-400" /> Locked
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    {lockedFeatures.map(f => {
-                      const Icon = featureIcons[f.key] || Lock;
-                      return (
-                        <span
-                          key={f.key}
-                          className="group flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-slate-700/60 text-slate-300 text-xs font-bold border border-slate-400/20 opacity-60 cursor-not-allowed min-w-[110px] max-w-[140px] break-words whitespace-normal"
-                          title={f.label}
-                        >
-                          <Icon className="w-6 h-6 text-slate-400" />
-                          <span className="opacity-90 group-hover:opacity-100 text-xs text-center break-words whitespace-normal leading-tight">{f.label} <span className="ml-1 text-xs text-slate-400">Lv.{f.level}</span></span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
+              {/* Features for selected level */}
+              <div className="w-full flex flex-wrap justify-center gap-4 mt-2">
+                {(FEATURE_UNLOCKS.find(fu => fu.level === (typeof showUnlockModal === 'number' ? showUnlockModal : userLevel))?.features || []).map(f => {
+                  const Icon = featureIcons[f.key] || Unlock;
+                  const unlocked = userLevel >= (typeof showUnlockModal === 'number' ? showUnlockModal : userLevel);
+                  return (
+                    <span
+                      key={f.key}
+                      className={`group flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border shadow-sm min-w-[120px] max-w-[180px] ${unlocked ? 'bg-emerald-700/70 text-emerald-100 font-bold border-emerald-400/30 cursor-pointer' : 'bg-slate-700/60 text-slate-300 font-bold border-slate-400/20 opacity-60 cursor-not-allowed'}`}
+                      title={f.label}
+                    >
+                      <Icon className={`w-8 h-8 mb-1 ${unlocked ? 'text-emerald-300' : 'text-slate-400'}`} />
+                      <span className="opacity-90 group-hover:opacity-100 text-sm text-center break-words whitespace-normal leading-tight line-clamp-2 w-full">
+                        {f.label} {!unlocked && <span className="ml-1 text-xs text-slate-400">Lv.{typeof showUnlockModal === 'number' ? showUnlockModal : userLevel}</span>}
+                      </span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>
