@@ -80,16 +80,9 @@ import { formatNumber } from './lib/utils';
    2. CUSTOM HOOKS
    ======================================================================== */
 
-const useInterval = (callback, delay) => {
-  const savedCallback = useRef();
-  useEffect(() => { savedCallback.current = callback; }, [callback]);
-  useEffect(() => {
-    if (delay !== null) {
-      const id = setInterval(() => savedCallback.current(), delay);
-      return () => clearInterval(id);
-    }
-  }, [delay]);
-};
+
+// useInterval moved to hooks/useInterval.js
+import useInterval from './hooks/useInterval';
 
 /* ========================================================================
    3. UI COMPONENTS (ATOMS & MOLECULES)
