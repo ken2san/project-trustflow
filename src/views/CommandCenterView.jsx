@@ -1,5 +1,7 @@
-import React from "react";
-import { Sparkles as SparklesIcon, AlertTriangle as AlertTriangleIcon, User } from "lucide-react";
+
+import React, { useState } from 'react';
+import { User, Sparkles, AlertTriangle, Lock, Unlock, Award, Wallet, MessageSquare, BarChart4, Palette, Users, Bot, BadgeCheck, KeyRound, Globe, Star, X } from 'lucide-react';
+import { FEATURE_UNLOCKS } from '../lib/featureUnlocks';
 
 // Command Center: Unified dashboard for operations and mission logs
 const AI_INSIGHT = {
@@ -15,6 +17,46 @@ const AI_RATIONALE = {
 };
 
 const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperationClick, strategy, onStrategyChange, unifiedProfile, onViewProfile }) => {
+  // Defensive: If unifiedProfile is missing/null, render fallback UI
+  if (!unifiedProfile || typeof unifiedProfile !== 'object') {
+    return (
+      <div className="p-8 text-center text-red-400 font-bold">
+        User profile data is unavailable. Please reload or check your account.
+      </div>
+    );
+  }
+  // --- Feature Unlock Progress ---
+  const userLevel = unifiedProfile?.level || 1;
+  // Icon mapping for features (add/adjust as needed)
+    // Modal state for unlock info
+    const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const featureIcons = {
+    profile: User,
+    contract: Award,
+    wallet: Wallet,
+    chat: MessageSquare,
+    aiSuggest: Bot,
+    analytics: BarChart4,
+    badges: BadgeCheck,
+    theme: Palette,
+    community: Users,
+    aiNegotiation: KeyRound,
+    exclusiveBadge: Star,
+    trustAnalysis: Globe,
+    apiIntegration: Unlock,
+  };
+  const unlockedFeatures = FEATURE_UNLOCKS
+    .filter(fu => fu.level <= userLevel)
+    .flatMap(fu => fu.features.map(f => f));
+  const lockedFeatures = FEATURE_UNLOCKS
+    .filter(fu => fu.level > userLevel)
+    .flatMap(fu => fu.features.map(f => ({ ...f, level: fu.level })));
+  const nextUnlockLevel = lockedFeatures.length > 0 ? lockedFeatures[0].level : null;
+  const nextUnlocks = FEATURE_UNLOCKS.find(fu => fu.level === nextUnlockLevel)?.features || [];
+
+  // Progress bar calculation
+  const maxLevel = FEATURE_UNLOCKS[FEATURE_UNLOCKS.length - 1].level;
+  const progressPercent = Math.min((userLevel / maxLevel) * 100, 100);
   // Filter and sort operations based on selected strategy
   let sortedOps = [...activeOperations];
   if (strategy === 'Conservative') {
@@ -35,7 +77,7 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
 
   return (
     <div className="space-y-12 animate-fade-in-up">
-      {/* User Parameter Summary */}
+      {/* User Parameter Summary & Feature Unlock Progress */}
       {unifiedProfile && (
         <div className="mb-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-10 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-900/80 to-emerald-900/60 border border-indigo-500/10 shadow-lg">
           <div className="flex flex-wrap items-center gap-4">
@@ -62,11 +104,99 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
           </button>
         </div>
       )}
+
+      {/* Feature Progress Button & Modal */}
+      <div className="mb-8">
+        <button
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-700 via-indigo-700 to-indigo-900 text-white font-bold shadow hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          onClick={() => setShowUnlockModal(true)}
+          type="button"
+        >
+          <Unlock className="w-5 h-5 text-emerald-300 animate-bounce" />
+          Feature Progress
+        </button>
+
+        {/* Modal for unlock info */}
+        {showUnlockModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-up">
+            <div className="relative w-full max-w-lg mx-auto bg-[#181c2a] rounded-2xl shadow-2xl border border-indigo-500/20 p-8 flex flex-col items-center">
+              <button className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/60 hover:bg-slate-700 text-slate-300" onClick={() => setShowUnlockModal(false)}><X className="w-5 h-5" /></button>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 w-full mb-6">
+                <div className="flex-1 min-w-[180px]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Unlock className="w-5 h-5 text-emerald-400 animate-bounce" />
+                    <span className="text-base font-black text-emerald-200 tracking-wide">Feature Progress</span>
+                  </div>
+                  <div className="relative w-full h-4 bg-slate-800/80 rounded-full overflow-hidden shadow-inner">
+                    <div className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-400 via-indigo-400 to-indigo-700 rounded-full transition-all duration-700" style={{ width: `${progressPercent}%` }} />
+                    <div className="absolute left-0 top-0 w-full h-full flex items-center justify-center">
+                      <span className="text-xs font-bold text-emerald-200 drop-shadow">Level {userLevel} / {maxLevel}</span>
+                    </div>
+                  </div>
+                </div>
+                {nextUnlocks.length > 0 && (
+                  <div className="flex-1 min-w-[180px] flex flex-col items-start md:items-end">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles className="w-5 h-5 text-emerald-300 animate-bounce" />
+                      <span className="text-sm font-bold text-indigo-200">Next Unlocks at Level {nextUnlockLevel}:</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:gap-2">
+                      {nextUnlocks.map(f => {
+                        const Icon = featureIcons[f.key] || Unlock;
+                        return (
+                          <span key={f.key} className="flex items-center gap-1 px-2 py-1 rounded bg-indigo-700/60 text-indigo-100 text-xs font-bold border border-indigo-400/20">
+                            <Icon className="w-3.5 h-3.5 text-emerald-200" />
+                            {f.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="w-full grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <div className="mb-1 text-xs text-emerald-300 font-bold flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 animate-pulse text-emerald-300" /> Unlocked
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {unlockedFeatures.map(f => {
+                      const Icon = featureIcons[f.key] || Unlock;
+                      return (
+                        <span key={f.key} className="group flex flex-col items-center gap-1 px-2 py-2 rounded-xl bg-emerald-700/70 text-emerald-100 text-xs font-bold border border-emerald-400/30 shadow-sm animate-fade-in-up cursor-pointer" title={f.label}>
+                          <Icon className="w-6 h-6 text-emerald-300" />
+                          <span className="opacity-80 group-hover:opacity-100 text-[11px] text-center whitespace-nowrap">{f.label}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-slate-400 font-bold flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-slate-400" /> Locked
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {lockedFeatures.map(f => {
+                      const Icon = featureIcons[f.key] || Lock;
+                      return (
+                        <span key={f.key} className="group flex flex-col items-center gap-1 px-2 py-2 rounded-xl bg-slate-700/60 text-slate-300 text-xs font-bold border border-slate-400/20 opacity-60 cursor-not-allowed" title={f.label}>
+                          <Icon className="w-6 h-6 text-slate-400" />
+                          <span className="opacity-80 group-hover:opacity-100 text-[11px] text-center whitespace-nowrap">{f.label} <span className="ml-1 text-xs text-slate-400">Lv.{f.level}</span></span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       {/* AI Action Suggestion and Smart Notification */}
       <div className="mb-6">
         {aiActionSuggestion && (
           <div className="mb-2 px-4 py-3 rounded-xl bg-emerald-900/60 border border-emerald-500/20 flex items-center gap-3">
-            <SparklesIcon className="w-5 h-5 text-emerald-300 mr-2" />
+            <Sparkles className="w-5 h-5 text-emerald-300 mr-2" />
             <span className="text-xs text-emerald-100 font-semibold">{aiActionSuggestion}</span>
             {nextOp && (
               <button
@@ -81,7 +211,7 @@ const CommandCenterView = ({ activeOperations = [], missionLogs = [], onOperatio
         )}
         {smartNotification && (
           <div className="mt-2 px-4 py-2 rounded-lg bg-rose-900/60 border border-rose-500/20 flex items-center gap-2">
-            <AlertTriangleIcon className="w-4 h-4 text-rose-300 mr-2" />
+            <AlertTriangle className="w-4 h-4 text-rose-300 mr-2" />
             <span className="text-xs text-rose-100 font-medium">{smartNotification}</span>
           </div>
         )}

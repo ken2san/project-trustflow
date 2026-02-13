@@ -53,6 +53,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { initialUIProfileStats, initialInternalProfileStats } from './lib/profileInitialData';
+import { FEATURE_UNLOCKS } from './lib/featureUnlocks';
 import {
   ShieldCheck, ArrowRight, Lock, Unlock, CheckCircle2, AlertCircle,
   MessageSquare, Wallet, Coins, PlusCircle, Search, Sparkles, Zap,
@@ -188,10 +189,23 @@ const App = () => {
   const [mode, setMode] = useState('earner');
   const [view, setView] = useState('marketplace');
   const [step, setStep] = useState(1);
+
   // UI用プロフィール状態
   const [uiProfile, setUIProfile] = useState(initialUIProfileStats);
   // 内部用プロフィール状態
   const [internalProfile, setInternalProfile] = useState(initialInternalProfileStats);
+
+  // --- Feature Unlock Progress State ---
+  // Option 1: Just use level from uiProfile, but allow for future extensibility
+  const userLevel = uiProfile.level || 1;
+  // Compute unlocked features (flattened array of feature keys)
+  const unlockedFeatures = FEATURE_UNLOCKS
+    .filter(fu => fu.level <= userLevel)
+    .flatMap(fu => fu.features.map(f => f.key));
+  // Compute locked features (flattened array of {key, label, level})
+  const lockedFeatures = FEATURE_UNLOCKS
+    .filter(fu => fu.level > userLevel)
+    .flatMap(fu => fu.features.map(f => ({ ...f, level: fu.level })));
 
   // Returns a minimal AI-ready user profile payload
   // Returns only internal profile data for AI extraction
@@ -447,7 +461,7 @@ const App = () => {
             }}
             strategy={strategy}
             onStrategyChange={setStrategy}
-            unifiedProfile={unifiedProfile}
+            unifiedProfile={unifiedProfile || { level: 1, badges: [], trustScore: 0, avgRating: 0, skillEndorsements: {}, repeatClients: 0, responseSpeed: '', reliability: 0 }}
             onViewProfile={() => {
               setProfileData(unifiedProfile);
               setIsProfileOpen(true);
