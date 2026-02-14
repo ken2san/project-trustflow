@@ -218,17 +218,20 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
 
     return (
     <div className="animate-fade-in-up space-y-16">
-        <div className="mb-16 flex justify-between items-center max-w-2xl mx-auto relative px-4">
+        <div className="mb-16 flex flex-wrap justify-between items-center max-w-2xl mx-auto relative px-2 sm:px-4 gap-2">
             {STEPS_DATA.map((s, idx) => (
                 <React.Fragment key={s.id}>
-                    <div className="flex flex-col items-center z-10"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 transition-all duration-700 ${step > s.id ? 'bg-emerald-500 text-white shadow-lg' : step === s.id ? 'bg-indigo-600 text-white scale-110 shadow-2xl' : 'bg-slate-800 border border-white/5 text-slate-600'}`}>{step > s.id ? <CheckCircle2 className="w-6 h-6" /> : <span className="font-black italic text-lg tracking-tighter">{s.id}</span>}</div><span className={`text-[9px] font-black uppercase tracking-[0.2em] ${step === s.id ? 'text-white' : 'text-slate-600'}`}>{s.label}</span></div>
+                    <div className="flex flex-col items-center z-10">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-2 sm:mb-3 transition-all duration-700 ${step > s.id ? 'bg-emerald-500 text-white shadow-lg' : step === s.id ? 'bg-indigo-600 text-white scale-110 shadow-2xl' : 'bg-slate-800 border border-white/5 text-slate-600'}`}>{step > s.id ? <CheckCircle2 className="w-6 h-6" /> : <span className="font-black italic text-lg tracking-tighter">{s.id}</span>}</div>
+                        <span className={`text-[10px] sm:text-[9px] font-black uppercase tracking-[0.2em] ${step === s.id ? 'text-white' : 'text-slate-600'}`}>{s.label}</span>
+                    </div>
                     {idx < STEPS_DATA.length - 1 && (<div className="flex-1 h-0.5 bg-slate-800 mx-2 -mt-10 relative overflow-hidden"><div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: step > s.id ? '100%' : '0%' }} /></div>)}
                 </React.Fragment>
             ))}
         </div>
 
 
-        <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[56px] p-8 sm:p-16 border border-white/[0.05] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
+        <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[32px] sm:rounded-[56px] p-4 sm:p-16 border border-white/[0.05] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
             {step === 1 && (
                 <div className="space-y-10 animate-fade-in-up">
                     <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2>
@@ -427,21 +430,21 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                                 </div>
                             )}
                             {/* Always show History Panel */}
-                            <div className="max-w-2xl mx-auto mt-12 bg-slate-800/60 rounded-2xl p-6 text-left">
-                                <h4 className="text-lg font-bold text-white mb-4">Contract History</h4>
-                                <ul className="space-y-2">
+                            <div className="max-w-2xl mx-auto mt-8 sm:mt-12 bg-slate-800/60 rounded-xl sm:rounded-2xl p-3 sm:p-6 text-left overflow-x-auto">
+                                <h4 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Contract History</h4>
+                                <ul className="space-y-1 sm:space-y-2">
                                     {deliverables.map((d, i) => (
-                                        <li key={`d-${i}`} className="text-xs text-indigo-300 flex gap-2 items-center">
-                                            <span className="font-bold uppercase text-indigo-400">DELIVERABLE</span>
-                                            <span>Version {d.version}: {d.message}</span>
+                                        <li key={`d-${i}`} className="text-xs sm:text-sm text-indigo-300 flex flex-wrap gap-1 sm:gap-2 items-center">
+                                            <span className="font-bold uppercase text-indigo-400 bg-indigo-900/40 px-2 py-1 rounded">DELIVERABLE</span>
+                                            <span className="break-all">Version {d.version}: {d.message}</span>
                                             <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
                                             <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
                                         </li>
                                     ))}
                                     {history.map((h, i) => (
-                                        <li key={`h-${i}`} className="text-xs text-slate-300 flex gap-2 items-center">
-                                            <span className={`font-bold uppercase ${h.type==='reject' ? 'text-red-400' : h.type==='re-delivery' ? 'text-yellow-400' : 'text-slate-400'}`}>{h.type}</span>
-                                            <span>{h.message}</span>
+                                        <li key={`h-${i}`} className="text-xs sm:text-sm text-slate-300 flex flex-wrap gap-1 sm:gap-2 items-center">
+                                            <span className={`font-bold uppercase px-2 py-1 rounded ${h.type==='reject' ? 'bg-red-900/40 text-red-300' : h.type==='re-delivery' ? 'bg-yellow-900/40 text-yellow-200' : h.type==='dispute' ? 'bg-red-700/60 text-white' : 'bg-slate-700/40 text-slate-200'}`}>{h.type}</span>
+                                            <span className="break-all">{h.message}</span>
                                             <span className="text-slate-500">({new Date(h.timestamp).toLocaleString()})</span>
                                             <span className="text-slate-500">[{h.actor}]</span>
                                         </li>
