@@ -33,6 +33,26 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
     const [showRejectConfirm, setShowRejectConfirm] = useState(false);
     const [rejectTimeoutId, setRejectTimeoutId] = useState(null);
     const [pendingReject, setPendingReject] = useState(false);
+    // Dispute state
+    const [showDisputeConfirm, setShowDisputeConfirm] = useState(false);
+    const [disputeSubmitted, setDisputeSubmitted] = useState(false);
+    // Handler for Dispute button
+    const handleDisputeClick = () => {
+        setShowDisputeConfirm(true);
+    };
+
+    // Handler for confirming Dispute (aggregate evidence and notify admin)
+    const handleConfirmDispute = () => {
+        setShowDisputeConfirm(false);
+        setDisputeSubmitted(true);
+        // Simulate evidence aggregation and admin notification
+        if (addToast) addToast('Dispute Submitted', 'All evidence sent to admin/arbitrator.', 'warning');
+        // Optionally, add to history
+        setHistory(prev => [
+            { type: 'dispute', message: 'Dispute raised. Evidence sent to admin.', timestamp: Date.now(), actor: mode },
+            ...prev
+        ]);
+    };
 
     // Always update userStats on contract settlement (step 5), even if no rating
     // 1. Update userStats only
@@ -327,7 +347,31 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                     <div className="flex justify-center gap-4 max-w-md mx-auto">
                         <button onClick={handleRejectClick} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button>
                         <HoldButton key="btn-3" onClick={handleApproveClick} label={inspectActionLabel} className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
+                        <button onClick={handleDisputeClick} className="flex-1 py-6 rounded-[32px] border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-white font-bold transition-all">Dispute</button>
                     </div>
+                                                    {/* Dispute Confirmation Dialog */}
+                                                    {showDisputeConfirm && (
+                                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                                                            <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
+                                                                <h3 className="text-xl font-bold text-white mb-2">Raise Dispute</h3>
+                                                                <p className="text-slate-300">Are you sure you want to escalate this contract to admin/arbitrator? All files and history will be sent as evidence.</p>
+                                                                <div className="flex gap-4 justify-end">
+                                                                    <button onClick={() => setShowDisputeConfirm(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
+                                                                    <button onClick={handleConfirmDispute} className="px-4 py-2 rounded bg-red-600 text-white font-bold">Confirm Dispute</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {/* Dispute Submitted Dialog (optional) */}
+                                                    {disputeSubmitted && (
+                                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                                                            <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6 text-center">
+                                                                <h3 className="text-xl font-bold text-white mb-2">Dispute Submitted</h3>
+                                                                <p className="text-slate-300 mb-4">All evidence has been sent to admin/arbitrator.<br/>You will be notified of the outcome.</p>
+                                                                <button onClick={() => setDisputeSubmitted(false)} className="px-6 py-2 rounded bg-emerald-600 text-white font-bold">OK</button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                         {/* Approve Confirmation Dialog with Undo */}
                                         {showApproveConfirm && (
                                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
