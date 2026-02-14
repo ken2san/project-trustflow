@@ -13,9 +13,14 @@ const STEPS_DATA = [
 ];
 
 
+
 const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode }) => {
     const [rating, setRating] = useState(0);
     const [hasUpdatedStats, setHasUpdatedStats] = useState(false);
+    // Deliverables state: array of {version, fileUrl, message, timestamp}
+    const [deliverables, setDeliverables] = useState([]);
+    const [uploadMessage, setUploadMessage] = useState("");
+    const [uploadFile, setUploadFile] = useState(null);
 
     // Always update userStats on contract settlement (step 5), even if no rating
     // 1. Update userStats only
@@ -97,6 +102,7 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                     <HoldButton key="btn-1" onClick={handleNextStep} label="Activate Trust Stream" icon={ArrowRight} className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" color="white" disabled={status !== 'idle'} />
                 </div>
             )}
+
             {step === 2 && (
                 <div className="space-y-10 animate-fade-in-up">
                     <div className="w-32 h-32 bg-indigo-500/10 rounded-[48px] flex items-center justify-center border border-indigo-500/20 rotate-12 mx-auto">
@@ -106,12 +112,24 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                     <p className="text-slate-400 text-lg mb-6">{escrowDesc}</p>
                     {isHirer ? (
                         <div className="max-w-md mx-auto space-y-4">
-                            {/* Awaiting deliverables, show download if available */}
                             <div className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 bg-slate-900/30">
-                                <h3 className="text-xl font-black text-white">Awaiting Provider Upload</h3>
-                                {/* TODO: Add download button if file exists */}
+                                <h3 className="text-xl font-black text-white">{deliverables.length === 0 ? 'Awaiting Provider Upload' : 'Deliverables Submitted'}</h3>
+                                {deliverables.length > 0 && (
+                                    <>
+                                        <ul className="mb-2 w-full text-left">
+                                            {deliverables.map((d, i) => (
+                                                <li key={i} className="flex items-center gap-2 text-xs text-slate-300 mb-1">
+                                                    <span className="font-bold">Version {d.version}:</span>
+                                                    <span>{d.message}</span>
+                                                    <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
+                                                    <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </>
+                                )}
                             </div>
-                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">You will be notified when files are submitted.</p>
+                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{deliverables.length === 0 ? 'You will be notified when files are submitted.' : 'You can download submitted files.'}</p>
                             <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} />
                         </div>
                     ) : (
@@ -124,16 +142,50 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                                     </svg>
                                     <span className="absolute text-2xl font-black text-white">{uploadProgress}%</span>
                                 </div>
-                                <p className="text-indigo-400 font-black tracking-widest uppercase animate-pulse">Scanning Artifacts...</p>
+                                <p className="text-indigo-400 font-black tracking-widest uppercase animate-pulse">Uploading...</p>
                             </div>
                         ) : (
                             <div className="max-w-md mx-auto space-y-4">
-                                <div className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 hover:border-indigo-500/50 hover:bg-white/5 transition-all cursor-pointer group" onClick={handleFileUpload}>
+                                <form className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 bg-slate-900/30 w-full" onSubmit={e => {
+                                    e.preventDefault();
+                                    if (!uploadFile) return;
+                                    // Simulate upload and URL creation
+                                    const url = URL.createObjectURL(uploadFile);
+                                    setDeliverables(prev => [
+                                        ...prev,
+                                        {
+                                            version: prev.length + 1,
+                                            fileUrl: url,
+                                            message: uploadMessage || `Deliverable v${prev.length + 1}`,
+                                            timestamp: Date.now()
+                                        }
+                                    ]);
+                                    setUploadFile(null);
+                                    setUploadMessage("");
+                                    if (addToast) addToast('File Uploaded', 'Deliverable submitted successfully.', 'success');
+                                }}>
                                     <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                                         <UploadCloud className="w-8 h-8 text-indigo-400" />
                                     </div>
-                                    <h3 className="text-xl font-black text-white">{escrowLabel}</h3>
-                                </div>
+                                    <input type="file" className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" onChange={e => setUploadFile(e.target.files[0])} required />
+                                    <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Delivery message (required)" value={uploadMessage} onChange={e => setUploadMessage(e.target.value)} required />
+                                    <button type="submit" className="mt-2 px-6 py-2 bg-indigo-600 text-white rounded-full font-bold hover:bg-emerald-500 transition-colors">Submit Deliverable</button>
+                                </form>
+                                {deliverables.length > 0 && (
+                                    <div className="w-full mt-4">
+                                        <h4 className="text-xs font-bold text-slate-400 mb-2">Previous Deliverables</h4>
+                                        <ul className="text-left">
+                                            {deliverables.map((d, i) => (
+                                                <li key={i} className="flex items-center gap-2 text-xs text-slate-300 mb-1">
+                                                    <span className="font-bold">Version {d.version}:</span>
+                                                    <span>{d.message}</span>
+                                                    <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
+                                                    <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Or skip to next phase</p>
                                 <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} />
                             </div>
