@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from "react";
+import React from "react";
+import { useContractWorkflow } from "../hooks/useContractWorkflow";
 import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
 
@@ -14,28 +15,24 @@ const STEPS_DATA = [
 
 
 
-const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode }) => {
-    const [rating, setRating] = useState(0);
-    const [hasUpdatedStats, setHasUpdatedStats] = useState(false);
-    // Deliverables state: array of {version, fileUrl, message, timestamp}
-    const [deliverables, setDeliverables] = useState([]);
-    const [uploadMessage, setUploadMessage] = useState("");
-    const [uploadFile, setUploadFile] = useState(null);
-    // Reject & re-delivery state
-    const [showRejectModal, setShowRejectModal] = useState(false);
-    const [rejectReason, setRejectReason] = useState("");
-    // History: array of {type, message, timestamp, actor}
-    const [history, setHistory] = useState([]);
-    // Confirm dialog & Undo state
-    const [showApproveConfirm, setShowApproveConfirm] = useState(false);
-    const [approveTimeoutId, setApproveTimeoutId] = useState(null);
-    const [pendingApprove, setPendingApprove] = useState(false);
-    const [showRejectConfirm, setShowRejectConfirm] = useState(false);
-    const [rejectTimeoutId, setRejectTimeoutId] = useState(null);
-    const [pendingReject, setPendingReject] = useState(false);
-    // Dispute state
-    const [showDisputeConfirm, setShowDisputeConfirm] = useState(false);
-    const [disputeSubmitted, setDisputeSubmitted] = useState(false);
+const ContractView = (props) => {
+    const {
+        step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode
+    } = props;
+    // Use custom hook for all workflow state/logic
+    const workflow = useContractWorkflow({
+        step, setUserStats, userStats, addToast, triggerLevelUp, triggerParamUp, mode, handleNextStep, handleReject, status
+    });
+    // Destructure all state/handlers from hook for use in UI
+    const {
+        rating, setRating, hasUpdatedStats, deliverables, setDeliverables,
+        uploadMessage, setUploadMessage, uploadFile, setUploadFile,
+        showRejectModal, setShowRejectModal, rejectReason, setRejectReason,
+        history, setHistory,
+        showApproveConfirm, setShowApproveConfirm, approveTimeoutId, setApproveTimeoutId, pendingApprove, setPendingApprove,
+        showRejectConfirm, setShowRejectConfirm, rejectTimeoutId, setRejectTimeoutId, pendingReject, setPendingReject,
+        showDisputeConfirm, setShowDisputeConfirm, disputeSubmitted, setDisputeSubmitted
+    } = workflow;
     // Handler for Dispute button
     const handleDisputeClick = () => {
         setShowDisputeConfirm(true);
@@ -54,54 +51,7 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
         ]);
     };
 
-    // Always update userStats on contract settlement (step 5), even if no rating
-    // 1. Update userStats only
-    React.useEffect(() => {
-        if (step === 5 && setUserStats && userStats && !hasUpdatedStats) {
-            setUserStats(prev => {
-                const newCompleted = (prev.completedContracts || 0) + 1;
-                const newExp = (prev.exp || 0) + 50 + (rating * 10);
-                const newAvgRating = prev.completedContracts
-                    ? ((prev.avgRating * prev.completedContracts + (rating || prev.avgRating)) / newCompleted)
-                    : (rating || prev.avgRating);
-                // Level up if exp threshold reached (demo: every 50 exp for testing)
-                const expForNextLevel = 50;
-                const leveledUp = Math.floor(newExp / expForNextLevel) > Math.floor((prev.exp || 0) / expForNextLevel);
-                // Store leveledUp in a ref for use in next effect
-                window.__lastLeveledUp = leveledUp;
-                return {
-                    ...prev,
-                    exp: newExp,
-                    level: prev.level + (leveledUp ? 1 : 0),
-                    completedContracts: newCompleted,
-                    avgRating: rating > 0 ? parseFloat(newAvgRating.toFixed(2)) : prev.avgRating,
-                    recentHistory: [
-                        { type: 'contract', rating, date: new Date().toISOString() },
-                        ...(prev.recentHistory || [])
-                    ].slice(0, 10)
-                };
-            });
-            setHasUpdatedStats(true);
-        }
-        // eslint-disable-next-line
-    }, [step, rating, setUserStats, userStats, hasUpdatedStats]);
 
-    // 2. Handle side effects (animation, toast) after userStats update
-    React.useEffect(() => {
-        if (step === 5 && hasUpdatedStats) {
-            const leveledUp = window.__lastLeveledUp;
-            setTimeout(() => {
-                if (leveledUp) {
-                    if (triggerLevelUp) triggerLevelUp();
-                    if (addToast) addToast('Level Up!', `You reached level ${(userStats.level) + 1}.`, 'success');
-                } else {
-                    if (triggerParamUp) triggerParamUp();
-                    if (addToast) addToast('Profile Updated', 'Your Trust Score has been updated.', 'info');
-                }
-            }, 100);
-        }
-        // eslint-disable-next-line
-    }, [step, hasUpdatedStats]);
 
     // Mode-specific UI helpers
     const isHirer = mode === 'hirer';
