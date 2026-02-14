@@ -11,12 +11,13 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const handleAgreement = () => {
+    if (agreed || loading) return;
     setLoading(true);
     setTimeout(() => {
-      setAgreed(true);
+      if (typeof setAgreed === 'function') setAgreed(true);
       setLoading(false);
       setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Contract flow initiated.", type: "success" }]);
-      if (onAgreement) onAgreement();
+      if (onAgreement) onAgreement(); // Immediately transition to ScopingView
     }, 1200);
   };
 
@@ -86,10 +87,18 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
             className="px-4 py-2 rounded-full bg-pink-600 text-white text-base font-extrabold shadow-lg hover:bg-pink-700 transition-all border-2 border-white/30"
             style={{ minWidth: 160 }}
             onClick={onOpenChat}
+            disabled={agreed}
+            title={agreed ? "Agreement already formed. Chat is locked." : "Open Full Chat"}
           >
             Open Full Chat
           </button>
         </div>
+        {/* Only show confirmation label below, not above chat */}
+        {/* {agreed && (
+          <div className="px-6 py-2 bg-emerald-100 text-emerald-700 font-bold text-center text-sm border-b border-emerald-200 mb-4">
+            Contract Protocol Confirmed. Chat is now locked for evidence.
+          </div>
+        )} */}
         <div className="bg-white/[0.02] rounded-2xl p-6 border border-white/10 shadow-lg">
           <div className="h-48 overflow-y-auto mb-4 space-y-3">
             {messages.map((msg, idx) => (
@@ -124,16 +133,28 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
             Back to Marketplace
           </button>
           <div className="flex flex-col items-center">
-            <button
-              className={`px-8 py-4 rounded-full font-black text-lg transition-all shadow-xl ${agreed ? "bg-emerald-500 text-white" : "bg-indigo-500 text-white hover:bg-indigo-600"}`}
-              onClick={handleAgreement}
-              disabled={agreed || loading}
-              title={agreed ? "Agreement already formed" : "Start contract protocol"}
-            >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : (agreed ? "Agreement Formed" : "Initiate Protocol")}
-            </button>
+            {/* Only show Initiate Contract button before agreement */}
             {!agreed && (
-              <span className="mt-3 text-sm text-slate-400 font-medium text-center">Initiate contract flow after negotiation is complete.<br className="hidden md:block" /> Please review all terms before proceeding.</span>
+              <button
+                className={`px-8 py-4 rounded-full font-black text-lg transition-all shadow-xl bg-indigo-500 text-white hover:bg-indigo-600`}
+                onClick={handleAgreement}
+                disabled={loading}
+                title={loading ? "Processing..." : "Initiate Contract"}
+              >
+                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : "Initiate Contract"}
+              </button>
+            )}
+            {agreed && (
+              <div className="mt-4 text-center">
+                <div className="px-6 py-2 bg-emerald-100 text-emerald-700 font-bold rounded-full mb-2">Contract Confirmed. Chat is now locked for evidence.</div>
+                <button
+                  className="px-6 py-2 rounded-full bg-indigo-600 text-white font-bold shadow hover:bg-indigo-700 transition-all mt-4"
+                  onClick={onAgreement}
+                  title="Initiate Contract"
+                >
+                  Initiate Contract
+                </button>
+              </div>
             )}
           </div>
         </div>

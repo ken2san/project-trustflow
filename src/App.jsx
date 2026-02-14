@@ -456,11 +456,15 @@ const App = () => {
           <ProjectDetailView
             project={projectDetail}
             negotiationHistory={[]}
-            onAgreement={() => { setSelectedItem(projectDetail); setView('scoping'); }}
+            onAgreement={() => {
+              setSelectedItem(projectDetail);
+              setView('scoping');
+            }}
             onBack={() => setView('marketplace')}
             onOpenChat={() => setView('negotiation-chat')}
             messages={negotiationMessages}
             agreed={negotiationAgreed}
+            setAgreed={setNegotiationAgreed}
           />
         )}
         {view === 'negotiation-chat' && (

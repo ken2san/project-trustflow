@@ -52,12 +52,17 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
       <div className="w-full max-w-2xl h-[80vh] bg-white/5 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-white/10 bg-indigo-900/80">
           <h2 className="text-xl font-black text-white tracking-tight">Negotiation Stream</h2>
-          <button onClick={onBack} className="text-slate-400 hover:text-white font-bold">Back</button>
+          <button onClick={onBack} className="text-slate-400 hover:text-white font-bold" aria-label="Back to Detail">Back</button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-transparent">
+        {agreed && (
+          <div className="px-6 py-2 bg-emerald-100 text-emerald-700 font-bold text-center text-sm border-b border-emerald-200">
+            Contract Agreement Confirmed. Chat is now locked for evidence.
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-transparent" aria-live="polite">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-md text-sm ${msg.sender === "me" ? "bg-indigo-600 text-white" : "bg-white/80 text-indigo-900"}`}>
+              <div className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-md text-sm ${msg.sender === "me" ? "bg-indigo-600 text-white" : "bg-white/80 text-indigo-900"}`} tabIndex={0} aria-label={`Message from ${msg.sender === "me" ? "You" : "Client"}`}>
                 <div className="flex items-center gap-2">
                   <span className="font-bold">{msg.sender === "me" ? "You" : "Client"}</span>
                   <span className="text-xs text-slate-400">{msg.time}</span>
@@ -69,7 +74,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
           <div ref={chatEndRef} />
         </div>
         {!agreed && (
-          <form onSubmit={handleSend} className="p-6 border-t border-white/10 bg-indigo-900/80 flex gap-3">
+          <form onSubmit={handleSend} className="p-6 border-t border-white/10 bg-indigo-900/80 flex gap-3" aria-label="Send message form">
             <textarea
               ref={textareaRef}
               className="flex-1 resize-none rounded-xl px-4 py-2 bg-white/90 text-indigo-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 min-h-[44px] max-h-32 overflow-auto"
@@ -87,13 +92,20 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
               onKeyDown={e => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSend(e);
               }}
+              aria-label="Chat message input"
             />
-            <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-xl shadow">Send</button>
+            <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-xl shadow" aria-label="Send message">Send</button>
           </form>
         )}
         {!agreed && (
           <div className="flex justify-end p-4">
-            <button onClick={handleAgreement} className="px-6 py-2 rounded-full bg-emerald-600 text-white font-bold shadow hover:bg-emerald-700 transition-all">Accept & Initiate Contract</button>
+            <button
+              onClick={handleAgreement}
+              className="px-6 py-2 rounded-full bg-indigo-600 text-white font-bold shadow hover:bg-indigo-700 transition-all"
+              aria-label="Initiate Contract"
+            >
+              Initiate Contract
+            </button>
           </div>
         )}
       </div>
