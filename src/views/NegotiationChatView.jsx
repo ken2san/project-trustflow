@@ -101,7 +101,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
           </form>
         )}
         {!agreed && (
-          <div className="flex justify-end p-4">
+          <div className="flex flex-col items-center justify-end p-4">
             <button
               onPointerDown={handleAgreement}
               disabled={isProcessing}
@@ -114,7 +114,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
               ) : null}
               Initiate Protocol
             </button>
-            <span className="text-xs text-slate-400 ml-3">Press and hold to confirm</span>
+            <span className="text-xs text-slate-400 mt-2">Press and hold to confirm</span>
           </div>
         )}
       </div>
