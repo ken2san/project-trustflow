@@ -375,7 +375,7 @@ const App = () => {
                 setView('wallet');
               } else {
                 e.preventDefault();
-                addToast('Locked', 'WalletはLevel 1でアンロックされます', 'warning');
+                addToast('Locked', 'Wallet unlocks at Level 1.', 'warning');
               }
             }}
             title={unlockedFeatures.includes('wallet') ? 'Open Wallet' : 'Unlock at Level 1'}>
@@ -408,7 +408,7 @@ const App = () => {
                     setIsChatOpen(true);
                   } else {
                     e.preventDefault();
-                    addToast('Locked', 'ChatはLevel 2でアンロックされます', 'warning');
+                    addToast('Locked', 'Chat unlocks at Level 2.', 'warning');
                   }
                 }}
                 title={userLevel >= 2 ? 'Open Chat' : 'Unlock at Level 2'}
@@ -523,7 +523,7 @@ const App = () => {
               setIsChatOpen(!isChatOpen);
             } else {
               e.preventDefault();
-              addToast('Locked', 'ChatはLevel 2でアンロックされます', 'warning');
+              addToast('Locked', 'Chat unlocks at Level 2.', 'warning');
             }
           }}
           className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)] transition-transform active:scale-95 relative ${userLevel >= 2 ? 'bg-indigo-600 text-white hover:scale-110' : 'bg-slate-700 text-slate-400 opacity-50 cursor-not-allowed'}`}
