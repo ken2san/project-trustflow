@@ -1,0 +1,103 @@
+import React, { useState, useRef, useLayoutEffect } from "react";
+import ToastContainer from "../components/ui/ToastContainer";
+
+const initialMessages = [
+  { sender: "client", text: "Thank you for your interest. Our initial budget is ¥3,000,000 for the full design system.", time: "09:00" },
+  { sender: "me", text: "Thank you. Can you clarify the scope for dark mode and atomic design compliance?", time: "09:02" },
+  { sender: "client", text: "Dark mode should cover all screens. Atomic design compliance is required for component structure.", time: "09:05", important: true },
+];
+
+
+
+export default function NegotiationChatView({ messages, setMessages, agreed, setAgreed, onBack }) {
+  const [input, setInput] = useState("");
+  const [toasts, setToasts] = useState([]);
+  const chatEndRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Auto-scroll to bottom on messages or input change
+  useLayoutEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, input]);
+
+  // Auto-expand textarea height
+  useLayoutEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [input]);
+
+  const handleSend = (e) => {
+    if (e) e.preventDefault();
+    if (!input.trim()) return;
+    setMessages([...messages, { sender: "me", text: input, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    setInput("");
+  };
+
+  const handleAgreement = () => {
+    setAgreed(true);
+    setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Contract flow initiated.", type: "success" }]);
+    if (typeof onBack === 'function') {
+      setTimeout(() => {
+        onBack();
+      }, 400); // brief delay for toast feedback
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 to-slate-900 flex flex-col items-center justify-center p-0">
+      <div className="w-full max-w-2xl h-[80vh] bg-white/5 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-white/10 bg-indigo-900/80">
+          <h2 className="text-xl font-black text-white tracking-tight">Negotiation Stream</h2>
+          <button onClick={onBack} className="text-slate-400 hover:text-white font-bold">Back</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-transparent">
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-md text-sm ${msg.sender === "me" ? "bg-indigo-600 text-white" : "bg-white/80 text-indigo-900"}`}>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{msg.sender === "me" ? "You" : "Client"}</span>
+                  <span className="text-xs text-slate-400">{msg.time}</span>
+                </div>
+                <div>{msg.text}</div>
+              </div>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+        {!agreed && (
+          <form onSubmit={handleSend} className="p-6 border-t border-white/10 bg-indigo-900/80 flex gap-3">
+            <textarea
+              ref={textareaRef}
+              className="flex-1 resize-none rounded-xl px-4 py-2 bg-white/90 text-indigo-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 min-h-[44px] max-h-32 overflow-auto"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Type your message..."
+              rows={1}
+              style={{ minHeight: 44, maxHeight: 160 }}
+              onInput={e => {
+                if (textareaRef.current) {
+                  textareaRef.current.style.height = 'auto';
+                  textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+                }
+              }}
+              onKeyDown={e => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSend(e);
+              }}
+            />
+            <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-xl shadow">Send</button>
+          </form>
+        )}
+        {!agreed && (
+          <div className="flex justify-end p-4">
+            <button onClick={handleAgreement} className="px-6 py-2 rounded-full bg-emerald-600 text-white font-bold shadow hover:bg-emerald-700 transition-all">Accept & Initiate Contract</button>
+          </div>
+        )}
+      </div>
+      <ToastContainer toasts={toasts} removeToast={id => setToasts(prev => prev.filter(t => t.id !== id))} />
+    </div>
+  );
+}

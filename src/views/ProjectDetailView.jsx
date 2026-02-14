@@ -4,25 +4,11 @@ import ToastContainer from "../components/ui/ToastContainer";
 import ProfileModal from "../components/modals/ProfileModal";
 
 // ProjectDetailView: Dashboard for project specs and negotiation stream
-const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBack }) => {
-  const [input, setInput] = useState("");
-  // Sample negotiation messages for realism
-  const initialMessages = [
-    { sender: "client", text: "Thank you for your interest. Our initial budget is ¥3,000,000 for the full design system.", time: "09:00" },
-    { sender: "me", text: "Thank you. Can you clarify the scope for dark mode and atomic design compliance?", time: "09:02" },
-    { sender: "client", text: "Dark mode should cover all screens. Atomic design compliance is required for component structure.", time: "09:05", important: true },
-  ];
-  const [messages, setMessages] = useState(negotiationHistory && negotiationHistory.length > 0 ? negotiationHistory : initialMessages);
+
+const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBack, onOpenChat, messages = [], agreed = false }) => {
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [agreed, setAgreed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    setMessages([...messages, { sender: "me", text: input, time: new Date().toLocaleTimeString() }]);
-    setInput("");
-  };
 
   const handleAgreement = () => {
     setLoading(true);
@@ -94,7 +80,16 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
       <hr className="border-white/10 my-8" />
       {/* Section: Negotiation Stream */}
       <div>
-        <h3 className="text-lg font-black text-indigo-400 mb-6">Negotiation Stream</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-black text-indigo-400">Negotiation Stream</h3>
+          <button
+            className="px-4 py-2 rounded-full bg-pink-600 text-white text-base font-extrabold shadow-lg hover:bg-pink-700 transition-all border-2 border-white/30"
+            style={{ minWidth: 160 }}
+            onClick={onOpenChat}
+          >
+            Open Full Chat
+          </button>
+        </div>
         <div className="bg-white/[0.02] rounded-2xl p-6 border border-white/10 shadow-lg">
           <div className="h-48 overflow-y-auto mb-4 space-y-3">
             {messages.map((msg, idx) => (
@@ -107,43 +102,12 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
                   style={msg.important ? { border: '2px solid #38bdf8', boxShadow: '0 0 8px #38bdf8' } : {}}>
                   {msg.text}
                   <span className="block text-[9px] opacity-50 mt-1 text-right">{msg.time}</span>
-                  {/* Quick actions for negotiation messages */}
-                  {msg.sender !== "me" && idx === messages.length - 1 && !agreed && (
-                    <div className="flex flex-wrap gap-2 mt-2 w-full max-w-xs">
-                      <button className="px-2 py-1 rounded bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 transition-all flex-shrink" onClick={handleAgreement}>Accept</button>
-                      <button className="px-2 py-1 rounded bg-indigo-500 text-white text-[10px] font-bold hover:bg-indigo-600 transition-all flex-shrink">Counter</button>
-                      <button className="px-2 py-1 rounded bg-rose-500 text-white text-[10px] font-bold hover:bg-rose-600 transition-all flex-shrink">Reject</button>
-                    </div>
-                  )}
                 </div>
                 {msg.sender === "me" ? (
                   <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xs shrink-0">Me</div>
                 ) : null}
               </div>
             ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => {
-                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                  e.preventDefault();
-                  if (input.trim()) {
-                    setMessages([...messages, { sender: "me", text: input, time: new Date().toLocaleTimeString() }]);
-                    setInput("");
-                  }
-                }
-              }}
-              placeholder="Type your negotiation message..."
-              className="flex-1 px-3 py-2 rounded-xl bg-indigo-950/70 border border-indigo-800/40 text-white text-sm"
-            />
-            <button
-              onClick={handleSend}
-              className="px-4 py-2 rounded-xl bg-indigo-500 text-white font-bold text-xs hover:bg-indigo-600 transition-all"
-              title="Send (Ctrl+Enter)"
-            >Send</button>
           </div>
         </div>
       </div>

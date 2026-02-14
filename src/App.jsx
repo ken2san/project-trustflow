@@ -1,3 +1,4 @@
+import NegotiationChatView from './views/NegotiationChatView';
 
 /**
  * @typedef {Object} UIProfileStats
@@ -152,6 +153,13 @@ import ProjectDetailView from './views/ProjectDetailView';
 // --- Main App Component ---
 
 const App = () => {
+    // Negotiation chat state (shared for evidence/dispute)
+    const [negotiationMessages, setNegotiationMessages] = useState([
+      { sender: "client", text: "Thank you for your interest. Our initial budget is ¥3,000,000 for the full design system.", time: "09:00" },
+      { sender: "me", text: "Thank you. Can you clarify the scope for dark mode and atomic design compliance?", time: "09:02" },
+      { sender: "client", text: "Dark mode should cover all screens. Atomic design compliance is required for component structure.", time: "09:05", important: true },
+    ]);
+    const [negotiationAgreed, setNegotiationAgreed] = useState(false);
   // Animation state for level/parameter up
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showParamUp, setShowParamUp] = useState(false);
@@ -264,6 +272,7 @@ const App = () => {
       if (step === 2) { if (mode === 'hirer') setUIProfile(s => ({ ...s, points: (s.points ?? 0) - selectedItem.totalPoints })); else setUIProfile(s => ({ ...s, points: (s.points ?? 0) + selectedItem.totalPoints })); }
 
       // Navigation
+      // (negotiationMessages and negotiationAgreed state are now at the top level)
       if (step === 5) {
           // Reset everything for next cycle
           setView('marketplace');
@@ -442,12 +451,25 @@ const App = () => {
 
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
         {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} onHire={talent => { setSelectedItem(talent); setView('contract'); setStep(1); addToast('Contract Initiated', 'Contract flow started.'); }} />}
+        {/* Shared chat state for negotiation stream */}
         {view === 'project-detail' && projectDetail && (
           <ProjectDetailView
             project={projectDetail}
             negotiationHistory={[]}
             onAgreement={() => { setSelectedItem(projectDetail); setView('scoping'); }}
             onBack={() => setView('marketplace')}
+            onOpenChat={() => setView('negotiation-chat')}
+            messages={negotiationMessages}
+            agreed={negotiationAgreed}
+          />
+        )}
+        {view === 'negotiation-chat' && (
+          <NegotiationChatView
+            messages={negotiationMessages}
+            setMessages={setNegotiationMessages}
+            agreed={negotiationAgreed}
+            setAgreed={setNegotiationAgreed}
+            onBack={() => setView('project-detail')}
           />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('project-detail')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
