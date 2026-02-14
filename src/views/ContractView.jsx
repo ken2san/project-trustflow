@@ -21,6 +21,18 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
     const [deliverables, setDeliverables] = useState([]);
     const [uploadMessage, setUploadMessage] = useState("");
     const [uploadFile, setUploadFile] = useState(null);
+    // Reject & re-delivery state
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectReason, setRejectReason] = useState("");
+    // History: array of {type, message, timestamp, actor}
+    const [history, setHistory] = useState([]);
+    // Confirm dialog & Undo state
+    const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+    const [approveTimeoutId, setApproveTimeoutId] = useState(null);
+    const [pendingApprove, setPendingApprove] = useState(false);
+    const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+    const [rejectTimeoutId, setRejectTimeoutId] = useState(null);
+    const [pendingReject, setPendingReject] = useState(false);
 
     // Always update userStats on contract settlement (step 5), even if no rating
     // 1. Update userStats only
@@ -84,6 +96,106 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
     const ratingLabel = isHirer ? 'Rate Provider' : 'Rate Experience';
     const settledLabel = isHirer ? 'Contract Settled. Provider Paid.' : 'Settled';
 
+
+    // Handler for Reject button (with confirm dialog)
+    const handleRejectClick = () => {
+        setShowRejectConfirm(true);
+    };
+
+    // Handler for Approve button (with confirm dialog)
+    const handleApproveClick = () => {
+        setShowApproveConfirm(true);
+    };
+
+    // Confirm Approve with Undo (5s)
+    const confirmApprove = () => {
+        setPendingApprove(true);
+        const timeout = setTimeout(() => {
+            setPendingApprove(false);
+            setShowApproveConfirm(false);
+            if (handleNextStep) handleNextStep();
+        }, 5000);
+        setApproveTimeoutId(timeout);
+    };
+    const undoApprove = () => {
+        if (approveTimeoutId) clearTimeout(approveTimeoutId);
+        setPendingApprove(false);
+        setShowApproveConfirm(false);
+    };
+
+    // Confirm Reject with Undo (5s)
+    const confirmReject = () => {
+        setPendingReject(true);
+        const timeout = setTimeout(() => {
+            setPendingReject(false);
+            setShowRejectConfirm(false);
+            setShowRejectModal(true); // show reason modal after confirm
+        }, 5000);
+        setRejectTimeoutId(timeout);
+    };
+    const undoReject = () => {
+        if (rejectTimeoutId) clearTimeout(rejectTimeoutId);
+        setPendingReject(false);
+        setShowRejectConfirm(false);
+    };
+
+    // Handler for confirming rejection
+    const handleConfirmReject = () => {
+        if (!rejectReason.trim()) return;
+        setHistory(prev => [
+            { type: 'reject', message: rejectReason, timestamp: Date.now(), actor: isHirer ? 'hirer' : 'earner' },
+            ...prev
+        ]);
+        setShowRejectModal(false);
+        setRejectReason("");
+        // Optionally, move to a REJECTED step or allow re-delivery
+        if (addToast) addToast('Rejected', 'Re-delivery requested with reason.', 'warning');
+        // For demo: allow re-delivery by going back to step 2
+        if (handleReject) handleReject();
+    };
+
+    // Handler for re-delivery (file upload)
+    const handleReDelivery = (file, message) => {
+        const url = URL.createObjectURL(file);
+        setDeliverables(prev => [
+            ...prev,
+            {
+                version: prev.length + 1,
+                fileUrl: url,
+                message: message || `Deliverable v${prev.length + 1}`,
+                timestamp: Date.now()
+            }
+        ]);
+        setHistory(prev => [
+            { type: 're-delivery', message: message || `Re-delivery v${deliverables.length + 1}`, timestamp: Date.now(), actor: isEarner ? 'earner' : 'hirer' },
+            ...prev
+        ]);
+        if (addToast) addToast('Re-delivery', 'Deliverable re-submitted.', 'info');
+    };
+
+    // Step labels and badge helpers
+    const stepLabels = [
+        'Escrow Start',
+        'Awaiting Delivery',
+        'Review/Inspection',
+        'Rating',
+        'Complete'
+    ];
+    const stepBadges = [
+        'ESCROW',
+        deliverables.length === 0 ? 'NOT SUBMITTED' : 'SUBMITTED',
+        history.find(h => h.type === 'reject') ? 'REVISION REQUESTED' : 'UNDER REVIEW',
+        'RATING',
+        'COMPLETE'
+    ];
+    const stepDescriptions = [
+        'Funds are locked in escrow. Awaiting next action.',
+        deliverables.length === 0 ? 'Provider must submit deliverables.' : 'Deliverables submitted. Awaiting review.',
+        history.find(h => h.type === 'reject') ? 'Revision requested. Awaiting re-delivery.' : 'Review submitted deliverables.',
+        'Rate your experience to finalize the contract.',
+        'Contract is complete. All actions are recorded.'
+    ];
+
     return (
     <div className="animate-fade-in-up space-y-16">
         <div className="mb-16 flex justify-between items-center max-w-2xl mx-auto relative px-4">
@@ -94,6 +206,8 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                 </React.Fragment>
             ))}
         </div>
+
+
         <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[56px] p-8 sm:p-16 border border-white/[0.05] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
             {step === 1 && (
                 <div className="space-y-10 animate-fade-in-up">
@@ -149,20 +263,9 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                                 <form className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 bg-slate-900/30 w-full" onSubmit={e => {
                                     e.preventDefault();
                                     if (!uploadFile) return;
-                                    // Simulate upload and URL creation
-                                    const url = URL.createObjectURL(uploadFile);
-                                    setDeliverables(prev => [
-                                        ...prev,
-                                        {
-                                            version: prev.length + 1,
-                                            fileUrl: url,
-                                            message: uploadMessage || `Deliverable v${prev.length + 1}`,
-                                            timestamp: Date.now()
-                                        }
-                                    ]);
+                                    handleReDelivery(uploadFile, uploadMessage);
                                     setUploadFile(null);
                                     setUploadMessage("");
-                                    if (addToast) addToast('File Uploaded', 'Deliverable submitted successfully.', 'success');
                                 }}>
                                     <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                                         <UploadCloud className="w-8 h-8 text-indigo-400" />
@@ -186,8 +289,12 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                                         </ul>
                                     </div>
                                 )}
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Or skip to next phase</p>
-                                <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} />
+                                {deliverables.length === 0 && (
+                                    <>
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Or skip to next phase</p>
+                                        <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} />
+                                    </>
+                                )}
                             </div>
                         )
                     )}
@@ -201,17 +308,102 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                     <h2 className="text-5xl font-black text-white italic tracking-tighter">{inspectLabel}</h2>
                     <div className="bg-black/20 p-6 rounded-2xl border border-white/5 max-w-md mx-auto">
                         <p className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4"/> 98.2% Match Verified</p>
-                        {isHirer && (
-                            <div className="mt-4">
-                                {/* TODO: Add download button for submitted files */}
-                                <button className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors">Download Deliverables</button>
+                        {isHirer && deliverables.length > 0 && (
+                            <div className="mt-4 text-left">
+                                <h4 className="text-xs font-bold text-slate-400 mb-2">Submitted Deliverables</h4>
+                                <ul>
+                                    {deliverables.map((d, i) => (
+                                        <li key={i} className="flex items-center gap-2 text-xs text-slate-300 mb-1">
+                                            <span className="font-bold">Version {d.version}:</span>
+                                            <span>{d.message}</span>
+                                            <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
+                                            <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
                     </div>
                     <div className="flex justify-center gap-4 max-w-md mx-auto">
-                        <button onClick={handleReject} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button>
-                        <HoldButton key="btn-3" onClick={handleNextStep} label={inspectActionLabel} className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
+                        <button onClick={handleRejectClick} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button>
+                        <HoldButton key="btn-3" onClick={handleApproveClick} label={inspectActionLabel} className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
                     </div>
+                                        {/* Approve Confirmation Dialog with Undo */}
+                                        {showApproveConfirm && (
+                                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                                                <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
+                                                    <h3 className="text-xl font-bold text-white mb-2">Approve Deliverable</h3>
+                                                    <p className="text-slate-300">Are you sure you want to approve and release funds?</p>
+                                                    {pendingApprove ? (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className="text-emerald-400 font-bold">Approved! You can undo for 5 seconds.</span>
+                                                            <button onClick={undoApprove} className="px-4 py-2 rounded bg-yellow-500 text-black font-bold">Undo</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex gap-4 justify-end">
+                                                            <button onClick={() => setShowApproveConfirm(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
+                                                            <button onClick={confirmApprove} className="px-4 py-2 rounded bg-emerald-600 text-white font-bold">Confirm Approve</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Reject Confirmation Dialog with Undo */}
+                                        {showRejectConfirm && (
+                                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                                                <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
+                                                    <h3 className="text-xl font-bold text-white mb-2">Reject Deliverable</h3>
+                                                    <p className="text-slate-300">Are you sure you want to reject and request re-delivery?</p>
+                                                    {pendingReject ? (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className="text-red-400 font-bold">Rejected! You can undo for 5 seconds.</span>
+                                                            <button onClick={undoReject} className="px-4 py-2 rounded bg-yellow-500 text-black font-bold">Undo</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex gap-4 justify-end">
+                                                            <button onClick={() => setShowRejectConfirm(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
+                                                            <button onClick={confirmReject} className="px-4 py-2 rounded bg-red-600 text-white font-bold">Confirm Reject</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                            {/* Reject Reason Modal */}
+                            {showRejectModal && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                                    <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
+                                        <h3 className="text-xl font-bold text-white mb-2">Reject Deliverable</h3>
+                                        <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Enter rejection reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} required rows={4} />
+                                        <div className="flex gap-4 justify-end">
+                                            <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
+                                            <button onClick={handleConfirmReject} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!rejectReason.trim()}>Confirm Reject</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Always show History Panel */}
+                            <div className="max-w-2xl mx-auto mt-12 bg-slate-800/60 rounded-2xl p-6 text-left">
+                                <h4 className="text-lg font-bold text-white mb-4">Contract History</h4>
+                                <ul className="space-y-2">
+                                    {deliverables.map((d, i) => (
+                                        <li key={`d-${i}`} className="text-xs text-indigo-300 flex gap-2 items-center">
+                                            <span className="font-bold uppercase text-indigo-400">DELIVERABLE</span>
+                                            <span>Version {d.version}: {d.message}</span>
+                                            <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
+                                            <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
+                                        </li>
+                                    ))}
+                                    {history.map((h, i) => (
+                                        <li key={`h-${i}`} className="text-xs text-slate-300 flex gap-2 items-center">
+                                            <span className={`font-bold uppercase ${h.type==='reject' ? 'text-red-400' : h.type==='re-delivery' ? 'text-yellow-400' : 'text-slate-400'}`}>{h.type}</span>
+                                            <span>{h.message}</span>
+                                            <span className="text-slate-500">({new Date(h.timestamp).toLocaleString()})</span>
+                                            <span className="text-slate-500">[{h.actor}]</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
                 </div>
             )}
             {step === 4 && (
@@ -245,20 +437,6 @@ const ContractView = ({ step, handleNextStep, handleReject, isUploading, uploadP
                 <div className="relative flex flex-col items-center justify-center min-h-[300px]">
                     {/* Minimal Settled UI */}
                     <h2 className="text-4xl font-black text-white tracking-tight uppercase mb-8">{settledLabel}</h2>
-                    <button onClick={handleNextStep} className="px-8 py-3 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button>
-                </div>
-            )}
-            {step === 3 && (<div className="space-y-10 animate-fade-in-up"><div className="w-32 h-32 bg-amber-500/10 rounded-[48px] flex items-center justify-center border border-amber-500/20 mx-auto animate-pulse"><Scan className="w-14 h-14 text-amber-500" /></div><h2 className="text-5xl font-black text-white italic tracking-tighter">Neural Inspection</h2><div className="bg-black/20 p-6 rounded-2xl border border-white/5 max-w-md mx-auto"><p className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4"/> 98.2% Match Verified</p></div><div className="flex justify-center gap-4 max-w-md mx-auto"><button onClick={handleReject} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button><HoldButton key="btn-3" onClick={handleNextStep} label="Release Funds" className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} /></div></div>)}
-            {step === 4 && (
-                <div className="space-y-12 animate-fade-in-up">
-                    <div className="flex flex-col items-center gap-6"><div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px]"><div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden"><User className="w-12 h-12 text-slate-300" /></div></div><div><h2 className="text-4xl font-black text-white mb-2">Rate Experience</h2><p className="text-slate-400">Feedback updates the Neural Trust Score.</p></div><div className="flex gap-4">{[1, 2, 3, 4, 5].map((star) => (<button key={star} onClick={() => setRating(star)} className="group focus:outline-none transition-transform active:scale-90"><Star className={`w-10 h-10 transition-colors ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-slate-700 group-hover:text-slate-500'}`} /></button>))}</div></div>
-                    {rating > 0 ? (<div className="animate-fade-in-up"><HoldButton key="btn-4" onClick={handleNextStep} label="Commit & Close" className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} /></div>) : (<p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Select stars to finalize</p>)}
-                </div>
-            )}
-            {step === 5 && (
-                <div className="relative flex flex-col items-center justify-center min-h-[300px]">
-                    {/* Minimal Settled UI */}
-                    <h2 className="text-4xl font-black text-white tracking-tight uppercase mb-8">Settled</h2>
                     <button onClick={handleNextStep} className="px-8 py-3 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button>
                 </div>
             )}
