@@ -451,7 +451,7 @@ const App = () => {
           />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('project-detail')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
