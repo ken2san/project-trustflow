@@ -72,7 +72,25 @@
 
 ---
 
-By following this design and implementation plan,
-you can achieve high standards for evidence, transparency, immediacy, prevention of misoperation, and automatic escalation in case of trouble.
+# Workflow Refactoring & Enhancement Plan (2026-02)
 
-If you want to start with a specific item, or need more detailed UI wireframes or component designs, please let me know.
+> **Note:** This section supersedes or supplements previous plans. Use this as the current reference for ongoing improvements and technical debt reduction.
+
+## 1. Complexity Reduction & Refactoring
+
+- **Logic Separation**: Move business logic (state management, history, validation, etc.) into custom hooks or utility functions. Keep ContractView and other UI components focused on rendering.
+- **Modal/Dialog Unification**: Refactor approval, reject, dispute, and other dialogs into shared components to eliminate duplication and simplify maintenance.
+- **State Management Simplification**: Consider useReducer or a state management library (Zustand, Recoil, etc.) to reduce prop drilling and deeply nested state.
+
+## 2. Completion & Quality Improvements
+
+- **Testing**: Add unit and E2E tests (Jest, React Testing Library, Cypress) to ensure reliability and prevent regressions.
+- **Accessibility**: Improve keyboard navigation, screen reader support, and add ARIA attributes where appropriate.
+- **Internationalization (i18n)**: Expand i18n support for multi-language UI, leveraging or extending existing i18n.js.
+- **UX Animation**: Add smooth transitions for step changes and key actions to enhance user experience.
+- **API/DB Integration**: Replace local state with backend integration for file storage, history, and notifications.
+- **User Guidance**: Add inline help, tooltips, or a quickstart guide to assist users with complex workflows.
+
+---
+
+> **Action:** All new enhancements and refactoring should be planned and tracked in this section. When implementing, reference this plan and update as needed.
