@@ -473,7 +473,18 @@ const App = () => {
             setMessages={setNegotiationMessages}
             agreed={negotiationAgreed}
             setAgreed={setNegotiationAgreed}
-            onBack={() => setView('project-detail')}
+            onBack={(next, evidence) => {
+              if (next === 'scoping') {
+                // Ensure selectedItem is set from projectDetail if not already
+                if (!selectedItem && projectDetail) {
+                  setSelectedItem(projectDetail);
+                }
+                // Optionally, store evidence/messages for later use
+                setView('scoping');
+              } else {
+                setView('project-detail');
+              }
+            }}
           />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('project-detail')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}

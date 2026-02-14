@@ -1,6 +1,8 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
 import ToastContainer from "../components/ui/ToastContainer";
 
+import ContractView from "./ContractView";
+
 const initialMessages = [
   { sender: "client", text: "Thank you for your interest. Our initial budget is ¥3,000,000 for the full design system.", time: "09:00" },
   { sender: "me", text: "Thank you. Can you clarify the scope for dark mode and atomic design compliance?", time: "09:02" },
@@ -12,6 +14,7 @@ const initialMessages = [
 export default function NegotiationChatView({ messages, setMessages, agreed, setAgreed, onBack }) {
   const [input, setInput] = useState("");
   const [toasts, setToasts] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -38,13 +41,18 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
   };
 
   const handleAgreement = () => {
-    setAgreed(true);
-    setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Contract flow initiated.", type: "success" }]);
-    if (typeof onBack === 'function') {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    setTimeout(() => {
+      setAgreed(true);
+      setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Acceptance Protocol initiated.", type: "success" }]);
       setTimeout(() => {
-        onBack();
+        setIsProcessing(false);
+        if (typeof onBack === 'function') {
+          onBack('scoping', messages);
+        }
       }, 400); // brief delay for toast feedback
-    }
+    }, 800); // require press-and-hold duration
   };
 
   return (
@@ -54,11 +62,6 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
           <h2 className="text-xl font-black text-white tracking-tight">Negotiation Stream</h2>
           <button onClick={onBack} className="text-slate-400 hover:text-white font-bold" aria-label="Back to Detail">Back</button>
         </div>
-        {agreed && (
-          <div className="px-6 py-2 bg-emerald-100 text-emerald-700 font-bold text-center text-sm border-b border-emerald-200">
-            Contract Agreement Confirmed. Chat is now locked for evidence.
-          </div>
-        )}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-transparent" aria-live="polite">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}>
@@ -100,12 +103,18 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
         {!agreed && (
           <div className="flex justify-end p-4">
             <button
-              onClick={handleAgreement}
-              className="px-6 py-2 rounded-full bg-indigo-600 text-white font-bold shadow hover:bg-indigo-700 transition-all"
-              aria-label="Initiate Contract"
+              onPointerDown={handleAgreement}
+              disabled={isProcessing}
+              className={`px-6 py-2 rounded-full font-bold shadow transition-all flex items-center justify-center gap-2 ${isProcessing ? 'bg-indigo-300 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+              aria-label="Initiate Protocol"
+              style={{ position: 'relative' }}
             >
-              Initiate Contract
+              {isProcessing ? (
+                <span className="w-5 h-5 animate-spin border-2 border-white border-t-transparent rounded-full mr-2" />
+              ) : null}
+              Initiate Protocol
             </button>
+            <span className="text-xs text-slate-400 ml-3">Press and hold to confirm</span>
           </div>
         )}
       </div>
