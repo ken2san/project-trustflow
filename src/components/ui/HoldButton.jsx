@@ -40,7 +40,7 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color, disable
 
   let bgClassFinal = "";
   let textClass = "";
-  let fillClassFinal = "";
+  let fillClassFinal = "bg-indigo-400"; // default progress bar color
   let labelClass = "";
   if (color === "indigo") {
     bgClassFinal = "bg-indigo-600";

@@ -133,7 +133,6 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
                   onClick={handleAgreement}
                   label="Initiate Contract"
                   className="px-8 py-4 rounded-full font-semibold text-lg shadow-xl bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all mx-auto font-sans"
-                  color="white"
                   disabled={agreed}
                 />
               )}

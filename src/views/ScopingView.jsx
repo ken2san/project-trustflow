@@ -43,8 +43,7 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
                             onClick={handleHold}
                             label="Initiate Contract"
                             icon={Fingerprint}
-                            className="w-full py-6 rounded-[24px] font-black text-lg shadow-xl"
-                            color="white"
+                            className="w-full py-6 rounded-[24px] font-black text-lg shadow-xl bg-white text-black hover:bg-gray-200"
                         />
                         <span className="block text-xs text-slate-400 text-center mt-2">Press and hold to confirm</span>
                     </div>
