@@ -1,5 +1,5 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
-import HoldButton from "../components/ui/HoldButton";
+import InitiateContractButton from "../components/ui/InitiateContractButton";
 import ToastContainer from "../components/ui/ToastContainer";
 
 import ContractView from "./ContractView";
@@ -128,10 +128,8 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
         )}
         {!agreed && (
           <div className="flex flex-col items-center justify-end p-4">
-            <HoldButton
+            <InitiateContractButton
               onClick={handleAgreement}
-              label="Initiate Contract"
-              className="btn-primary-hold"
               disabled={agreed}
             />
             <span className="text-xs text-slate-400 mt-2">Press and hold to confirm</span>

@@ -1,5 +1,5 @@
 import React from "react";
-import HoldButton from "../components/ui/HoldButton";
+import InitiateContractButton from "../components/ui/InitiateContractButton";
 import { ArrowLeft, ListChecks, CheckCircle2, Fingerprint } from "lucide-react";
 import ScrambleText from "../components/ui/ScrambleText";
 
@@ -39,11 +39,9 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
                     <div className="bg-[#0f172a]/80 rounded-[48px] p-10 border border-white/10 shadow-2xl sticky top-32 backdrop-blur-xl">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Total Contract Value</p>
                         <h2 className="text-5xl font-black italic text-white mb-10 leading-none tracking-tighter"><ScrambleText text={formatNumber(selectedItem.totalPoints)} trigger={scrambleTrigger} /> <span className="text-sm not-italic text-slate-500 block mt-2 uppercase tracking-widest font-bold">TrustPoints</span></h2>
-                        <HoldButton
+                        <InitiateContractButton
                             onClick={handleHold}
-                            label="Initiate Contract"
-                            icon={Fingerprint}
-                            className="btn-primary-hold w-full py-6 rounded-[24px] font-black text-lg shadow-xl bg-white text-black hover:bg-gray-200"
+                            className="w-full py-6 rounded-[24px] font-black text-lg shadow-xl bg-white text-black hover:bg-gray-200"
                         />
                         <span className="block text-xs text-slate-400 text-center mt-2">Press and hold to confirm</span>
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import HoldButton from "../components/ui/HoldButton";
+import InitiateContractButton from "../components/ui/InitiateContractButton";
 import { Loader2 } from "lucide-react";
 import ToastContainer from "../components/ui/ToastContainer";
 import ProfileModal from "../components/modals/ProfileModal";
@@ -129,10 +129,8 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
             <div className="flex flex-col items-center w-full">
               {/* Only show Initiate Contract button before agreement */}
               {!agreed && (
-                <HoldButton
+                <InitiateContractButton
                   onClick={handleAgreement}
-                  label="Initiate Contract"
-                  className="btn-primary-hold"
                   disabled={agreed}
                 />
               )}
