@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import useInterval from "../../hooks/useInterval";
 
-const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white", disabled = false }) => {
+const HoldButton = ({ onClick, label, icon: Icon, className = "", color, disabled = false }) => {
   const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -38,20 +38,27 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
   const startHold = () => { if (!isCompleted && !disabled && isReady) setIsHolding(true); };
   const endHold = () => { if (!isCompleted) { setIsHolding(false); setProgress(0); } };
 
-  const bgClass = color === "indigo" ? "bg-indigo-600" : "bg-white";
-  const textClass = color === "indigo" ? "text-white" : "text-[#020617]";
-  const fillClass = color === "indigo" ? "bg-indigo-400" : "bg-indigo-500";
-  const labelClass = color === "red" ? "text-rose-500" : "";
-  const bgClassFinal = color === "red" ? "bg-rose-950/30 border border-rose-500/30" : bgClass;
-  const fillClassFinal = color === "red" ? "bg-rose-500" : fillClass;
+  let bgClassFinal = "";
+  let textClass = "";
+  let fillClassFinal = "";
+  let labelClass = "";
+  if (color === "indigo") {
+    bgClassFinal = "bg-indigo-600";
+    textClass = "text-white";
+    fillClassFinal = "bg-indigo-400";
+  } else if (color === "red") {
+    bgClassFinal = "bg-rose-950/30 border border-rose-500/30";
+    fillClassFinal = "bg-rose-500";
+    labelClass = "text-rose-500";
+  }
   const isInteractive = !disabled && isReady;
 
   return (
     <button
-        onMouseDown={startHold} onMouseUp={endHold} onMouseLeave={endHold} onTouchStart={startHold} onTouchEnd={endHold}
-        disabled={!isInteractive}
-        className={`relative overflow-hidden group select-none ${bgClassFinal} ${textClass} ${className} ${!isInteractive ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
-        style={{ WebkitTapHighlightColor: 'transparent', transition: 'all 0.2s', transform: isHolding ? 'scale(0.98)' : 'scale(1)' }}
+      onMouseDown={startHold} onMouseUp={endHold} onMouseLeave={endHold} onTouchStart={startHold} onTouchEnd={endHold}
+      disabled={!isInteractive}
+      className={`relative overflow-hidden group select-none ${className} ${bgClassFinal} ${textClass} ${!isInteractive ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
+      style={{ WebkitTapHighlightColor: 'transparent', transition: 'all 0.2s', transform: isHolding ? 'scale(0.98)' : 'scale(1)' }}
     >
       <div className={`absolute inset-0 ${fillClassFinal} transition-all duration-75 ease-linear opacity-50`} style={{ width: `${progress}%` }} />
       <div className="relative z-10 flex items-center justify-center gap-3 w-full h-full">
