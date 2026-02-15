@@ -130,7 +130,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
           <div className="flex flex-col items-center justify-end p-4">
             <HoldButton
               onClick={handleAgreement}
-              label="Initiate Protocol"
+              label="Initiate Contract"
               className="mx-auto px-8 py-3 rounded-full text-base font-semibold shadow bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all min-w-[0] font-sans"
               color="white"
               disabled={agreed}

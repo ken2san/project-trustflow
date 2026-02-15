@@ -41,7 +41,7 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
                         <h2 className="text-5xl font-black italic text-white mb-10 leading-none tracking-tighter"><ScrambleText text={formatNumber(selectedItem.totalPoints)} trigger={scrambleTrigger} /> <span className="text-sm not-italic text-slate-500 block mt-2 uppercase tracking-widest font-bold">TrustPoints</span></h2>
                         <HoldButton
                             onClick={handleHold}
-                            label="Sign & Fund"
+                            label="Initiate Contract"
                             icon={Fingerprint}
                             className="w-full py-6 rounded-[24px] font-black text-lg shadow-xl"
                             color="white"
