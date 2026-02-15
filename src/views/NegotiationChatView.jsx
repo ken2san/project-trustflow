@@ -131,8 +131,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
             <HoldButton
               onClick={handleAgreement}
               label="Initiate Contract"
-              className="mx-auto px-8 py-3 rounded-full text-base font-semibold shadow bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all min-w-[0] font-sans"
-              color="white"
+              className="btn-primary-hold"
               disabled={agreed}
             />
             <span className="text-xs text-slate-400 mt-2">Press and hold to confirm</span>

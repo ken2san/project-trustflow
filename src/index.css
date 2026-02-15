@@ -1,3 +1,7 @@
+/* Common button utility for primary action buttons (e.g., Initiate Contract) */
+.btn-primary-hold {
+	@apply px-8 py-4 rounded-full font-semibold text-lg shadow-xl bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all mx-auto font-sans;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

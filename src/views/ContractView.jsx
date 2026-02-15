@@ -186,7 +186,7 @@ const ContractView = (props) => {
                 <div className="space-y-10 animate-fade-in-up">
                     <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2>
                     <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds are moving to the decentralized vault.<br/> This action is immutable.</p>
-                    <HoldButton key="btn-1" onClick={handleNextStep} label="Activate Trust Stream" icon={ArrowRight} className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" color="white" disabled={status !== 'idle'} />
+                    <HoldButton key="btn-1" onClick={handleNextStep} label="Activate Trust Stream" icon={ArrowRight} className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" disabled={status !== 'idle'} />
                 </div>
             )}
 
@@ -217,7 +217,7 @@ const ContractView = (props) => {
                                 )}
                             </div>
                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{deliverables.length === 0 ? 'You will be notified when files are submitted.' : 'You can download submitted files.'}</p>
-                            <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} />
+                            <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="btn-primary-hold w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
                         </div>
                     ) : (
                         isUploading ? (
@@ -299,7 +299,7 @@ const ContractView = (props) => {
                     </div>
                     <div className="flex justify-center gap-4 max-w-md mx-auto">
                         <button onClick={handleRejectClick} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button>
-                        <HoldButton key="btn-3" onClick={handleApproveClick} label={inspectActionLabel} className="flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
+                        <HoldButton key="btn-3" onClick={handleApproveClick} label={inspectActionLabel} className="btn-primary-hold flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
                         <button onClick={handleDisputeClick} className="flex-1 py-6 rounded-[32px] border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-white font-bold transition-all">Dispute</button>
                     </div>
                                                     {/* Dispute Confirmation Dialog */}
@@ -423,7 +423,7 @@ const ContractView = (props) => {
                     </div>
                     {rating > 0 ? (
                         <div className="animate-fade-in-up">
-                            <HoldButton key="btn-4" onClick={handleNextStep} label="Commit & Close" className="w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
+                            <HoldButton key="btn-4" onClick={handleNextStep} label="Commit & Close" className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
                         </div>
                     ) : (
                         <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Select stars to finalize</p>
