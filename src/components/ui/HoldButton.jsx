@@ -55,7 +55,7 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color = "white
     >
       <div className={`absolute inset-0 ${fillClassFinal} transition-all duration-75 ease-linear opacity-50`} style={{ width: `${progress}%` }} />
       <div className="relative z-10 flex items-center justify-center gap-3 w-full h-full">
-        {isCompleted ? <CheckCircle2 className="w-6 h-6 animate-scale-up" /> : <><span className={`font-black text-lg transition-transform ${labelClass}`}>{label}</span>{Icon && <Icon className={`w-5 h-5 transition-transform ${labelClass}`} />}</>}
+        {isCompleted ? <CheckCircle2 className="w-6 h-6 animate-scale-up" /> : <><span className={`transition-transform ${labelClass}`}>{label}</span>{Icon && <Icon className={`w-5 h-5 transition-transform ${labelClass}`} />}</>}
       </div>
     </button>
   );

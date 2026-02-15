@@ -1,4 +1,5 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
+import HoldButton from "../components/ui/HoldButton";
 import ToastContainer from "../components/ui/ToastContainer";
 
 import ContractView from "./ContractView";
@@ -69,8 +70,8 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
         if (typeof onBack === 'function') {
           onBack('scoping', messages);
         }
-      }, 400); // brief delay for toast feedback
-    }, 800); // require press-and-hold duration
+      }, 400);
+    }, 400); // feedback delay after HoldButton triggers
   };
 
   return (
@@ -134,18 +135,13 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
         )}
         {!agreed && (
           <div className="flex flex-col items-center justify-end p-4">
-            <button
-              onPointerDown={handleAgreement}
+            <HoldButton
+              onClick={handleAgreement}
+              label="Initiate Protocol"
+              className="mx-auto px-8 py-3 rounded-full text-base font-semibold shadow bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all min-w-[0] font-sans"
+              color="white"
               disabled={isProcessing}
-              className={`px-6 py-2 rounded-full font-bold shadow transition-all flex items-center justify-center gap-2 ${isProcessing ? 'bg-indigo-300 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-              aria-label="Initiate Protocol"
-              style={{ position: 'relative' }}
-            >
-              {isProcessing ? (
-                <span className="w-5 h-5 animate-spin border-2 border-white border-t-transparent rounded-full mr-2" />
-              ) : null}
-              Initiate Protocol
-            </button>
+            />
             <span className="text-xs text-slate-400 mt-2">Press and hold to confirm</span>
           </div>
         )}

@@ -1,9 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
+import HoldButton from "../components/ui/HoldButton";
 import { ArrowLeft, ListChecks, CheckCircle2, Fingerprint } from "lucide-react";
 import ScrambleText from "../components/ui/ScrambleText";
 
 
 const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, formatNumber }) => {
+    const [isProcessing, setIsProcessing] = useState(false);
+    // Unified HoldButton logic
+    const handleHold = () => {
+        if (isProcessing) return;
+        setIsProcessing(true);
+        setTimeout(() => {
+            setIsProcessing(false);
+            if (typeof onInitiate === 'function') onInitiate();
+        }, 400); // feedback delay after HoldButton triggers
+    };
     if (!selectedItem) {
         return <div className="text-red-500 font-bold p-8">No item selected for scoping.</div>;
     }
@@ -34,7 +45,15 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
                     <div className="bg-[#0f172a]/80 rounded-[48px] p-10 border border-white/10 shadow-2xl sticky top-32 backdrop-blur-xl">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Total Contract Value</p>
                         <h2 className="text-5xl font-black italic text-white mb-10 leading-none tracking-tighter"><ScrambleText text={formatNumber(selectedItem.totalPoints)} trigger={scrambleTrigger} /> <span className="text-sm not-italic text-slate-500 block mt-2 uppercase tracking-widest font-bold">TrustPoints</span></h2>
-                        <button onClick={onInitiate} className="w-full bg-white text-[#020617] py-6 rounded-[24px] font-black text-lg hover:bg-indigo-500 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2"><Fingerprint className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" /> Sign & Fund</button>
+                        <HoldButton
+                            onClick={handleHold}
+                            label="Sign & Fund"
+                            icon={Fingerprint}
+                            className="w-full py-6 rounded-[24px] font-black text-lg shadow-xl"
+                            color="white"
+                            disabled={isProcessing}
+                        />
+                        <span className="block text-xs text-slate-400 text-center mt-2">Press and hold to confirm</span>
                     </div>
                 </div>
             </div>

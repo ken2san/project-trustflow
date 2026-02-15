@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import HoldButton from "../components/ui/HoldButton";
 import { Loader2 } from "lucide-react";
 import ToastContainer from "../components/ui/ToastContainer";
 import ProfileModal from "../components/modals/ProfileModal";
@@ -133,14 +134,13 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
             <div className="flex flex-col items-center w-full">
               {/* Only show Initiate Contract button before agreement */}
               {!agreed && (
-                <button
-                  className={`px-8 py-4 rounded-full font-black text-lg transition-all shadow-xl bg-indigo-500 text-white hover:bg-indigo-600 mx-auto`}
+                <HoldButton
                   onClick={handleAgreement}
+                  label={loading ? "Processing..." : "Initiate Contract"}
+                  className="px-8 py-4 rounded-full font-semibold text-lg shadow-xl bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all mx-auto font-sans"
+                  color="white"
                   disabled={loading}
-                  title={loading ? "Processing..." : "Initiate Contract"}
-                >
-                  {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : "Initiate Contract"}
-                </button>
+                />
               )}
               {agreed && (
                 <div className="mt-4 text-center">
