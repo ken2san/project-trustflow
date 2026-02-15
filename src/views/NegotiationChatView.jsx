@@ -12,6 +12,24 @@ const initialMessages = [
 
 
 export default function NegotiationChatView({ messages, setMessages, agreed, setAgreed, onBack }) {
+    // Export chat as text file
+    const handleExportChat = () => {
+      const lines = messages.map(msg => {
+        const sender = msg.sender === 'me' ? 'You' : 'Client';
+        return `[${msg.time}] ${sender}: ${msg.text}`;
+      });
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'negotiation_chat.txt';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    };
   const [input, setInput] = useState("");
   const [toasts, setToasts] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -75,6 +93,20 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
             </div>
           ))}
           <div ref={chatEndRef} />
+        </div>
+        {/* Export Chat button above input, visually lighter */}
+        <div className="flex justify-end px-6 mt-2 mb-1">
+          <button
+            onClick={handleExportChat}
+            className="text-xs px-4 py-2 rounded-full border border-indigo-400/30 bg-white/10 text-indigo-300 font-bold shadow-sm hover:bg-indigo-500/10 hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
+            style={{ minWidth: 120, letterSpacing: '0.02em' }}
+            title="Export chat as text file"
+            aria-label="Export chat"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4 mr-2 text-indigo-300 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v12" /></svg>
+            Export Chat
+          </button>
         </div>
         {!agreed && (
           <form onSubmit={handleSend} className="p-6 border-t border-white/10 bg-indigo-900/80 flex gap-3" aria-label="Send message form">
