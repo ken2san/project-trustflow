@@ -7,19 +7,14 @@ import ProfileModal from "../components/modals/ProfileModal";
 // ProjectDetailView: Dashboard for project specs and negotiation stream
 
 const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBack, onOpenChat, messages = [], agreed = false }) => {
-  const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const handleAgreement = () => {
-    if (agreed || loading) return;
-    setLoading(true);
-    setTimeout(() => {
-      if (typeof setAgreed === 'function') setAgreed(true);
-      setLoading(false);
-      setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Contract flow initiated.", type: "success" }]);
-      if (onAgreement) onAgreement(); // Immediately transition to ScopingView
-    }, 1200);
+    if (agreed) return;
+    if (typeof setAgreed === 'function') setAgreed(true);
+    setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Contract flow initiated.", type: "success" }]);
+    if (onAgreement) onAgreement(); // Immediately transition to ScopingView
   };
 
   return (
@@ -136,10 +131,10 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
               {!agreed && (
                 <HoldButton
                   onClick={handleAgreement}
-                  label={loading ? "Processing..." : "Initiate Contract"}
+                  label="Initiate Contract"
                   className="px-8 py-4 rounded-full font-semibold text-lg shadow-xl bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all mx-auto font-sans"
                   color="white"
-                  disabled={loading}
+                  disabled={agreed}
                 />
               )}
               {agreed && (

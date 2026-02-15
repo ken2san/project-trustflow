@@ -1,19 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import HoldButton from "../components/ui/HoldButton";
 import { ArrowLeft, ListChecks, CheckCircle2, Fingerprint } from "lucide-react";
 import ScrambleText from "../components/ui/ScrambleText";
 
 
 const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, formatNumber }) => {
-    const [isProcessing, setIsProcessing] = useState(false);
-    // Unified HoldButton logic
+    // Unified HoldButton logic: immediate transition
     const handleHold = () => {
-        if (isProcessing) return;
-        setIsProcessing(true);
-        setTimeout(() => {
-            setIsProcessing(false);
-            if (typeof onInitiate === 'function') onInitiate();
-        }, 400); // feedback delay after HoldButton triggers
+        if (typeof onInitiate === 'function') onInitiate();
     };
     if (!selectedItem) {
         return <div className="text-red-500 font-bold p-8">No item selected for scoping.</div>;
@@ -51,7 +45,6 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
                             icon={Fingerprint}
                             className="w-full py-6 rounded-[24px] font-black text-lg shadow-xl"
                             color="white"
-                            disabled={isProcessing}
                         />
                         <span className="block text-xs text-slate-400 text-center mt-2">Press and hold to confirm</span>
                     </div>

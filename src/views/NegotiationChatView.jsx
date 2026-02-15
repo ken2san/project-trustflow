@@ -33,7 +33,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
     };
   const [input, setInput] = useState("");
   const [toasts, setToasts] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Removed isProcessing for unified immediate transition UX
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -60,18 +60,11 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
   };
 
   const handleAgreement = () => {
-    if (isProcessing) return;
-    setIsProcessing(true);
-    setTimeout(() => {
-      setAgreed(true);
-      setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Acceptance Protocol initiated.", type: "success" }]);
-      setTimeout(() => {
-        setIsProcessing(false);
-        if (typeof onBack === 'function') {
-          onBack('scoping', messages);
-        }
-      }, 400);
-    }, 400); // feedback delay after HoldButton triggers
+    setAgreed(true);
+    setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Acceptance Protocol initiated.", type: "success" }]);
+    if (typeof onBack === 'function') {
+      onBack('scoping', messages);
+    }
   };
 
   return (
@@ -140,7 +133,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
               label="Initiate Protocol"
               className="mx-auto px-8 py-3 rounded-full text-base font-semibold shadow bg-[#5b5bf6] text-white hover:bg-[#4636c6] transition-all min-w-[0] font-sans"
               color="white"
-              disabled={isProcessing}
+              disabled={agreed}
             />
             <span className="text-xs text-slate-400 mt-2">Press and hold to confirm</span>
           </div>
