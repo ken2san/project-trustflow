@@ -1,4 +1,4 @@
-// (Removed duplicate ContractView declaration and moved dialog/modal JSX inside the main component's return)
+
 import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
 import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint } from "lucide-react";
@@ -8,10 +8,10 @@ import HoldButton from "../components/ui/HoldButton";
 // (moved below inside component)
 
 const STEPS_DATA = [
-  { id: 1, label: 'PROTOCOL' },
-  { id: 2, label: 'ESCROW' },
-  { id: 3, label: 'INSPECT' },
-  { id: 4, label: 'RATING' }
+    { id: 1, label: 'PROTOCOL' },
+    { id: 2, label: 'ESCROW' },
+    { id: 3, label: 'INSPECT' },
+    { id: 4, label: 'RATING' }
 ];
 
 
@@ -191,10 +191,28 @@ const ContractView = (props) => {
 
 
         <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
-            {/* Cancel button: show only if not settled and not cancelled */}
+            {/* Action buttons: Cancel, Renegotiate (active only) */}
             {step >= 1 && step <= 4 && !isCancelled && (
-                <div className="flex justify-end mb-4">
+                <div className="flex justify-end mb-4 gap-2">
+                    <button onClick={() => setShowRenegotiate(true)} className="px-4 py-2 rounded bg-yellow-600 text-white font-bold hover:bg-yellow-700 transition-all text-sm">Renegotiate</button>
                     <button onClick={() => setShowCancelConfirm(true)} className="px-4 py-2 rounded bg-red-700 text-white font-bold hover:bg-red-800 transition-all text-sm">Cancel Contract</button>
+                </div>
+            )}
+            {/* Renegotiation Modal */}
+            {showRenegotiate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                    <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
+                        <h3 className="text-xl font-bold text-white mb-2">Renegotiate Terms</h3>
+                        <div className="space-y-4">
+                            <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="New Deadline (optional)" value={renegotiationFields.deadline} onChange={e => setRenegotiationFields(f => ({ ...f, deadline: e.target.value }))} />
+                            <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="New Amount (optional)" value={renegotiationFields.amount} onChange={e => setRenegotiationFields(f => ({ ...f, amount: e.target.value }))} />
+                            <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Scope/Terms Change (optional)" value={renegotiationFields.scope} onChange={e => setRenegotiationFields(f => ({ ...f, scope: e.target.value }))} rows={3} />
+                        </div>
+                        <div className="flex gap-4 justify-end">
+                            <button onClick={() => setShowRenegotiate(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
+                            <button onClick={() => { setIsRenegotiating(true); setShowRenegotiate(false); /* Add logic for proposal/confirmation in next step */ }} className="px-4 py-2 rounded bg-yellow-600 text-white font-bold">Propose Changes</button>
+                        </div>
+                    </div>
                 </div>
             )}
             {/* Cancel Confirmation Dialog */}

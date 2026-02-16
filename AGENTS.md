@@ -1,3 +1,16 @@
+## Optimization & Redundancy Policy
+
+- Always eliminate redundancy and duplication in code and documentation.
+- Optimize for clarity, maintainability, and minimalism without sacrificing intent or usability.
+- When editing AGENTS.md or global.md, ensure no redundant or overlapping rules are introduced.
+
+## Structure & Balance Policy
+
+- When editing code or documentation, always consider the overall structure, logical flow, and balance of the file or project.
+- Avoid excessive deletion or rewriting that disrupts context, clarity, or maintainability.
+- All changes should preserve the intent, usability, and readability for both users and future maintainers.
+- When in doubt, prefer incremental improvements and clear documentation of rationale.
+
 # AGENTS.md
 
 Universal rules for all VS Code agents.

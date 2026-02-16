@@ -1,15 +1,14 @@
 # global.md
 
-Global agent rules and standards for all environments.
+This file supplements AGENTS.md with project-specific rules or clarifications for agent behavior.
 
 ---
 
-## Universal Guidelines
+## Usage
 
-- Follow AGENTS.md for base rules
-- Apply project-specific instructions as needed
-- Follow the Git Command Policy in AGENTS.md: Always use the latest Git recommended commands (e.g., git switch, git restore) and avoid deprecated commands like git checkout.
+- All universal agent rules (redundancy elimination, optimization, structure & balance, language, git policy, etc.) are defined in AGENTS.md and must be followed in all environments.
+- Only add project-specific exceptions, clarifications, or operational examples here. Do not duplicate or restate AGENTS.md rules.
 
 ---
 
-_Last updated: 2026-02-10_
+_Last updated: 2026-02-17_
