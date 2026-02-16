@@ -35,11 +35,26 @@ This section outlines the implementation plan for adding edge case and exception
 
 - When a dispute or exception occurs, display an "Admin Intervention" button to forcibly end or resume the contract.
 
-## Implementation Example
+## 7. Contract Workflow Stages & Edit Terms/Cancel Timing
 
-- Add "Cancel", "Renegotiate", "Pause" buttons to relevant views (e.g., ContractView).
-- Use state management (e.g., useState) to track flags like "Cancelled", "Renegotiating", "Paused".
-- Use history and toast notifications to clearly indicate state changes to users.
+1. DoD/Acceptance Protocol提示：
+
+- ユーザーは「Edit Terms（条件修正）」「Cancel（契約中止）」「Initiate Contract（契約開始）」の選択肢を明示的に提示される。
+- Edit TermsやCancelはこの段階でのみ利用可能。
+
+2. Commitment Locked：
+
+- 双方の信頼・責任・条件が確定し、契約内容は不可逆的・透明性最大化。
+- Locked後は条件変更やキャンセルは原則不可。
+- 例外対応（緊急修正や中止）は特別な再合意フローや管理者承認で分離して扱う。
+
+### Rationale
+
+- Locked後に条件変更やキャンセルが可能だと、契約の価値・信頼・法的安定性が損なわれる。
+- 最高のUXは「迷いゼロ・納得感・安心感」。Locked前に全ての調整・中止を済ませ、Locked後は履行に集中できる設計が理想。
+- 世界標準の契約プロトコル（金融・法律・Web3含む）も同様のルールを採用している。
+
+For implementation details and UI/UX guidelines, see TrustFlow_Development_Roadmap.md.
 
 ---
 

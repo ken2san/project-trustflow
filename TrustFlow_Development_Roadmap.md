@@ -114,6 +114,14 @@ Project structure should modularize large files (e.g., App.jsx) into components,
 
 ---
 
+## Edit Terms & Cancel Timing (Implementation)
+
+- Edit Terms（条件修正）とCancel（契約中止）は、Definition of Done（DoD）提示～Commitment Locked前までのみ利用可能。
+- Commitment Locked以降は契約条件が不可逆的に確定し、原則として条件変更や中止は不可。
+- 詳細なルール・根拠はTrustFlow_Protocol.mdを参照。
+
+---
+
 # 10. Design Change & Correction Operation Rules
 
 ## 10.1. Design Change & Correction Flow
