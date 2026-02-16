@@ -1,3 +1,48 @@
+# Edge Case & Exception Handling: UI/Logic Implementation Plan
+
+## Overview
+
+This section outlines the implementation plan for adding edge case and exception handling features to the Trust Flow demo, enabling users to experience non-ideal scenarios and robust contract management.
+
+## 1. Mid-Contract Cancellation
+
+- Display a "Cancel" button during each contract phase (only enabled while contract is active).
+- On cancel, show a confirmation dialog and record the cancellation reason in the contract history.
+- After cancellation, set contract progress to "Cancelled" and lock further actions.
+
+## 2. Payment Delay/Failure Simulation
+
+- Add a "Simulate Payment Delay" button during the payment phase.
+- When triggered, show a toast notification and record "Payment Delay Occurred" in history.
+- Provide "Retry" and "Contact Admin" buttons for further action.
+
+## 3. Renegotiation & Terms Modification
+
+- Display a "Renegotiate" button while contract is active.
+- On click, open a modal for modifying terms (deadline, amount, scope, etc.), and record changes in history.
+- During renegotiation, pause contract progress; resume only after mutual agreement.
+
+## 4. Multiple Rejections & Forced Dispute
+
+- Track the number of rejections; after a threshold, automatically transition to dispute or display an "Admin Intervention" button.
+
+## 5. Pause & Resume
+
+- Add a "Pause" button to temporarily halt contract progress, and a "Resume" button to return to the previous phase.
+- Record pause/resume actions in history.
+
+## 6. Admin Intervention (Demo Only)
+
+- When a dispute or exception occurs, display an "Admin Intervention" button to forcibly end or resume the contract.
+
+## Implementation Example
+
+- Add "Cancel", "Renegotiate", "Pause" buttons to relevant views (e.g., ContractView).
+- Use state management (e.g., useState) to track flags like "Cancelled", "Renegotiating", "Paused".
+- Use history and toast notifications to clearly indicate state changes to users.
+
+---
+
 # TrustFlow Protocol
 
 ## 1. Abstract
