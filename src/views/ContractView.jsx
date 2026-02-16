@@ -24,6 +24,11 @@ const ContractView = (props) => {
     const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
     const [cancelReason, setCancelReason] = React.useState("");
     const [isCancelled, setIsCancelled] = React.useState(false);
+    // Renegotiation state
+    const [showRenegotiate, setShowRenegotiate] = React.useState(false);
+    const [renegotiationFields, setRenegotiationFields] = React.useState({ deadline: '', amount: '', scope: '' });
+    const [isRenegotiating, setIsRenegotiating] = React.useState(false);
+    const [pendingRenegotiation, setPendingRenegotiation] = React.useState(null);
     const {
         step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode
     } = props;
@@ -198,21 +203,52 @@ const ContractView = (props) => {
                     <button onClick={() => setShowCancelConfirm(true)} className="px-4 py-2 rounded bg-red-700 text-white font-bold hover:bg-red-800 transition-all text-sm">Cancel Contract</button>
                 </div>
             )}
-            {/* Renegotiation Modal */}
+            {/* Renegotiation Modal: Instant Preview + One-Click Send UX */}
             {showRenegotiate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                    <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                        <h3 className="text-xl font-bold text-white mb-2">Renegotiate Terms</h3>
-                        <div className="space-y-4">
-                            <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="New Deadline (optional)" value={renegotiationFields.deadline} onChange={e => setRenegotiationFields(f => ({ ...f, deadline: e.target.value }))} />
-                            <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="New Amount (optional)" value={renegotiationFields.amount} onChange={e => setRenegotiationFields(f => ({ ...f, amount: e.target.value }))} />
-                            <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Scope/Terms Change (optional)" value={renegotiationFields.scope} onChange={e => setRenegotiationFields(f => ({ ...f, scope: e.target.value }))} rows={3} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={e => { if (e.target === e.currentTarget) setShowRenegotiate(false); }}>
+                    <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-2xl space-y-6 relative flex flex-col">
+                        <button aria-label="Close" onClick={() => setShowRenegotiate(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl font-bold focus:outline-none">×</button>
+                        <h3 className="text-xl font-bold text-white mb-2 text-center">Renegotiate Terms</h3>
+                        <div className="flex flex-col sm:flex-row gap-6">
+                            {/* Current Terms */}
+                            <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                                <h4 className="text-sm font-bold text-slate-300 mb-2">Current Terms</h4>
+                                <div className="text-xs text-slate-400 mb-1">Deadline: <span className="font-bold text-white">{pendingRenegotiation?.deadline || '—'}</span></div>
+                                <div className="text-xs text-slate-400 mb-1">Amount: <span className="font-bold text-white">{pendingRenegotiation?.amount || '—'}</span></div>
+                                <div className="text-xs text-slate-400">Scope: <span className="font-bold text-white">{pendingRenegotiation?.scope || '—'}</span></div>
+                            </div>
+                            {/* New Terms (Editable) */}
+                            <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-yellow-700">
+                                <h4 className="text-sm font-bold text-yellow-300 mb-2">New Terms (Editable)</h4>
+                                <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Deadline (optional)" value={renegotiationFields.deadline} onChange={e => setRenegotiationFields(f => ({ ...f, deadline: e.target.value }))} />
+                                <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Amount (optional)" value={renegotiationFields.amount} onChange={e => setRenegotiationFields(f => ({ ...f, amount: e.target.value }))} />
+                                <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700" placeholder="Scope/Terms Change (optional)" value={renegotiationFields.scope} onChange={e => setRenegotiationFields(f => ({ ...f, scope: e.target.value }))} rows={3} />
+                            </div>
                         </div>
-                        <div className="flex gap-4 justify-end">
-                            <button onClick={() => setShowRenegotiate(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                            <button onClick={() => { setIsRenegotiating(true); setShowRenegotiate(false); /* Add logic for proposal/confirmation in next step */ }} className="px-4 py-2 rounded bg-yellow-600 text-white font-bold">Propose Changes</button>
+                        <div className="flex flex-col items-center mt-4">
+                            <button onClick={() => {
+                                setIsRenegotiating(true);
+                                setShowRenegotiate(false);
+                                setPendingRenegotiation({ ...renegotiationFields, proposer: mode, timestamp: Date.now() });
+                                setHistory(prev => [
+                                    { type: 'renegotiation-proposed', message: `Proposed changes: ${JSON.stringify(renegotiationFields)}`, timestamp: Date.now(), actor: mode },
+                                    ...prev
+                                ]);
+                                if (addToast) addToast('Renegotiation Proposed', 'Awaiting other party response.', 'info');
+                            }} className="px-6 py-3 rounded bg-yellow-600 text-white font-bold text-lg hover:bg-yellow-700 transition-all w-full max-w-xs">Send Proposal</button>
+                            <span className="text-xs text-slate-500 mt-2">Changes will not be saved unless you send.<br/>Click × or outside to close without saving.</span>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Renegotiation Banner/Lockout */}
+            {isRenegotiating && pendingRenegotiation && (
+                <div className="mb-6 p-4 rounded-xl bg-yellow-900/80 border border-yellow-400 text-yellow-100 flex flex-col items-center">
+                    <div className="font-bold mb-2">Renegotiation in Progress</div>
+                    <div className="text-xs mb-2">Proposed by: {pendingRenegotiation.proposer} at {new Date(pendingRenegotiation.timestamp).toLocaleString()}</div>
+                    <div className="text-xs">Deadline: {pendingRenegotiation.deadline || '—'} | Amount: {pendingRenegotiation.amount || '—'}<br/>Scope: {pendingRenegotiation.scope || '—'}</div>
+                    {/* Accept/Reject buttons will be added in next step */}
                 </div>
             )}
             {/* Cancel Confirmation Dialog */}
