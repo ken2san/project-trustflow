@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import useInterval from "../../hooks/useInterval";
 
-const HoldButton = ({ onClick, label, icon: Icon, className = "", color, disabled = false }) => {
+
+const HoldButton = ({ onClick, label, icon: Icon, className = "", color, disabled = false, holdKey }) => {
   const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -13,13 +14,21 @@ const HoldButton = ({ onClick, label, icon: Icon, className = "", color, disable
     return () => clearTimeout(timer);
   }, []);
 
+  // Reset isCompleted and progress when disabled changes or holdKey changes
+  const prevDisabledRef = React.useRef(disabled);
+  const prevHoldKeyRef = React.useRef(holdKey);
   useEffect(() => {
     if (disabled) {
       setIsHolding(false);
       setProgress(0);
       setIsCompleted(false);
+    } else if (prevDisabledRef.current || prevHoldKeyRef.current !== holdKey) {
+      setIsCompleted(false);
+      setProgress(0);
     }
-  }, [disabled]);
+    prevDisabledRef.current = disabled;
+    prevHoldKeyRef.current = holdKey;
+  }, [disabled, holdKey]);
 
   useInterval(() => {
     if (isHolding && !isCompleted && !disabled && isReady) {
