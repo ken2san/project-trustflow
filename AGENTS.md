@@ -1,3 +1,9 @@
+# Comprehensive Scope Policy
+
+- When reviewing, editing, or refactoring code or documentation, agents must always consider the entire project and all relevant files, not just the currently open or selected file.
+- All changes should be made with awareness of global project requirements, cross-file dependencies, and protocol or specification compliance.
+- Agents are responsible for proactively searching for and eliminating inconsistencies, redundant logic, or protocol violations across the whole codebase, not just in isolated files.
+
 ## Optimization & Redundancy Policy
 
 - Always eliminate redundancy and duplication in code and documentation.

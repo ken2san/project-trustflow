@@ -127,25 +127,7 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
               Back to Marketplace
             </button>
             <div className="flex flex-col items-center w-full">
-              {/* Only show Initiate Contract button before agreement */}
-              {!agreed && (
-                <InitiateContractButton
-                  onClick={handleAgreement}
-                  disabled={agreed}
-                />
-              )}
-              {agreed && (
-                <div className="mt-4 text-center">
-                  <div className="px-6 py-2 bg-emerald-100 text-emerald-700 font-bold rounded-full mb-2">Contract Confirmed. Chat is now locked for evidence.</div>
-                  <button
-                    className="px-6 py-2 rounded-full bg-indigo-600 text-white font-bold shadow hover:bg-indigo-700 transition-all mt-4 mx-auto"
-                    onClick={onAgreement}
-                    title="Initiate Contract"
-                  >
-                    Initiate Contract
-                  </button>
-                </div>
-              )}
+              {/* Acceptance Protocol only: Initiate Contract button removed from detail view for protocol compliance */}
             </div>
           </div>
         </div>

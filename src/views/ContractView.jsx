@@ -196,22 +196,27 @@ const ContractView = (props) => {
 
 
         <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
-            {/* Edge case buttons: Cancel, Edit Terms (bottom center, above main action, best UX) */}
-            {step >= 1 && step <= 4 && !isCancelled && (
-                <div className="flex justify-center gap-6 mt-12 mb-6">
-                    <button onClick={() => setShowRenegotiate(true)}
-                        className="flex items-center min-w-[120px] max-w-[180px] px-5 py-2 rounded-full bg-yellow-100 text-yellow-700 font-bold hover:bg-yellow-200 hover:shadow-lg transition-all text-base border border-yellow-200"
-                        title="Edit Terms">
-                        <Scan className="w-5 h-5 mr-2 text-yellow-600" />
-                        Edit Terms
-                    </button>
-                    <button onClick={() => setShowCancelConfirm(true)}
-                        className="flex items-center min-w-[120px] max-w-[180px] px-5 py-2 rounded-full bg-pink-100 text-pink-700 font-bold hover:bg-pink-200 hover:shadow-lg transition-all text-base border border-pink-200"
-                        style={{ boxShadow: '0 2px 8px 0 rgba(255, 0, 90, 0.10)' }}
-                        title="Cancel">
-                        <Heart className="w-5 h-5 mr-2 text-pink-600" />
-                        Cancel
-                    </button>
+            {/* Acceptance Protocol: show only Abort Sequence and Initiate Contract after negotiation, before contract initiation */}
+            {((typeof step !== 'number' || step === 0) && !isCancelled) && (
+                <div className="flex flex-col items-center justify-center mt-12 mb-6 gap-8">
+                    <div className="mb-4">
+                        <h2 className="text-3xl font-black text-white mb-2">Acceptance Protocol</h2>
+                        <p className="text-slate-400 text-lg">Review the Definition of Done (DoD) and contract terms below. If you do not agree, you may abort and return to negotiation. If you agree, initiate the contract to lock terms.</p>
+                        <ul className="mt-4 text-left text-slate-200 text-base font-bold bg-slate-800/60 rounded-xl p-4 max-w-md mx-auto">
+                            <li>Definitive Figma Library</li>
+                            <li>Dark Mode Tokens</li>
+                            <li>Atomic Design Compliance</li>
+                        </ul>
+                    </div>
+                    <div className="flex justify-center gap-6">
+                        <button onClick={() => setShowCancelConfirm(true)}
+                            className="flex items-center min-w-[140px] max-w-[200px] px-6 py-3 rounded-full bg-pink-600 text-white font-black hover:bg-pink-700 shadow-xl text-base border border-pink-200"
+                            style={{ boxShadow: '0 2px 8px 0 rgba(255, 0, 90, 0.10)' }}
+                            title="Abort Sequence">
+                            Abort Sequence
+                        </button>
+                        <HoldButton key="btn-initiate" onClick={handleNextStep} label="Initiate Contract" icon={ArrowRight} className="btn-primary-hold min-w-[140px] max-w-[200px] bg-white text-[#020617] py-3 rounded-full font-black text-base shadow-xl border border-white/20" disabled={status !== 'idle'} />
+                    </div>
                 </div>
             )}
             {/* Renegotiation Modal: Instant Preview + One-Click Send UX */}
