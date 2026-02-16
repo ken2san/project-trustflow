@@ -1,7 +1,7 @@
 
 import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
-import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint } from "lucide-react";
+import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint, Heart } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
 
 // Ensure animation always appears when step 5 is rendered
@@ -196,11 +196,22 @@ const ContractView = (props) => {
 
 
         <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
-            {/* Action buttons: Cancel, Renegotiate (active only) */}
+            {/* Edge case buttons: Cancel, Edit Terms (bottom center, above main action, best UX) */}
             {step >= 1 && step <= 4 && !isCancelled && (
-                <div className="flex justify-end mb-4 gap-2">
-                    <button onClick={() => setShowRenegotiate(true)} className="px-4 py-2 rounded bg-yellow-600 text-white font-bold hover:bg-yellow-700 transition-all text-sm">Renegotiate</button>
-                    <button onClick={() => setShowCancelConfirm(true)} className="px-4 py-2 rounded bg-red-700 text-white font-bold hover:bg-red-800 transition-all text-sm">Cancel Contract</button>
+                <div className="flex justify-center gap-6 mt-12 mb-6">
+                    <button onClick={() => setShowRenegotiate(true)}
+                        className="flex items-center min-w-[120px] max-w-[180px] px-5 py-2 rounded-full bg-yellow-100 text-yellow-700 font-bold hover:bg-yellow-200 hover:shadow-lg transition-all text-base border border-yellow-200"
+                        title="Edit Terms">
+                        <Scan className="w-5 h-5 mr-2 text-yellow-600" />
+                        Edit Terms
+                    </button>
+                    <button onClick={() => setShowCancelConfirm(true)}
+                        className="flex items-center min-w-[120px] max-w-[180px] px-5 py-2 rounded-full bg-pink-100 text-pink-700 font-bold hover:bg-pink-200 hover:shadow-lg transition-all text-base border border-pink-200"
+                        style={{ boxShadow: '0 2px 8px 0 rgba(255, 0, 90, 0.10)' }}
+                        title="Cancel">
+                        <Heart className="w-5 h-5 mr-2 text-pink-600" />
+                        Cancel
+                    </button>
                 </div>
             )}
             {/* Renegotiation Modal: Instant Preview + One-Click Send UX */}
