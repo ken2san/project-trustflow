@@ -1,30 +1,39 @@
 import React, { useState } from "react";
 import InitiateContractButton from "../components/ui/InitiateContractButton";
+import ModalDialog from "../components/ui/ModalDialog";
 import { Loader2 } from "lucide-react";
 import ToastContainer from "../components/ui/ToastContainer";
+import NegotiationChatView from "./NegotiationChatView";
 import ProfileModal from "../components/modals/ProfileModal";
 
 // ProjectDetailView: Dashboard for project specs and negotiation stream
 
-const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBack, onOpenChat, messages = [], agreed = false }) => {
+// Accepts chatLocked prop to control chat lock state from protocol logic
+const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBack, onOpenChat, messages = [], agreed = false, chatLocked = false, acceptanceProtocol = [] }) => {
   const [toasts, setToasts] = useState([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
 
   const handleAgreement = () => {
     if (agreed) return;
-    if (typeof setAgreed === 'function') setAgreed(true);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmContract = () => {
+    setShowConfirmModal(false);
     setToasts(prev => [...prev, { id: Date.now(), title: "Agreement Formed", message: "Contract flow initiated.", type: "success" }]);
-    if (onAgreement) onAgreement(); // Immediately transition to ScopingView
+    if (onAgreement) onAgreement();
   };
 
   return (
     <>
       <div className="max-w-3xl mx-auto p-8 space-y-12 animate-fade-in-up">
         <ToastContainer toasts={toasts} removeToast={id => setToasts(prev => prev.filter(t => t.id !== id))} />
-        {/* Section: Project Specs */}
+        {/* Section: Project Specs & Contract Terms */}
         <div>
           <h2 className="text-2xl font-black text-white mb-6">Project Overview</h2>
-          <div className="bg-indigo-900/60 rounded-2xl p-6 border border-indigo-500/20 shadow-xl">
+          <div className="bg-indigo-900/60 rounded-2xl p-6 border border-indigo-500/20 shadow-xl space-y-6">
             <div className="flex items-center mb-4 gap-4">
               {/* Client avatar placeholder */}
               <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-lg">
@@ -37,8 +46,8 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
               {/* Project status badge */}
               <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">Active</span>
             </div>
-            {/* Streamlined client trust info */}
-            <div className="flex items-center gap-6 mb-4">
+            {/* Trust info and tags */}
+            <div className="flex flex-wrap items-center gap-6 mb-4">
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <span className="font-bold text-indigo-300">Reliability:</span>
                 <span className="text-emerald-400 font-bold">99%</span>
@@ -51,25 +60,41 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
                 className="text-xs text-indigo-400 underline hover:text-indigo-300 font-bold"
                 onClick={() => setIsProfileOpen(true)}
               >View Client Profile</button>
+              <div className="flex flex-wrap gap-2 ml-auto">
+                {project.skills?.map((skill, idx) => (
+                  <span key={idx} className="px-2 py-1 rounded-full bg-indigo-800 text-indigo-200 text-[10px] font-bold uppercase tracking-widest">{skill}</span>
+                ))}
+              </div>
             </div>
             <div className="mb-2 text-indigo-200 font-semibold">{project.description}</div>
-            {/* Project tags */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {project.skills?.map((skill, idx) => (
-                <span key={idx} className="px-2 py-1 rounded-full bg-indigo-800 text-indigo-200 text-[10px] font-bold uppercase tracking-widest">{skill}</span>
-              ))}
-            </div>
-            {/* Timeline visualization */}
-            <div className="flex flex-wrap items-center gap-4 mt-4">
-              <div className="text-xs text-slate-400">Budget: <span className="font-bold text-indigo-300">{project.budget}</span></div>
-              <div className="text-xs text-slate-400">Deadline: <span className="font-bold text-indigo-300">{project.deadline}</span></div>
-              {/* Responsive progress bar for timeline */}
-              <div className="flex items-center gap-2 min-w-0 w-full max-w-xs">
-                <span className="text-[10px] text-slate-500 whitespace-nowrap">Timeline</span>
-                <div className="flex-1 min-w-0">
-                  <div className="w-full h-2 bg-indigo-800 rounded-full overflow-hidden">
-                    <div className="h-2 bg-emerald-400 rounded-full" style={{ width: '60%' }}></div>
-                  </div>
+            {/* Contract Terms Section */}
+            <div className="mt-6 p-6 rounded-2xl bg-slate-900/80 border border-indigo-700/40 shadow-inner">
+              <h3 className="text-lg font-black text-indigo-300 mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-4.41 0-8-1.79-8-4V6c0-2.21 3.59-4 8-4s8 1.79 8 4v8c0 2.21-3.59 4-8 4z" /></svg>
+                Contract Terms
+              </h3>
+              <div className="flex flex-col md:flex-row gap-8">
+                {/* Total Contract Value */}
+                <div className="flex-1 flex flex-col items-start justify-center mb-4 md:mb-0">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Contract Value</span>
+                  <span className="text-3xl font-black text-white flex items-baseline gap-2">
+                    {(project.budget || project.totalPoints || '—').toString().replace(/[^\d,\.]/g, '')}
+                    <span className="text-base font-bold text-indigo-400 ml-1">TrustPoints</span>
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-3 block">Deadline</span>
+                  <span className="text-lg font-bold text-indigo-200">{project.deadline || '—'}</span>
+                </div>
+                {/* Acceptance Protocol */}
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 block">Acceptance Protocol</span>
+                  <ul className="space-y-2 mt-2">
+                    {(acceptanceProtocol || []).map((term, idx) => (
+                      <li key={idx} className="flex items-start gap-2 p-2 bg-indigo-950/60 rounded-lg border border-indigo-800/40 text-slate-200 text-sm font-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-emerald-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        {term}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
@@ -83,8 +108,8 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
             <button
               style={{ minWidth: 120 }}
               onClick={onOpenChat}
-              disabled={agreed}
-              title={agreed ? "Agreement already formed. Chat is locked." : "Open Full Chat"}
+              disabled={chatLocked}
+              title={chatLocked ? "Contract is locked. Chat is unavailable." : "Open Full Chat"}
               className={`px-4 py-2 rounded-full border border-indigo-400/30 bg-white/10 text-indigo-300 text-xs font-bold shadow-sm hover:bg-indigo-500/10 hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400/40 disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               <span className="flex items-center gap-1">
@@ -127,11 +152,43 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
               Back to Marketplace
             </button>
             <div className="flex flex-col items-center w-full">
-              {/* Acceptance Protocol only: Initiate Contract button removed from detail view for protocol compliance */}
+              {/* Initiate Contract button: only enabled if not agreed */}
+              <button
+                className="mt-6 px-8 py-3 rounded-full bg-white text-indigo-900 font-black text-lg shadow-xl border border-white/20 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={agreed}
+                onClick={handleAgreement}
+                title={agreed ? 'Contract already initiated' : 'Initiate Contract'}
+              >
+                Initiate Contract
+              </button>
             </div>
           </div>
         </div>
       </div>
+      {/* Contract Confirmation Modal */}
+      <ModalDialog
+        open={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        title="Confirm Contract Details"
+        actions={[
+          <button key="cancel" onClick={() => setShowConfirmModal(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>,
+          <button key="confirm" onClick={handleConfirmContract} className="px-4 py-2 rounded bg-green-600 text-white font-bold">Confirm & Initiate</button>
+        ]}
+      >
+        <div className="mb-4">
+          <h4 className="font-bold text-indigo-300 mb-2">Acceptance Protocol</h4>
+          <ul className="bg-slate-800/60 rounded-xl p-4 text-left text-slate-200 text-base font-bold">
+            {(acceptanceProtocol || []).map((term, idx) => (
+              <li key={idx}>{term}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="mb-2">
+          <h4 className="font-bold text-indigo-300 mb-2">Total Contract Value</h4>
+          <div className="text-2xl font-black text-white">{project.budget || project.totalPoints || '—'}</div>
+        </div>
+      </ModalDialog>
+
       {/* Modal rendered outside main container for correct overlay */}
       {isProfileOpen && (
         <ProfileModal
@@ -151,6 +208,5 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
       )}
     </>
   );
-};
-
+}
 export default ProjectDetailView;

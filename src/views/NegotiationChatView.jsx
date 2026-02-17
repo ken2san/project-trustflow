@@ -12,7 +12,7 @@ const initialMessages = [
 
 
 
-export default function NegotiationChatView({ messages, setMessages, agreed, setAgreed, onBack }) {
+export default function NegotiationChatView({ messages, setMessages, agreed, setAgreed, onBack, chatLocked = false }) {
     // Export chat as text file
     const handleExportChat = () => {
       const lines = messages.map(msg => {
@@ -102,7 +102,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
             Export Chat
           </button>
         </div>
-        {!agreed && (
+        {!agreed && !chatLocked && (
           <form onSubmit={handleSend} className="p-6 border-t border-white/10 bg-indigo-900/80 flex gap-3" aria-label="Send message form">
             <textarea
               ref={textareaRef}
@@ -126,15 +126,12 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
             <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-xl shadow" aria-label="Send message">Send</button>
           </form>
         )}
-        {!agreed && (
-          <div className="flex flex-col items-center justify-end p-4">
-            <InitiateContractButton
-              onClick={handleAgreement}
-              disabled={agreed}
-            />
-            <span className="text-xs text-slate-400 mt-2">Press and hold to confirm</span>
+        {chatLocked && (
+          <div className="p-6 border-t border-white/10 bg-indigo-900/80 text-center text-slate-400 font-bold">
+            <span className="flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12V8a4 4 0 10-8 0v4M5 20h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>Chat is locked. Contract in progress.</span>
           </div>
         )}
+        {/* Contract actions removed: ChatView is negotiation-only. */}
       </div>
       <ToastContainer toasts={toasts} removeToast={id => setToasts(prev => prev.filter(t => t.id !== id))} />
     </div>

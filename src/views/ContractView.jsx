@@ -24,6 +24,9 @@ const ContractView = (props) => {
     const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
     const [cancelReason, setCancelReason] = React.useState("");
     const [isCancelled, setIsCancelled] = React.useState(false);
+    const [chatLocked, setChatLocked] = React.useState(false);
+    const stepFromProps = typeof props.step === 'number' ? props.step : 0;
+    const [currentStep, setCurrentStep] = React.useState(stepFromProps);
     // Renegotiation state
     const [showRenegotiate, setShowRenegotiate] = React.useState(false);
     const [renegotiationFields, setRenegotiationFields] = React.useState({ deadline: '', amount: '', scope: '' });
@@ -62,6 +65,20 @@ const ContractView = (props) => {
             { type: 'dispute', message: 'Dispute raised. Evidence sent to admin.', timestamp: Date.now(), actor: mode },
             ...prev
         ]);
+    };
+
+    // Handler for Acceptance Protocol Abort (reset to negotiation, unlock chat)
+    const handleAbortSequence = () => {
+        setIsCancelled(false);
+        setShowCancelConfirm(false);
+        setCancelReason("");
+        setCurrentStep(0); // negotiation phase
+        setChatLocked(false);
+        setHistory(prev => [
+            { type: 'abort', message: 'Acceptance Protocol aborted. Returned to negotiation.', timestamp: Date.now(), actor: mode },
+            ...prev
+        ]);
+        if (addToast) addToast('Aborted', 'Returned to negotiation phase.', 'info');
     };
 
 
@@ -197,7 +214,7 @@ const ContractView = (props) => {
 
         <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
             {/* Acceptance Protocol: show only Abort Sequence and Initiate Contract after negotiation, before contract initiation */}
-            {((typeof step !== 'number' || step === 0) && !isCancelled) && (
+            {((typeof currentStep !== 'number' || currentStep === 0) && !isCancelled) && (
                 <div className="flex flex-col items-center justify-center mt-12 mb-6 gap-8">
                     <div className="mb-4">
                         <h2 className="text-3xl font-black text-white mb-2">Acceptance Protocol</h2>
@@ -215,7 +232,7 @@ const ContractView = (props) => {
                             title="Abort Sequence">
                             Abort Sequence
                         </button>
-                        <HoldButton key="btn-initiate" onClick={handleNextStep} label="Initiate Contract" icon={ArrowRight} className="btn-primary-hold min-w-[140px] max-w-[200px] bg-white text-[#020617] py-3 rounded-full font-black text-base shadow-xl border border-white/20" disabled={status !== 'idle'} />
+                        <HoldButton key="btn-initiate" onClick={() => { setCurrentStep(1); setChatLocked(true); handleNextStep && handleNextStep(); }} label="Initiate Contract" icon={ArrowRight} className="btn-primary-hold min-w-[140px] max-w-[200px] bg-white text-[#020617] py-3 rounded-full font-black text-base shadow-xl border border-white/20" disabled={status !== 'idle'} />
                     </div>
                 </div>
             )}
@@ -271,22 +288,19 @@ const ContractView = (props) => {
             {showCancelConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
                     <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                        <h3 className="text-xl font-bold text-white mb-2">Cancel Contract</h3>
-                        <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Enter cancellation reason (required)" value={cancelReason} onChange={e => setCancelReason(e.target.value)} required rows={4} />
+                        <h3 className="text-xl font-bold text-white mb-2">Abort Sequence</h3>
+                        <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Enter abort reason (required)" value={cancelReason} onChange={e => setCancelReason(e.target.value)} required rows={4} />
                         <div className="flex gap-4 justify-end">
                             <button onClick={() => { setShowCancelConfirm(false); setCancelReason(""); }} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                            <button onClick={() => { if (cancelReason.trim()) { setIsCancelled(true); setShowCancelConfirm(false); setHistory(prev => [{ type: 'cancel', message: cancelReason, timestamp: Date.now(), actor: mode }, ...prev]); if (addToast) addToast('Contract Cancelled', 'Contract cancelled: ' + cancelReason, 'error'); }}} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!cancelReason.trim()}>Confirm Cancel</button>
+                            <button onClick={() => { if (cancelReason.trim()) { handleAbortSequence(); }}} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!cancelReason.trim()}>Confirm Abort</button>
                         </div>
                     </div>
                 </div>
             )}
-            {isCancelled ? (
-                <div className="flex flex-col items-center justify-center min-h-[300px]">
-                    <h2 className="text-4xl font-black text-red-500 mb-4">Contract Cancelled</h2>
-                    <p className="text-slate-400 mb-6">Reason: {cancelReason}</p>
-                    <button onClick={handleNextStep} className="px-8 py-3 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button>
-                </div>
-            ) : (
+            {/* If chatLocked, show lockout banner in chat UI (implement in chat component as needed) */}
+            {/* ...existing code... */}
+            {/* If not locked, continue normal workflow */}
+            {!chatLocked && (
                 <>
                     {step === 1 && (
                         <div className="space-y-10 animate-fade-in-up">

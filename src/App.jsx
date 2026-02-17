@@ -153,6 +153,14 @@ import ProjectDetailView from './views/ProjectDetailView';
 // --- Main App Component ---
 
 const App = () => {
+  // Centralized Acceptance Protocol state (DoD/terms)
+  const [acceptanceProtocol, setAcceptanceProtocol] = useState([
+    'Definitive Figma Library',
+    'Dark Mode Tokens',
+    'Atomic Design Compliance'
+  ]);
+  // Centralized chat lock state
+  const [chatLocked, setChatLocked] = useState(false);
     // Negotiation chat state (shared for evidence/dispute)
     const [negotiationMessages, setNegotiationMessages] = useState([
       { sender: "client", text: "Thank you for your interest. Our initial budget is ¥3,000,000 for the full design system.", time: "09:00" },
@@ -458,13 +466,19 @@ const App = () => {
             negotiationHistory={[]}
             onAgreement={() => {
               setSelectedItem(projectDetail);
-              setView('scoping');
+              setView('contract'); // Jump directly to Commitment Locked (ContractView)
+              setStep(1);
+              setChatLocked(true); // Lock chat after contract initiation
+              addToast('Commitment Locked', 'Contract flow started.');
             }}
             onBack={() => setView('marketplace')}
             onOpenChat={() => setView('negotiation-chat')}
             messages={negotiationMessages}
             agreed={negotiationAgreed}
             setAgreed={setNegotiationAgreed}
+            acceptanceProtocol={acceptanceProtocol}
+            setAcceptanceProtocol={setAcceptanceProtocol}
+            chatLocked={chatLocked}
           />
         )}
         {view === 'negotiation-chat' && (
@@ -473,6 +487,9 @@ const App = () => {
             setMessages={setNegotiationMessages}
             agreed={negotiationAgreed}
             setAgreed={setNegotiationAgreed}
+            acceptanceProtocol={acceptanceProtocol}
+            setAcceptanceProtocol={setAcceptanceProtocol}
+            chatLocked={chatLocked}
             onBack={(next, evidence) => {
               if (next === 'scoping') {
                 // Ensure selectedItem is set from projectDetail if not already
@@ -487,7 +504,7 @@ const App = () => {
             }}
           />
         )}
-        {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => setView('project-detail')} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
+        {/* ScopingView removed from contract flow. */}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
