@@ -177,11 +177,21 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
       >
         <div className="mb-4">
           <h4 className="font-bold text-indigo-300 mb-2">Acceptance Protocol</h4>
-          <ul className="bg-slate-800/60 rounded-xl p-4 text-left text-slate-200 text-base font-bold">
+          <ul className="space-y-2 mt-2">
             {(acceptanceProtocol || []).map((term, idx) => (
-              <li key={idx}>{term}</li>
+              <li key={idx} className="flex items-start gap-2 p-2 bg-indigo-950/60 rounded-lg border border-indigo-800/40 text-slate-200 text-sm font-bold">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-emerald-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                {term}
+              </li>
             ))}
           </ul>
+          <style>{`
+            @keyframes pop-in {
+              0% { transform: scale(0.95) translateY(20px); opacity: 0; }
+              100% { transform: scale(1) translateY(0); opacity: 1; }
+            }
+            .animate-pop-in { animation: pop-in 0.3s cubic-bezier(0.4,0,0.2,1); }
+          `}</style>
         </div>
         <div className="mb-2">
           <h4 className="font-bold text-indigo-300 mb-2">Total Contract Value</h4>
