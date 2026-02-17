@@ -77,9 +77,11 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
                 {/* Total Contract Value */}
                 <div className="flex-1 flex flex-col items-start justify-center mb-4 md:mb-0">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Contract Value</span>
-                  <span className="text-3xl font-black text-white flex items-baseline gap-2">
-                    {(project.budget || project.totalPoints || '—').toString().replace(/[^\d,\.]/g, '')}
-                    <span className="text-base font-bold text-indigo-400 ml-1">TrustPoints</span>
+                  <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1 w-full">
+                    <span className="text-3xl font-black text-white break-words">
+                      {(project.budget || project.totalPoints || '—').toString().replace(/[^\d,\.]/g, '')}
+                    </span>
+                    <span className="text-base font-bold text-indigo-400 ml-1 whitespace-nowrap">TrustPoints</span>
                   </span>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-3 block">Deadline</span>
                   <span className="text-lg font-bold text-indigo-200">{project.deadline || '—'}</span>
