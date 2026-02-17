@@ -163,7 +163,7 @@ const App = () => {
   const [chatLocked, setChatLocked] = useState(false);
     // Negotiation chat state (shared for evidence/dispute)
     const [negotiationMessages, setNegotiationMessages] = useState([
-      { sender: "client", text: "Thank you for your interest. Our initial budget is ¥3,000,000 for the full design system.", time: "09:00" },
+      { sender: "client", text: "Thank you for your interest. Our initial budget is 3,000,000 for the full design system.", time: "09:00" },
       { sender: "me", text: "Thank you. Can you clarify the scope for dark mode and atomic design compliance?", time: "09:02" },
       { sender: "client", text: "Dark mode should cover all screens. Atomic design compliance is required for component structure.", time: "09:05", important: true },
     ]);

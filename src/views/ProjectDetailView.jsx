@@ -171,8 +171,8 @@ const ProjectDetailView = ({ project, negotiationHistory = [], onAgreement, onBa
         onClose={() => setShowConfirmModal(false)}
         title="Confirm Contract Details"
         actions={[
-          <button key="cancel" onClick={() => setShowConfirmModal(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>,
-          <button key="confirm" onClick={handleConfirmContract} className="px-4 py-2 rounded bg-green-600 text-white font-bold">Confirm & Initiate</button>
+          <button key="cancel" onClick={() => setShowConfirmModal(false)} className="px-4 py-2 rounded-full bg-indigo-900 text-indigo-300 font-bold border border-indigo-400/30 hover:bg-indigo-800 transition-all">Cancel</button>,
+          <button key="confirm" onClick={handleConfirmContract} className="px-4 py-2 rounded-full bg-indigo-600 text-white font-bold border border-indigo-400/30 hover:bg-indigo-700 transition-all">Confirm</button>
         ]}
       >
         <div className="mb-4">

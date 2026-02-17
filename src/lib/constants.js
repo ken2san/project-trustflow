@@ -16,7 +16,7 @@ export const JOBS_DATA = [
     aiScore: 98,
     matchReason: "85% skill overlap. Optimal budget.",
     description: "Design a scalable mobile app UI system for Neo-Digital Inc. Includes Figma library, dark mode, and atomic design compliance.",
-    budget: "¥3,000,000",
+    budget: "3,000,000",
     skills: ["Figma", "React", "Design Systems", "UX"],
     deadline: "2026-03-15",
     acceptanceCriteria: ["Definitive Figma Library", "Dark Mode Tokens", "Atomic Design Compliance"]
@@ -30,7 +30,7 @@ export const JOBS_DATA = [
     aiScore: 94,
     matchReason: "High efficiency potential.",
     description: "Create a UI kit for AI chatbot products. Must meet WCAG 2.1, include 12 screens, and motion JSON assets.",
-    budget: "¥1,500,000",
+    budget: "1,500,000",
     skills: ["Accessibility", "Motion Design", "React", "Lottie"],
     deadline: "2026-02-28",
     acceptanceCriteria: ["WCAG 2.1 Compliance", "12 Screen Layouts", "Motion JSON"]
