@@ -457,12 +457,12 @@ const ContractView = (props) => {
                                                     {pendingApprove ? (
                                                         <div className="flex flex-col items-center gap-2">
                                                             <span className="text-emerald-400 font-bold">Approved! You can undo for 5 seconds.</span>
-                                                            <button onClick={undoApprove} className="px-4 py-2 rounded bg-yellow-500 text-black font-bold">Undo</button>
+                                                            <button onClick={undoApprove} className="px-4 py-2 rounded-full bg-yellow-400 text-indigo-900 font-bold border border-yellow-300/30 shadow hover:bg-yellow-300 transition-all">Undo</button>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex gap-4 justify-end">
-                                                            <button onClick={() => { setShowApproveConfirm(false); setPendingApprove(false); }} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                                                            <button onClick={confirmApprove} className="px-4 py-2 rounded bg-emerald-600 text-white font-bold">Confirm Approve</button>
+                                                        <div className="flex gap-4 justify-end mt-4">
+                                                            <button onClick={() => { setShowApproveConfirm(false); setPendingApprove(false); }} className="px-4 py-2 rounded-full bg-indigo-900 text-indigo-300 font-bold border border-indigo-400/30 hover:bg-indigo-800 transition-all">Cancel</button>
+                                                            <button onClick={confirmApprove} className="px-4 py-2 rounded-full bg-emerald-600 text-white font-bold border border-emerald-400/30 hover:bg-emerald-700 transition-all">Confirm Approve</button>
                                                         </div>
                                                     )}
                                                 </div>
