@@ -81,8 +81,14 @@ export function useContractWorkflow({
     // eslint-disable-next-line
   }, [step, hasUpdatedStats]);
 
-  // Handlers for workflow actions (upload, approve, reject, dispute, etc.)
-  // ...existing code for handlers can be moved here in next steps...
+  // Cleanup timeouts on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (approveTimeoutId) clearTimeout(approveTimeoutId);
+      if (rejectTimeoutId) clearTimeout(rejectTimeoutId);
+    };
+    // eslint-disable-next-line
+  }, [approveTimeoutId, rejectTimeoutId]);
 
   return {
     rating, setRating, hasUpdatedStats, deliverables, setDeliverables,

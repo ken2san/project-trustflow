@@ -115,8 +115,8 @@ import ToastContainer from './components/ui/ToastContainer';
 // ProfileModal moved to components/modals/ProfileModal.jsx
 import ProfileModal from './components/modals/ProfileModal';
 
-// CommandPalette restored from archive for command modal
-import CommandPalette from '../archive/CommandPalette.jsx';
+// CommandPalette component for command modal
+import CommandPalette from './components/ui/CommandPalette.jsx';
 
 
 
@@ -186,9 +186,9 @@ const App = () => {
   const [view, setView] = useState('marketplace');
   const [step, setStep] = useState(1);
 
-  // UI用プロフィール状態
+  // UI profile state
   const [uiProfile, setUIProfile] = useState(initialUIProfileStats);
-  // 内部用プロフィール状態
+  // Internal profile state
   const [internalProfile, setInternalProfile] = useState(initialInternalProfileStats);
 
   // --- Feature Unlock Progress State ---
@@ -595,7 +595,7 @@ const App = () => {
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-2xl border-t border-white/10 px-8 py-5 flex justify-between items-center z-50 shadow-[0_-15px_40px_rgba(0,0,0,0.6)]">
         <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('marketplace'); }}><LayoutGrid className="w-6 h-6" /></button>
         <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('wallet'); }}><Wallet className="w-6 h-6" /></button>
-        {/* Command Centerアイコン（Mobileのみ表示） */}
+        {/* Command Center icon (mobile only) */}
         <button className={`p-3 transition-all duration-300 ${view === 'command-center' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'} inline-flex sm:hidden`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('command-center'); }}><Layers className="w-6 h-6" /></button>
         <button className="p-3 text-slate-500 inline-flex" onClick={() => { setIsCommandOpen(false); setView('marketplace'); setProfileData(unifiedProfile); setIsProfileOpen(true); }}>
           {/* Avatar icon for mobile bottom bar (same as header) */}

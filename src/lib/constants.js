@@ -3,7 +3,8 @@
 
 export const USER_PROFILE = {
   id: 999, name: "Felix", role: "Product Designer", location: "Tokyo, Japan", joined: "2024", level: "42",
-  skills: ['Figma', 'React', 'Design Systems'], capacity: '40%', reliability: 99, completedJobs: 42
+  skills: ['Figma', 'React', 'Design Systems'], capacity: '40%', reliability: 99, completedJobs: 42,
+  avatarUrl: null
 };
 
 export const JOBS_DATA = [

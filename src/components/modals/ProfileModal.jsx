@@ -77,7 +77,7 @@ const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, o
             <div className="ml-auto text-2xl font-black text-white italic">100%</div>
           </div>
         </div>
-        {/* 下部切り替えボタン群で閉じる/切り替えを担う */}
+        {/* Bottom action area for close / tab switching */}
       </div>
     </div>
   );

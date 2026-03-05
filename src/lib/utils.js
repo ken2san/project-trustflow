@@ -1,8 +1,8 @@
 // src/lib/utils.js
-// 共通ユーティリティ関数集
+// Shared utility functions
 
 /**
- * 数値をカンマ区切りでフォーマット
+ * Format a number with comma separators
  * @param {number|string} num
  * @returns {string}
  */
@@ -12,7 +12,7 @@ export function formatNumber(num) {
 }
 
 /**
- * 日付をYYYY.MM.DD形式でフォーマット
+ * Format a date as YYYY.MM.DD
  * @param {string|Date} date
  * @returns {string}
  */
@@ -23,7 +23,7 @@ export function formatDate(date) {
 }
 
 /**
- * 文字列を省略（maxLength超過時）
+ * Truncate a string to maxLength characters
  * @param {string} str
  * @param {number} maxLength
  * @returns {string}
