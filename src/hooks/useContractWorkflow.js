@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 /**
  * Custom hook to encapsulate contract workflow state and logic.
@@ -16,9 +16,21 @@ export function useContractWorkflow({
   handleReject,
   status
 }) {
+  // Ref for level-up flag to avoid global window pollution
+  const lastLeveledUpRef = useRef(false);
+
   // Core state
   const [rating, setRating] = useState(0);
   const [hasUpdatedStats, setHasUpdatedStats] = useState(false);
+
+  // Reset per-contract state when a new contract starts
+  useEffect(() => {
+    if (step === 1) {
+      setRating(0);
+      setHasUpdatedStats(false);
+      lastLeveledUpRef.current = false;
+    }
+  }, [step]);
   const [deliverables, setDeliverables] = useState([]);
   const [uploadMessage, setUploadMessage] = useState("");
   const [uploadFile, setUploadFile] = useState(null);
@@ -47,7 +59,7 @@ export function useContractWorkflow({
           : (rating || prev.avgRating);
         const expForNextLevel = 50;
         const leveledUp = Math.floor(newExp / expForNextLevel) > Math.floor((prev.exp || 0) / expForNextLevel);
-        window.__lastLeveledUp = leveledUp;
+        lastLeveledUpRef.current = leveledUp;
         return {
           ...prev,
           exp: newExp,
@@ -67,11 +79,12 @@ export function useContractWorkflow({
 
   useEffect(() => {
     if (step === 5 && hasUpdatedStats) {
-      const leveledUp = window.__lastLeveledUp;
+      const leveledUp = lastLeveledUpRef.current;
+      const currentLevel = userStats?.level ?? 0;
       setTimeout(() => {
         if (leveledUp) {
           if (triggerLevelUp) triggerLevelUp();
-          if (addToast) addToast('Level Up!', `You reached level ${(userStats.level) + 1}.`, 'success');
+          if (addToast) addToast('Level Up!', `You reached level ${currentLevel + 1}.`, 'success');
         } else {
           if (triggerParamUp) triggerParamUp();
           if (addToast) addToast('Profile Updated', 'Your Trust Score has been updated.', 'info');
@@ -79,7 +92,7 @@ export function useContractWorkflow({
       }, 100);
     }
     // eslint-disable-next-line
-  }, [step, hasUpdatedStats]);
+  }, [step, hasUpdatedStats, userStats?.level]);
 
   // Cleanup timeouts on unmount to prevent memory leaks
   useEffect(() => {

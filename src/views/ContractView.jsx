@@ -171,6 +171,10 @@ const ContractView = (props) => {
             { type: 're-delivery', message: message || `Re-delivery v${deliverables.length + 1}`, timestamp: Date.now(), actor: isEarner ? 'earner' : 'hirer' },
             ...prev
         ]);
+        // Reset approval state so stale confirm modal doesn't persist after re-delivery
+        setShowApproveConfirm(false);
+        setPendingApprove(false);
+        setApproveTimeoutId(null);
         if (addToast) addToast('Re-delivery', 'Deliverable re-submitted.', 'info');
     };
 

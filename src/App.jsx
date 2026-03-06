@@ -269,8 +269,8 @@ const App = () => {
 
   const handleNextStep = useCallback(() => {
     const now = Date.now();
-    // Strong guard: Prevent double execution within 1.5 seconds or if already processing
-    if (status === 'processing' || now - lastActionTime.current < 1500) return;
+    // Guard: Prevent double execution within 1.5 seconds
+    if (now - lastActionTime.current < 1500) return;
 
     lastActionTime.current = now;
     setStatus('processing');
