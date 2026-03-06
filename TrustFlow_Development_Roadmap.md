@@ -1,83 +1,118 @@
 ---
-# TrustFlow Development Roadmap & Operational Guide
+# TrustFlow Development Roadmap & Strategy
 
-## Overview & Development Purpose
+_Last updated: 2026-03-06_
 
-This document serves as the operational and implementation guide for the TrustFlow MVP Slimdown Skill, directly mapping to the TrustFlow Protocol specification. The goal is to:
-  - Deliver only the essential contract workflow and edge case features as defined in the protocol
-  - Ensure clarity, maintainability, and extensibility for future enhancements
-  - Demonstrate best practices for robust exception and edge case handling
 ---
 
-## 1. Protocol Feature Mapping & Project Structure
+## 1. Product Strategy
 
-This implementation covers the following protocol features:
+### Target User
 
-- Mid-Contract Cancellation
-- Payment Delay/Failure Simulation
-- Renegotiation & Terms Modification
-- Multiple Rejections & Forced Dispute
-- Pause & Resume
-- Admin Intervention (Demo Only)
+**Professional freelancers and clients who have been burned by scope creep.**
 
-Project structure should modularize large files (e.g., App.jsx) into components, views, hooks, and libraries, following the protocol's directory structure for scalability.
+- Monthly transaction volume: ¥50,000–¥500,000 per contract
+- Has experienced disputes over "it's not what I asked for" after delivery
+- Already has an existing relationship with the counterparty (not cold-matching)
+- Values audit trails and enforceable agreements over convenience
 
-- Modularize large files (e.g., App.jsx) into components, views, hooks, lib, etc.
-- Follow the protocol's directory structure for scalability.
+### Core Value Proposition
 
-## 2. Data Persistence
+TrustFlow converts ambiguous project briefs into structured, AI-generated Definitions of Done — creating a mutual agreement that is logged, locked, and enforceable before any money moves.
 
-- Use Firebase Firestore or similar to persist point balances and contract status.
-- Example prompt: "Use Firebase Firestore to save and sync selectedJob and user point balance."
+**Not competing on:** Price, talent discovery, or ease of onboarding light users.
+**Competing on:** Eliminating scope disputes and protecting both parties through transparent contract logic.
 
-## 3. AI Logic
+### What We Are NOT Building (Scope Boundaries)
 
-- Integrate Gemini API or similar for DoD generation and AI diagnosis.
-- Example prompt: "Use Gemini API to generate 5 Acceptance Criteria from project summary."
+- A general-purpose freelance marketplace (Upwork, Lancers)
+- A payment processor or wallet (regulated territory)
+- A tool for one-off, low-stakes transactions
 
-## 4. Dispute Resolution
+---
 
-- Add logic to transition to Dispute view if AI Inspection Score is low.
-- Notify admin for arbitration.
+## 2. Prototype Status (as of 2026-03-06)
 
-## 5. Export & Reporting
+### Implemented & Working
 
-- Implement PDF export of Audit Trail and DoD using libraries like jspdf.
+- Dual-mode (Earner / Hirer) switching
+- Marketplace with AI-scored job/talent matching
+- AI Architect: text prompt → Acceptance Criteria generation
+- Definition of Done display and lock protocol
+- Negotiation chat with export capability
+- Full contract state machine (4 steps: Protocol → Escrow → Inspect → Rating)
+- Smart contract update proposals (budget modification flow)
+- File upload simulation with progress bar
+- Mid-contract cancellation with reason logging
+- Payment delay simulation and retry flow
+- Dispute modal
+- Profile system with level, EXP, badges, skill endorsements
+- Feature unlock system (level-gated)
+- Toast notifications, Command Palette (Cmd+K)
+- Trust Passport modal
 
-## 6. Real-World Operational Challenges & Solutions
+### Known Gaps (not yet implemented)
 
-### 6.1. Subjectivity Gap
+- Auto-Release Timer (72h unresponsive client → auto fund release)
+- Milestone / partial payment
+- Human Arbiter Escalation UI
+- Contract Pause / Resume
+- Deadline enforcement with penalty flow
+- Re-hire / Contract Template from prior relationship
+- Persistent Notification Center (audit log)
+- Social/GitHub import for Trust Score bootstrap
+- Firebase persistence (currently React state / mock data only)
+- Real Gemini API integration (currently mock responses)
 
-- **Issue:** AI can check DoD, but not subjective quality (e.g., "good design").
-- **Solution:**
-  - Human Arbiter Escalation: Summon certified experts for final decision.
-  - Partial Release: AI proposes partial payment for partial completion.
+---
 
-### 6.2. Ghosting (Unresponsive Clients)
+## 3. Redesign Phases
 
-- **Issue:** Client does not respond after delivery; funds frozen.
-- **Solution:**
-  - Auto-Release Timer: After 72h of no action, funds are released automatically.
+### Phase 1 — Message & Copy (priority: HIGH, code impact: LOW)
 
-### 6.3. AML & KYC
+Reframe language from "tech demo" to "tool for professionals who've been burned".
 
-- **Issue:** Risk of money laundering, need for identity verification.
-- **Solution:**
-  - eKYC Integration: Online ID verification (ID scan, face photo).
-  - Trust Score History: Record and present payment/dispute history.
+- [ ] Rewrite onboarding / landing copy: lead with the problem (scope disputes), not the solution
+- [ ] Rename or reframe "AI Architect" to emphasize evidence / audit trail benefit
+- [ ] Update placeholder text in marketplace to reflect "Bring Your Own Client" model
+- [ ] Ensure every UI label speaks to trust, accountability, and transparency
 
-### 6.4. Security & Deliverable Guarantee
+### Phase 2 — UX Flow (priority: MEDIUM, code impact: MEDIUM)
 
-- **Issue:** Malware or non-working code in deliverables.
-- **Solution:**
-  - Cloud Sandbox Preview: Run code in isolated containers, show preview.
-  - Virus Scan Shield: Scan uploads for malware.
+- [ ] Add a first-run onboarding screen explaining the core problem and flow
+- [ ] "Bring Your Own Client" entry point: skip marketplace, jump straight to Scoping with a counterparty invite
+- [ ] Deadline field on contract creation with enforcement logic
+- [ ] Persistent Notification / Activity Log panel replacing ephemeral toasts
 
-## 7. Implementation Priorities
+### Phase 3 — Feature Additions (priority: MEDIUM, code impact: HIGH)
 
-- Auto-Release Timer (Low difficulty, high effect)
-- Escalation UI (Medium)
-- eKYC (High, essential)
+Implement only after Phase 1 & 2 are validated by user feedback.
+
+- [ ] Auto-Release Timer (72h ghosting protection) — high value, low complexity
+- [ ] Contract Pause / Resume
+- [ ] Milestone payment (multi-step escrow)
+- [ ] Human Arbiter Escalation modal
+- [ ] Re-hire / Contract Template flow
+- [ ] PDF Audit Trail export
+
+### Phase 4 — Infrastructure (priority: LOW until validated)
+
+- Firebase Firestore persistence
+- Gemini API integration
+- eKYC identity verification
+- AML / KYC compliance
+
+---
+
+## 4. Real-World Risk Register
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Ghosting (client unresponsive) | Fund locked indefinitely | Auto-Release Timer (72h) |
+| Subjectivity gap ("not what I envisioned") | Endless rejection loop | Human Arbiter Escalation; partial release option |
+| Cold Start (no reputation) | Platform unusable for new users | Social/GitHub import; small-stake first contract limits |
+| Regulatory (fund custody) | Legal liability | Point system abstraction; avoid real money movement in prototype |
+| Malware in deliverables | Security incident | Virus scan + Cloud Sandbox preview (future phase) |
 
 ## 8. Development Tips
 

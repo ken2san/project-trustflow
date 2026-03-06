@@ -37,16 +37,16 @@ This section outlines the implementation plan for adding edge case and exception
 
 ## 7. Contract Workflow Stages & Edit Terms/Cancel Timing
 
-1. DoD/Acceptance Protocol提示：
+1. DoD / Acceptance Protocol Presentation:
 
-- ユーザーは「Edit Terms（条件修正）」「Cancel（契約中止）」「Initiate Contract（契約開始）」の選択肢を明示的に提示される。
-- Edit TermsやCancelはこの段階でのみ利用可能。
+- The user is explicitly presented with three options: "Edit Terms", "Cancel", and "Initiate Contract".
+- Edit Terms and Cancel are only available at this stage.
 
-2. Commitment Locked：
+2. Commitment Locked:
 
-- 双方の信頼・責任・条件が確定し、契約内容は不可逆的・透明性最大化。
-- Locked後は条件変更やキャンセルは原則不可。
-- 例外対応（緊急修正や中止）は特別な再合意フローや管理者承認で分離して扱う。
+- Both parties' trust, responsibilities, and terms are finalized; contract content is irreversible and maximally transparent.
+- After locking, term changes and cancellations are not permitted in principle.
+- Exceptions (emergency amendments or terminations) are handled through a separate mutual re-agreement flow or administrator approval.
 
 ### Rationale
 
