@@ -38,6 +38,11 @@ Universal rules for all VS Code agents.
 - Always use the latest Git recommended commands (e.g., `git switch`, `git restore`) for branch and file operations.
 - Do not use deprecated commands like `git checkout` unless explicitly required for legacy compatibility.
 
+## Project Strategy & Roadmap
+
+- Before starting any implementation or design task, read `TrustFlow_Development_Roadmap.md` to understand the current product strategy, target user, phase priorities, and scope boundaries.
+- All feature additions and UX changes must align with the redesign phases defined in the Roadmap. Do not implement features marked as Phase 3 or Phase 4 without explicit user instruction.
+
 ## Structure
 
 - Backend, Frontend, Infra: See respective AGENTS.md files
@@ -45,4 +50,4 @@ Universal rules for all VS Code agents.
 
 ---
 
-_Last updated: 2026-02-11_
+_Last updated: 2026-03-06_
