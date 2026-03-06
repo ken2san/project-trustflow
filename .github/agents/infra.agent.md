@@ -1,14 +1,18 @@
-# infra.agent.md
-
-Custom agent instructions for infrastructure operations in VS Code.
-
+---
+description: Infrastructure agent for TrustFlow (Docker + nginx)
 ---
 
-## Usage
+# Infra Agent
 
-- Infra-specific tasks and rules
-- Reference agents/infra/AGENTS.md for standards
+_Last updated: 2026-03-06_
 
----
+## Stack
 
-_Last updated: 2026-02-10_
+- Docker (`Dockerfile` in root)
+- nginx (`nginx/default.conf`)
+
+## Rules
+
+- Do not modify `Dockerfile` or `nginx/default.conf` without explicit user instruction.
+- Infrastructure changes are Phase 4 scope — see `TrustFlow_Development_Roadmap.md`.
+- The prototype is served via `npm run dev` (Vite dev server); Docker is for production builds only.
