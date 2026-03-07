@@ -1,7 +1,17 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-06_
+_Last updated: 2026-03-07_
+
+---
+
+## 0. Mission
+
+**Make trust the default, not the exception.**
+
+The freelance economy runs on broken trust infrastructure. Scope disputes, ghosting, and unpaid work are not edge cases — they are the norm. TrustFlow is not a product. It is a piece of social infrastructure: a protocol that makes exploitation structurally harder and cooperation structurally easier.
+
+This is not about profit. It is about changing how people work together.
 
 ---
 
@@ -9,19 +19,26 @@ _Last updated: 2026-03-06_
 
 ### Target User
 
-**Professional freelancers and clients who have been burned by scope creep.**
+**Professionals — freelancers and clients — who have been burned by scope creep or broken agreements.**
 
-- Monthly transaction volume: ¥50,000–¥500,000 per contract
-- Has experienced disputes over "it's not what I asked for" after delivery
-- Already has an existing relationship with the counterparty (not cold-matching)
+- Has experienced "it's not what I asked for" after delivery
+- Wants protection without bureaucracy
+- Already has an existing relationship with the counterparty ("Bring Your Own Client" model)
 - Values audit trails and enforceable agreements over convenience
 
 ### Core Value Proposition
 
-TrustFlow converts ambiguous project briefs into structured, AI-generated Definitions of Done — creating a mutual agreement that is logged, locked, and enforceable before any money moves.
+TrustFlow converts ambiguous project briefs into structured, AI-generated Definitions of Done — creating a mutual agreement that is logged, locked, and enforceable before any money moves. Both parties are protected symmetrically.
 
 **Not competing on:** Price, talent discovery, or ease of onboarding light users.
-**Competing on:** Eliminating scope disputes and protecting both parties through transparent contract logic.
+**Competing on:** Making fair outcomes the structural default for both sides.
+
+### Design Principles
+
+1. **Symmetric protection** — Both Earner and Hirer carry stakes and responsibilities equally
+2. **Behavior over credentials** — What you do matters more than what you claim
+3. **Transparency as prevention** — Make problems visible before they escalate
+4. **Friction as a feature** — A little friction at the start prevents enormous friction later
 
 ### What We Are NOT Building (Scope Boundaries)
 
@@ -66,59 +83,114 @@ TrustFlow converts ambiguous project briefs into structured, AI-generated Defini
 
 ---
 
-## 3. Redesign Phases
+## 3. Feature Vision
+
+Features are organized by their role in the mission: protecting both parties, building verifiable trust, and preventing exploitation.
+
+### 🔴 Critical — Trust Infrastructure (platform cannot function without these)
+
+| # | Feature | Purpose |
+|---|---------|---------|
+| 1 | **Auto-Release Timer** | 72–96h after delivery with no client response → funds auto-release. Earners cannot be ghosted. |
+| 2 | **Mutual Stake (Symmetric Escrow)** | Earner also deposits a small stake. Both parties have skin in the game. Abandonment costs both sides. |
+| 3 | **Milestone Payment** | Multi-step escrow for large projects. 70%+ of real freelance work is milestone-based. |
+| 4 | **Human Arbiter Escalation** | When AI cannot resolve a dispute, a human arbiter is summoned. AI is the first line; humans are the last. |
+
+### 🟡 High — Verifiable Trust (makes the platform worth joining)
+
+| # | Feature | Purpose |
+|---|---------|---------|
+| 5 | **Blind Simultaneous Rating** | Both parties submit ratings before either sees the other's. Eliminates retaliation fear. Trust Scores become honest. |
+| 6 | **Behavior Signals** | Replace opaque "Trust Score: 847" with legible signals: avg. response time, on-time delivery rate, lifetime cancellation rate. |
+| 7 | **Progressive Trust Ladder** | New users start at ¥50k contract limit. Limit rises automatically with verified track record. No KYC required to start. |
+| 8 | **Public Trust Passport** | Other users can view your Behavior Signals and track record. The marketplace only works if people can make informed choices. |
+| 9 | **Deadline Enforcement** | Contracts have deadlines. Approaching/missed deadlines trigger notifications and auto-dispute or extension proposals. |
+
+### 🟢 Medium — Structural Prevention (stop problems before they start)
+
+| # | Feature | Purpose |
+|---|---------|---------|
+| 10 | **Contract Health Score** | AI monitors conversation tone, response latency, scope drift in real time. Shows "contract risk level" before a dispute forms. |
+| 11 | **Staged Delivery** | Preview → Approve → Full delivery. Earner is not exposed to theft; Hirer is not exposed to non-delivery. |
+| 12 | **Vouching System** | Established users can vouch for new users, sharing trust transitively. Organic solution to Cold Start without eKYC. |
+| 13 | **Re-hire / Contract Template** | One-click re-contract with a known counterparty. Retention is the proof that the platform works. |
+| 14 | **Contract Pause / Resume** | Temporary halt for either party's legitimate reasons (illness, budget freeze). Better than forced cancellation. |
+
+### 🔵 Completion — Audit & Transparency
+
+| # | Feature | Purpose |
+|---|---------|---------|
+| 15 | **Persistent Activity Log** | Every action is logged chronologically. Replaces ephemeral toasts. This is the audit trail that protects both parties legally. |
+| 16 | **First Contract Trust Bootstrap** | Small-stake first contracts, social/GitHub import for initial Trust Score. Solve the chicken-and-egg problem. |
+| 17 | **PDF Audit Trail Export** | Legal-grade export of the full contract history. For disputes that escalate beyond the platform. |
+
+### ⚪ Future
+
+- Multi-Earner / team contracts
+- Streak & referral engagement loops
+- eKYC integration (when regulated)
+
+---
+
+## 4. Redesign Phases
+
+## 4. Redesign Phases
 
 ### Phase 1 — Message & Copy (priority: HIGH, code impact: LOW)
 
-Reframe language from "tech demo" to "tool for professionals who've been burned".
+Reframe every UI string: lead with the mission (fair work), not the technology.
 
 - [ ] Rewrite onboarding / landing copy: lead with the problem (scope disputes), not the solution
-- [ ] Rename or reframe "AI Architect" to emphasize evidence / audit trail benefit
+- [ ] Rename or reframe "AI Architect" — emphasize evidence / audit trail benefit, not AI novelty
 - [ ] Update placeholder text in marketplace to reflect "Bring Your Own Client" model
-- [ ] Ensure every UI label speaks to trust, accountability, and transparency
+- [ ] Ensure every UI label speaks to protection, fairness, and accountability
+- [ ] Add mission statement to the first screen the user sees
 
 ### Phase 2 — UX Flow (priority: MEDIUM, code impact: MEDIUM)
 
-- [ ] Add a first-run onboarding screen explaining the core problem and flow
+- [ ] First-run onboarding screen: explain the core problem and why TrustFlow exists
 - [ ] "Bring Your Own Client" entry point: skip marketplace, jump straight to Scoping with a counterparty invite
-- [ ] Deadline field on contract creation with enforcement logic
-- [ ] Persistent Notification / Activity Log panel replacing ephemeral toasts
+- [ ] Deadline field on contract creation with enforcement logic (Feature #9)
+- [ ] Persistent Activity Log panel replacing ephemeral toasts (Feature #15)
+- [ ] Blind Simultaneous Rating flow (Feature #5)
 
 ### Phase 3 — Feature Additions (priority: MEDIUM, code impact: HIGH)
 
 Implement only after Phase 1 & 2 are validated by user feedback.
 
-- [ ] Auto-Release Timer (72h ghosting protection) — high value, low complexity
-- [ ] Contract Pause / Resume
-- [ ] Milestone payment (multi-step escrow)
-- [ ] Human Arbiter Escalation modal
-- [ ] Re-hire / Contract Template flow
-- [ ] PDF Audit Trail export
+- [ ] Auto-Release Timer — Feature #1
+- [ ] Mutual Stake (Symmetric Escrow) — Feature #2
+- [ ] Milestone Payment — Feature #3
+- [ ] Human Arbiter Escalation modal — Feature #4
+- [ ] Behavior Signals on profile — Feature #6
+- [ ] Progressive Trust Ladder — Feature #7
+- [ ] Contract Health Score — Feature #10
+- [ ] Staged Delivery — Feature #11
+- [ ] Vouching System — Feature #12
+- [ ] Re-hire / Contract Template — Feature #13
+- [ ] Contract Pause / Resume — Feature #14
 
 ### Phase 4 — Infrastructure (priority: LOW until validated)
 
 - Firebase Firestore persistence
-- Gemini API integration
+- Gemini API integration (real DoD generation, inspection scoring)
 - eKYC identity verification
 - AML / KYC compliance
 
 ---
 
-## 4. Real-World Risk Register
+## 5. Real-World Risk Register
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Ghosting (client unresponsive) | Fund locked indefinitely | Auto-Release Timer (72h) |
-| Subjectivity gap ("not what I envisioned") | Endless rejection loop | Human Arbiter Escalation; partial release option |
-| Cold Start (no reputation) | Platform unusable for new users | Social/GitHub import; small-stake first contract limits |
-| Regulatory (fund custody) | Legal liability | Point system abstraction; avoid real money movement in prototype |
-| Malware in deliverables | Security incident | Virus scan + Cloud Sandbox preview (future phase) |
-
-## 8. Development Tips
-
-- Use Copilot/VSCode context for best results.
-- Store API keys in `.env` files.
-- Use prompts to guide Copilot for modularization, AI, and backend logic.
+| Ghosting (client unresponsive) | Fund locked indefinitely | Auto-Release Timer (#1) |
+| Earner abandonment | Hirer loses time and money | Mutual Stake (#2) |
+| Subjectivity gap ("not what I envisioned") | Endless rejection loop | Human Arbiter (#4); Staged Delivery (#11) |
+| Retaliation in ratings | Trust Scores become dishonest | Blind Simultaneous Rating (#5) |
+| Cold Start (no reputation) | Platform unusable for new users | Progressive Trust Ladder (#7); Vouching (#12) |
+| Scope drift mid-contract | Dispute that was preventable | Contract Health Score (#10) |
+| Regulatory (fund custody) | Legal liability | Point system abstraction; no real money in prototype |
+| Malware in deliverables | Security incident | Virus scan + Cloud Sandbox (future phase) |
 - For all formatting and data handling, use shared utility functions in `src/lib/utils.js`:
   - `formatNumber` for numbers
   - `formatDate` for dates
