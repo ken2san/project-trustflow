@@ -33,21 +33,11 @@ Universal rules for all VS Code agents.
 - All documentation, comments, and code must be written in English.
 - Do not use Japanese or other languages in code comments, documentation, or UI labels unless explicitly required by project specifications.
 
-## Git Command Policy
-
-- Always use the latest Git recommended commands (e.g., `git switch`, `git restore`) for branch and file operations.
-- Do not use deprecated commands like `git checkout` unless explicitly required for legacy compatibility.
-
-## Project Strategy & Roadmap
-
-- Before starting any implementation or design task, read `TrustFlow_Development_Roadmap.md` to understand the current product strategy, target user, phase priorities, and scope boundaries.
-- All feature additions and UX changes must align with the redesign phases defined in the Roadmap. Do not implement features marked as Phase 3 or Phase 4 without explicit user instruction.
-
 ## Structure
 
-- Backend, Frontend, Infra: See respective AGENTS.md files
-- Global: See agents/global.md
+- Execution policy, project context, and git rules: See `.github/copilot-instructions.md`
+- Agent-specific rules: See `.github/agents/`
 
 ---
 
-_Last updated: 2026-03-06_
+_Last updated: 2026-03-07_
