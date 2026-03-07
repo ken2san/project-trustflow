@@ -18,7 +18,7 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
 
     return (
         <div className="space-y-12 animate-fade-in-up">
-            <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] group pl-2"><ArrowLeft className="w-3 h-3" /> Abort Sequence</button>
+            <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] group pl-2"><ArrowLeft className="w-3 h-3" /> Decline &amp; Return</button>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8 bg-[#0f172a]/60 rounded-[48px] p-10 sm:p-14 border border-white/5 shadow-2xl backdrop-blur-xl">
                     <div className="flex items-center gap-4 mb-8"><div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20"><ListChecks className="w-6 h-6 text-indigo-400" /></div><div><h1 className="text-3xl sm:text-4xl font-black tracking-tighter italic text-white leading-none">Acceptance Protocol</h1><p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Definition of Done (DoD)</p></div></div>
@@ -43,7 +43,7 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
                             onClick={handleHold}
                             className="w-full py-6 rounded-[24px] font-black text-lg shadow-xl bg-white text-black hover:bg-gray-200"
                         />
-                        <span className="block text-xs text-slate-400 text-center mt-2">Press and hold to confirm</span>
+                        <span className="block text-xs text-slate-400 text-center mt-2">Press and hold to lock this agreement</span>
                     </div>
                 </div>
             </div>

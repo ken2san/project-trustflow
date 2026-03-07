@@ -222,7 +222,7 @@ const ContractView = (props) => {
                 <div className="flex flex-col items-center justify-center mt-12 mb-6 gap-8">
                     <div className="mb-4">
                         <h2 className="text-3xl font-black text-white mb-2">Acceptance Protocol</h2>
-                        <p className="text-slate-400 text-lg">Review the Definition of Done (DoD) and contract terms below. If you do not agree, you may abort and return to negotiation. If you agree, initiate the contract to lock terms.</p>
+                        <p className="text-slate-400 text-lg">Review the Definition of Done below. Every item becomes an enforceable commitment, logged on the record. If you disagree, return to negotiation. If you agree, lock terms — and hold both sides accountable.</p>
                         <ul className="mt-4 text-left text-slate-200 text-base font-bold bg-slate-800/60 rounded-xl p-4 max-w-md mx-auto">
                             <li>Definitive Figma Library</li>
                             <li>Dark Mode Tokens</li>
@@ -233,8 +233,8 @@ const ContractView = (props) => {
                         <button onClick={() => setShowCancelConfirm(true)}
                             className="flex items-center min-w-[140px] max-w-[200px] px-6 py-3 rounded-full bg-pink-600 text-white font-black hover:bg-pink-700 shadow-xl text-base border border-pink-200"
                             style={{ boxShadow: '0 2px 8px 0 rgba(255, 0, 90, 0.10)' }}
-                            title="Abort Sequence">
-                            Abort Sequence
+                            title="Decline and return to negotiation">
+                            Decline &amp; Return
                         </button>
                         <HoldButton key="btn-initiate" onClick={() => { setCurrentStep(1); setChatLocked(true); handleNextStep && handleNextStep(); }} label="Initiate Contract" icon={ArrowRight} className="btn-primary-hold min-w-[140px] max-w-[200px] bg-white text-[#020617] py-3 rounded-full font-black text-base shadow-xl border border-white/20" disabled={status !== 'idle'} />
                     </div>
@@ -292,11 +292,11 @@ const ContractView = (props) => {
             {showCancelConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
                     <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                        <h3 className="text-xl font-bold text-white mb-2">Abort Sequence</h3>
-                        <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Enter abort reason (required)" value={cancelReason} onChange={e => setCancelReason(e.target.value)} required rows={4} />
+                        <h3 className="text-xl font-bold text-white mb-2">Decline Contract</h3>
+                        <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Reason for declining (required)" value={cancelReason} onChange={e => setCancelReason(e.target.value)} required rows={4} />
                         <div className="flex gap-4 justify-end">
                             <button onClick={() => { setShowCancelConfirm(false); setCancelReason(""); }} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                            <button onClick={() => { if (cancelReason.trim()) { handleAbortSequence(); }}} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!cancelReason.trim()}>Confirm Abort</button>
+                            <button onClick={() => { if (cancelReason.trim()) { handleAbortSequence(); }}} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!cancelReason.trim()}>Confirm Decline</button>
                         </div>
                     </div>
                 </div>
@@ -309,8 +309,8 @@ const ContractView = (props) => {
                     {step === 1 && (
                         <div className="space-y-10 animate-fade-in-up">
                             <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2>
-                            <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds are moving to the decentralized vault.<br/> This action is immutable.</p>
-                            <HoldButton key="btn-1" onClick={handleNextStep} label="Activate Trust Stream" icon={ArrowRight} className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" disabled={status !== 'idle'} />
+                            <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds secured in escrow. Both parties are protected from this point forward.<br/>This action cannot be undone.</p>
+                            <HoldButton key="btn-1" onClick={handleNextStep} label="Secure Funds in Escrow" icon={ArrowRight} className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" disabled={status !== 'idle'} />
                         </div>
                     )}
                     {step === 2 && (

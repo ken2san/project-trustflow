@@ -2,7 +2,6 @@
 # TrustFlow Development Roadmap & Strategy
 
 _Last updated: 2026-03-07_
-
 ---
 
 ## 0. Mission
@@ -89,40 +88,40 @@ Features are organized by their role in the mission: protecting both parties, bu
 
 ### 🔴 Critical — Trust Infrastructure (platform cannot function without these)
 
-| # | Feature | Purpose |
-|---|---------|---------|
-| 1 | **Auto-Release Timer** | 72–96h after delivery with no client response → funds auto-release. Earners cannot be ghosted. |
-| 2 | **Mutual Stake (Symmetric Escrow)** | Earner also deposits a small stake. Both parties have skin in the game. Abandonment costs both sides. |
-| 3 | **Milestone Payment** | Multi-step escrow for large projects. 70%+ of real freelance work is milestone-based. |
-| 4 | **Human Arbiter Escalation** | When AI cannot resolve a dispute, a human arbiter is summoned. AI is the first line; humans are the last. |
+| #   | Feature                             | Purpose                                                                                                   |
+| --- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 1   | **Auto-Release Timer**              | 72–96h after delivery with no client response → funds auto-release. Earners cannot be ghosted.            |
+| 2   | **Mutual Stake (Symmetric Escrow)** | Earner also deposits a small stake. Both parties have skin in the game. Abandonment costs both sides.     |
+| 3   | **Milestone Payment**               | Multi-step escrow for large projects. 70%+ of real freelance work is milestone-based.                     |
+| 4   | **Human Arbiter Escalation**        | When AI cannot resolve a dispute, a human arbiter is summoned. AI is the first line; humans are the last. |
 
 ### 🟡 High — Verifiable Trust (makes the platform worth joining)
 
-| # | Feature | Purpose |
-|---|---------|---------|
-| 5 | **Blind Simultaneous Rating** | Both parties submit ratings before either sees the other's. Eliminates retaliation fear. Trust Scores become honest. |
-| 6 | **Behavior Signals** | Replace opaque "Trust Score: 847" with legible signals: avg. response time, on-time delivery rate, lifetime cancellation rate. |
-| 7 | **Progressive Trust Ladder** | New users start at ¥50k contract limit. Limit rises automatically with verified track record. No KYC required to start. |
-| 8 | **Public Trust Passport** | Other users can view your Behavior Signals and track record. The marketplace only works if people can make informed choices. |
-| 9 | **Deadline Enforcement** | Contracts have deadlines. Approaching/missed deadlines trigger notifications and auto-dispute or extension proposals. |
+| #   | Feature                       | Purpose                                                                                                                        |
+| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 5   | **Blind Simultaneous Rating** | Both parties submit ratings before either sees the other's. Eliminates retaliation fear. Trust Scores become honest.           |
+| 6   | **Behavior Signals**          | Replace opaque "Trust Score: 847" with legible signals: avg. response time, on-time delivery rate, lifetime cancellation rate. |
+| 7   | **Progressive Trust Ladder**  | New users start at ¥50k contract limit. Limit rises automatically with verified track record. No KYC required to start.        |
+| 8   | **Public Trust Passport**     | Other users can view your Behavior Signals and track record. The marketplace only works if people can make informed choices.   |
+| 9   | **Deadline Enforcement**      | Contracts have deadlines. Approaching/missed deadlines trigger notifications and auto-dispute or extension proposals.          |
 
 ### 🟢 Medium — Structural Prevention (stop problems before they start)
 
-| # | Feature | Purpose |
-|---|---------|---------|
-| 10 | **Contract Health Score** | AI monitors conversation tone, response latency, scope drift in real time. Shows "contract risk level" before a dispute forms. |
-| 11 | **Staged Delivery** | Preview → Approve → Full delivery. Earner is not exposed to theft; Hirer is not exposed to non-delivery. |
-| 12 | **Vouching System** | Established users can vouch for new users, sharing trust transitively. Organic solution to Cold Start without eKYC. |
-| 13 | **Re-hire / Contract Template** | One-click re-contract with a known counterparty. Retention is the proof that the platform works. |
-| 14 | **Contract Pause / Resume** | Temporary halt for either party's legitimate reasons (illness, budget freeze). Better than forced cancellation. |
+| #   | Feature                         | Purpose                                                                                                                        |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 10  | **Contract Health Score**       | AI monitors conversation tone, response latency, scope drift in real time. Shows "contract risk level" before a dispute forms. |
+| 11  | **Staged Delivery**             | Preview → Approve → Full delivery. Earner is not exposed to theft; Hirer is not exposed to non-delivery.                       |
+| 12  | **Vouching System**             | Established users can vouch for new users, sharing trust transitively. Organic solution to Cold Start without eKYC.            |
+| 13  | **Re-hire / Contract Template** | One-click re-contract with a known counterparty. Retention is the proof that the platform works.                               |
+| 14  | **Contract Pause / Resume**     | Temporary halt for either party's legitimate reasons (illness, budget freeze). Better than forced cancellation.                |
 
 ### 🔵 Completion — Audit & Transparency
 
-| # | Feature | Purpose |
-|---|---------|---------|
-| 15 | **Persistent Activity Log** | Every action is logged chronologically. Replaces ephemeral toasts. This is the audit trail that protects both parties legally. |
-| 16 | **First Contract Trust Bootstrap** | Small-stake first contracts, social/GitHub import for initial Trust Score. Solve the chicken-and-egg problem. |
-| 17 | **PDF Audit Trail Export** | Legal-grade export of the full contract history. For disputes that escalate beyond the platform. |
+| #   | Feature                            | Purpose                                                                                                                        |
+| --- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 15  | **Persistent Activity Log**        | Every action is logged chronologically. Replaces ephemeral toasts. This is the audit trail that protects both parties legally. |
+| 16  | **First Contract Trust Bootstrap** | Small-stake first contracts, social/GitHub import for initial Trust Score. Solve the chicken-and-egg problem.                  |
+| 17  | **PDF Audit Trail Export**         | Legal-grade export of the full contract history. For disputes that escalate beyond the platform.                               |
 
 ### ⚪ Future
 
@@ -134,16 +133,14 @@ Features are organized by their role in the mission: protecting both parties, bu
 
 ## 4. Redesign Phases
 
-## 4. Redesign Phases
-
 ### Phase 1 — Message & Copy (priority: HIGH, code impact: LOW)
 
 Reframe every UI string: lead with the mission (fair work), not the technology.
 
-- [ ] Rewrite onboarding / landing copy: lead with the problem (scope disputes), not the solution
-- [ ] Rename or reframe "AI Architect" — emphasize evidence / audit trail benefit, not AI novelty
+- [x] Rename or reframe "AI Architect" — now "Scope Builder", emphasizes agreement over AI novelty
+- [x] Ensure every UI label speaks to protection, fairness, and accountability ("Decline & Return", "Evidence Archive", "Enforceable commitment")
 - [ ] Update placeholder text in marketplace to reflect "Bring Your Own Client" model
-- [ ] Ensure every UI label speaks to protection, fairness, and accountability
+- [ ] Rewrite onboarding / landing copy: lead with the problem (scope disputes), not the solution
 - [ ] Add mission statement to the first screen the user sees
 
 ### Phase 2 — UX Flow (priority: MEDIUM, code impact: MEDIUM)
@@ -181,16 +178,17 @@ Implement only after Phase 1 & 2 are validated by user feedback.
 
 ## 5. Real-World Risk Register
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Ghosting (client unresponsive) | Fund locked indefinitely | Auto-Release Timer (#1) |
-| Earner abandonment | Hirer loses time and money | Mutual Stake (#2) |
-| Subjectivity gap ("not what I envisioned") | Endless rejection loop | Human Arbiter (#4); Staged Delivery (#11) |
-| Retaliation in ratings | Trust Scores become dishonest | Blind Simultaneous Rating (#5) |
-| Cold Start (no reputation) | Platform unusable for new users | Progressive Trust Ladder (#7); Vouching (#12) |
-| Scope drift mid-contract | Dispute that was preventable | Contract Health Score (#10) |
-| Regulatory (fund custody) | Legal liability | Point system abstraction; no real money in prototype |
-| Malware in deliverables | Security incident | Virus scan + Cloud Sandbox (future phase) |
+| Risk                                       | Impact                          | Mitigation                                           |
+| ------------------------------------------ | ------------------------------- | ---------------------------------------------------- |
+| Ghosting (client unresponsive)             | Fund locked indefinitely        | Auto-Release Timer (#1)                              |
+| Earner abandonment                         | Hirer loses time and money      | Mutual Stake (#2)                                    |
+| Subjectivity gap ("not what I envisioned") | Endless rejection loop          | Human Arbiter (#4); Staged Delivery (#11)            |
+| Retaliation in ratings                     | Trust Scores become dishonest   | Blind Simultaneous Rating (#5)                       |
+| Cold Start (no reputation)                 | Platform unusable for new users | Progressive Trust Ladder (#7); Vouching (#12)        |
+| Scope drift mid-contract                   | Dispute that was preventable    | Contract Health Score (#10)                          |
+| Regulatory (fund custody)                  | Legal liability                 | Point system abstraction; no real money in prototype |
+| Malware in deliverables                    | Security incident               | Virus scan + Cloud Sandbox (future phase)            |
+
 - For all formatting and data handling, use shared utility functions in `src/lib/utils.js`:
   - `formatNumber` for numbers
   - `formatDate` for dates

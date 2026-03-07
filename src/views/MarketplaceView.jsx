@@ -24,7 +24,7 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
                 <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]">
                     {/* Typewriter removed for MVP slimdown */}
                 </h1>
-                <p className="text-slate-400 text-lg">AI has curated <span className="text-indigo-400 font-bold">2 prime vectors</span> based on your profile.</p>
+                <p className="text-slate-400 text-lg"><span className="text-indigo-400 font-bold">2 high-match opportunities</span> found based on your profile.</p>
             </div>
         </div>
         {mode === 'earner' ? (
@@ -52,16 +52,16 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
                 {!aiSuggestions ? (
                     <div className="max-w-3xl mx-auto text-center space-y-10">
                         <div className="w-20 h-20 bg-emerald-600/20 rounded-3xl flex items-center justify-center mx-auto border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)]"><BrainCircuit className="w-10 h-10 text-emerald-400" /></div>
-                        <div><h1 className="text-5xl font-black text-white tracking-tighter mb-4">AI Project Architect</h1><p className="text-slate-400 text-lg">Describe what you need. I'll define the scope, budget, and find the perfect talent.</p></div>
-                        <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt.trim()} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Architect Project</button></div></div>
+                        <div><h1 className="text-5xl font-black text-white tracking-tighter mb-4">Scope Builder</h1><p className="text-slate-400 text-lg">Describe what you need. We'll convert it into a clear Definition of Done — your enforceable agreement before any funds move.</p></div>
+                        <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt.trim()} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Define Scope</button></div></div>
                     </div>
                 ) : (
                     <div className="space-y-12">
                         <div className="bg-[#0f172a] border border-white/10 rounded-[48px] p-10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-indigo-500" />
-                            <div className="flex items-start gap-6 mb-8"><div className="p-3 bg-emerald-500/10 rounded-xl"><FileSignature className="w-6 h-6 text-emerald-400" /></div><div><h2 className="text-2xl font-black text-white mb-2">Project Scope Defined</h2><p className="text-slate-400">{aiSuggestions.summary}</p></div></div>
+                            <div className="flex items-start gap-6 mb-8"><div className="p-3 bg-emerald-500/10 rounded-xl"><FileSignature className="w-6 h-6 text-emerald-400" /></div><div><h2 className="text-2xl font-black text-white mb-2">Agreement Draft Ready</h2><p className="text-slate-400">{aiSuggestions.summary}</p></div></div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Generated DoD</h4><ul className="space-y-3">{aiSuggestions.dod.map((item, i) => (<li key={i} className="flex items-center gap-3 text-sm font-bold text-slate-300"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> {item}</li>))}</ul></div>
+                                <div><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Definition of Done</h4><ul className="space-y-3">{aiSuggestions.dod.map((item, i) => (<li key={i} className="flex items-center gap-3 text-sm font-bold text-slate-300"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> {item}</li>))}</ul></div>
                                 <div className="bg-white/5 rounded-3xl p-6"><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Recommended Budget</h4><p className="text-3xl font-black text-white">{aiSuggestions.budget}</p></div>
                             </div>
                         </div>

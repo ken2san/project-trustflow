@@ -94,12 +94,12 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
             onClick={handleExportChat}
             className="text-xs px-4 py-2 rounded-full border border-indigo-400/30 bg-white/10 text-indigo-300 font-bold shadow-sm hover:bg-indigo-500/10 hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
             style={{ minWidth: 120, letterSpacing: '0.02em' }}
-            title="Export chat as text file"
-            aria-label="Export chat"
+            title="Export negotiation log as evidence file"
+            aria-label="Export evidence log"
             type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4 mr-2 text-indigo-300 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v12" /></svg>
-            Export Chat
+            Export Evidence Log
           </button>
         </div>
         {!agreed && !chatLocked && (
@@ -128,7 +128,7 @@ export default function NegotiationChatView({ messages, setMessages, agreed, set
         )}
         {chatLocked && (
           <div className="p-6 border-t border-white/10 bg-indigo-900/80 text-center text-slate-400 font-bold">
-            <span className="flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12V8a4 4 0 10-8 0v4M5 20h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>Chat is locked. Contract in progress.</span>
+            <span className="flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12V8a4 4 0 10-8 0v4M5 20h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>Agreement reached. This chat is now an evidence archive.</span>
           </div>
         )}
         {/* Contract actions removed: ChatView is negotiation-only. */}
