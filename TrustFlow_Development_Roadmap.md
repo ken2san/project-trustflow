@@ -139,9 +139,9 @@ Reframe every UI string: lead with the mission (fair work), not the technology.
 
 - [x] Rename or reframe "AI Architect" — now "Scope Builder", emphasizes agreement over AI novelty
 - [x] Ensure every UI label speaks to protection, fairness, and accountability ("Decline & Return", "Evidence Archive", "Enforceable commitment")
-- [ ] Update placeholder text in marketplace to reflect "Bring Your Own Client" model
-- [ ] Rewrite onboarding / landing copy: lead with the problem (scope disputes), not the solution
-- [ ] Add mission statement to the first screen the user sees
+- [x] Update placeholder text in marketplace to reflect "Bring Your Own Client" model
+- [x] Rewrite onboarding / landing copy: lead with the problem (scope disputes), not the solution
+- [x] Add mission statement to the first screen the user sees
 
 ### Phase 2 — UX Flow (priority: MEDIUM, code impact: MEDIUM)
 

@@ -5,6 +5,7 @@ import { ArrowRight, BrainCircuit, ShieldCheck, Sparkles, FileSignature, CheckCi
 
 const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger, formatNumber, onHire }) => (
     <div className="space-y-16 animate-fade-in-up">
+        <p className="text-center text-xs font-black text-indigo-400/40 tracking-[0.3em] uppercase">Make trust the default, not the exception</p>
         <div className="flex flex-col md:flex-row gap-10 items-center">
             <div className="shrink-0 relative group">
                 <div className="w-32 h-32 relative flex items-center justify-center">
@@ -22,9 +23,15 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
             </div>
             <div className="flex-1 space-y-4 text-center md:text-left">
                 <h1 className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-[0.9]">
-                    {/* Typewriter removed for MVP slimdown */}
+                    {mode === 'earner'
+                        ? <>Get paid<br /><span className="text-indigo-400">what you're owed.</span></>
+                        : <>No more<br /><span className="text-emerald-400">"scope creep."</span></>}
                 </h1>
-                <p className="text-slate-400 text-lg"><span className="text-indigo-400 font-bold">2 high-match opportunities</span> found based on your profile.</p>
+                <p className="text-slate-400 text-lg">
+                    {mode === 'earner'
+                        ? <><span className="text-indigo-400 font-bold">2 high-match opportunities</span> found based on your profile.</>
+                        : <>You know who you want to work with. Let's define exactly what you're both agreeing to — before any money moves.</>}
+                </p>
             </div>
         </div>
         {mode === 'earner' ? (
@@ -53,7 +60,7 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
                     <div className="max-w-3xl mx-auto text-center space-y-10">
                         <div className="w-20 h-20 bg-emerald-600/20 rounded-3xl flex items-center justify-center mx-auto border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)]"><BrainCircuit className="w-10 h-10 text-emerald-400" /></div>
                         <div><h1 className="text-5xl font-black text-white tracking-tighter mb-4">Scope Builder</h1><p className="text-slate-400 text-lg">Describe what you need. We'll convert it into a clear Definition of Done — your enforceable agreement before any funds move.</p></div>
-                        <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I need a React Native developer..." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt.trim()} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Define Scope</button></div></div>
+                        <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I'm working with a developer I already know. Help us define exactly what 'done' looks like — before any money moves." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt.trim()} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Define Scope</button></div></div>
                     </div>
                 ) : (
                     <div className="space-y-12">
