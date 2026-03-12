@@ -47,9 +47,10 @@ TrustFlow converts ambiguous project briefs into structured, AI-generated Defini
 
 ### Go-To-Market Strategy: BYOC First
 
-TrustFlow's matching engine is only as good as the trust data behind it. That data comes from completed contracts — which means matching must come *after* the data flywheel has started turning.
+TrustFlow's matching engine is only as good as the trust data behind it. That data comes from completed contracts — which means matching must come _after_ the data flywheel has started turning.
 
 **The flywheel:**
+
 ```
 BYOC (bring existing relationships)
   → contracts complete
@@ -60,12 +61,14 @@ BYOC (bring existing relationships)
 ```
 
 **Implication for the product:**
+
 - Early users will find their own counterparties elsewhere and bring them to TrustFlow to use the protocol
 - This is not a weakness — it is the correct entry point for a trust-infrastructure product
-- The marketplace matching UI (Earner mode) is a *vision demo* of what the platform becomes once data accumulates, not the primary user acquisition path
+- The marketplace matching UI (Earner mode) is a _vision demo_ of what the platform becomes once data accumulates, not the primary user acquisition path
 - "Zero matches" is not a failure state; it is a signal to go deeper into BYOC and build trust history first
 
 **Implication for UI design:**
+
 - BYOC flow and contract protocol are the highest-priority surfaces
 - Matching UI should not mimic keyword-search marketplaces (Upwork model)
 - When matching does surface candidates, the UI should speak as a trusted introducer: "Based on your history, here is why this person is the right fit" — not a ranked list for the user to filter
