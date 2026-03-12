@@ -233,6 +233,8 @@ const App = () => {
   // Phase 4: append-only contract event log (persisted to Supabase when connected)
   const [contractEvents, setContractEvents] = useState([]);
   const [dodHash, setDodHash] = useState(null);
+  // Phase 4: permanent bad-actor flags — persist across contract cycles
+  const [badActorFlags, setBadActorFlags] = useState([]);
   const [hasOnboarded, setHasOnboarded] = useState(() => {
     if (new URLSearchParams(window.location.search).has('reset')) {
       localStorage.removeItem('tf_onboarded');
@@ -361,7 +363,24 @@ const App = () => {
     setView('scoping');
     addToast('Re-hire', 'Returning to scoping with same counterparty.', 'info');
   }, [addToast]);
-  const handleDisputeResolve = () => { setIsDisputeOpen(false); addToast('Dispute Resolved', 'Extension time added to contract.', 'success'); };
+  const handleDisputeResolve = async () => {
+    setIsDisputeOpen(false);
+    addToast('Dispute Resolved', 'Extension time added to contract.', 'success');
+    const contractId = String(selectedItem?.id ?? 'mock');
+    const ev = await logEvent({
+      type: EVENT_TYPES.DISPUTE_LOST,
+      contractId,
+      actorId: String(selectedItem?.id ?? 'counterparty'),
+      payload: { resolvedAt: new Date().toISOString(), contractTitle: selectedItem?.title ?? '' },
+    });
+    setContractEvents(prev => [ev, ...prev]);
+    setBadActorFlags(prev => [...prev, {
+      type: EVENT_TYPES.DISPUTE_LOST,
+      label: 'Dispute Lost',
+      contractId,
+      date: ev.created_at,
+    }]);
+  };
 
   const handleFileUpload = () => {
       if (isUploading) return;
@@ -442,8 +461,9 @@ const App = () => {
     return {
       ...USER_PROFILE,
       ...uiProfile,
+      badActorFlags,
     };
-  }, [uiProfile]);
+  }, [uiProfile, badActorFlags]);
 
   // Always use unifiedProfile for profile data
   const unifiedProfile = getUnifiedProfile();
