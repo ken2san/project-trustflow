@@ -145,11 +145,11 @@ Reframe every UI string: lead with the mission (fair work), not the technology.
 
 ### Phase 2 — UX Flow (priority: MEDIUM, code impact: MEDIUM)
 
-- [ ] First-run onboarding screen: explain the core problem and why TrustFlow exists
-- [ ] "Bring Your Own Client" entry point: skip marketplace, jump straight to Scoping with a counterparty invite
-- [ ] Deadline field on contract creation with enforcement logic (Feature #9)
-- [ ] Persistent Activity Log panel replacing ephemeral toasts (Feature #15)
-- [ ] Blind Simultaneous Rating flow (Feature #5)
+- [x] First-run onboarding screen: explain the core problem and why TrustFlow exists
+- [x] "Bring Your Own Client" entry point: skip marketplace, jump straight to Scoping with a counterparty invite
+- [x] Deadline field on contract creation with enforcement logic (Feature #9)
+- [x] Persistent Activity Log panel replacing ephemeral toasts (Feature #15)
+- [x] Blind Simultaneous Rating flow (Feature #5)
 
 ### Phase 3 — Feature Additions (priority: MEDIUM, code impact: HIGH)
 

@@ -132,6 +132,9 @@ import PaymentModal from './components/modals/PaymentModal';
 
 // --- Page Views ---
 
+// OnboardingView moved to views/OnboardingView.jsx
+import OnboardingView from './views/OnboardingView';
+
 // MarketplaceView moved to views/MarketplaceView.jsx
 import MarketplaceView from './views/MarketplaceView';
 
@@ -223,6 +226,11 @@ const App = () => {
   const [isDisputeOpen, setIsDisputeOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [profileData, setProfileData] = useState(null);
+  const [activityLog, setActivityLog] = useState([]);
+  const [showActivityLog, setShowActivityLog] = useState(false);
+  const [hasOnboarded, setHasOnboarded] = useState(() => !!localStorage.getItem('tf_onboarded'));
+  const [showBYOCForm, setShowBYOCForm] = useState(false);
+  const [byocForm, setByocForm] = useState({ name: '', description: '' });
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -238,7 +246,7 @@ const App = () => {
 
 
 
-  const addToast = useCallback((title, message, type = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, title, message, type }]); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
+  const addToast = useCallback((title, message, type = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, title, message, type }]); setActivityLog(prev => [{ id, title, message, type, timestamp: new Date() }, ...prev].slice(0, 50)); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
 
   const toggleMode = () => {
     if (status !== 'idle') return;
@@ -323,6 +331,30 @@ const App = () => {
   };
   const handleDeposit = () => { setIsPaymentModalOpen(false); setStatus('processing'); setTimeout(() => { setUIProfile(s => ({ ...s, points: (s.points ?? 0) + 100000 })); setStatus('idle'); addToast('Deposit Successful', '100,000 PTS added to Vault.', 'success'); }, 1000); };
 
+  const handleOnboardingComplete = useCallback(() => {
+    localStorage.setItem('tf_onboarded', '1');
+    setHasOnboarded(true);
+  }, []);
+
+  const handleBYOCStart = useCallback(() => {
+    setShowBYOCForm(true);
+  }, []);
+
+  const handleBYOCSubmit = useCallback(() => {
+    const item = {
+      id: 'byoc-' + Date.now(),
+      title: byocForm.description || 'Custom Engagement',
+      client: byocForm.name || 'Direct Counterparty',
+      totalPoints: 0,
+      acceptanceCriteria: [],
+    };
+    setSelectedItem(item);
+    setShowBYOCForm(false);
+    setByocForm({ name: '', description: '' });
+    setView('scoping');
+    addToast('Agreement Started', 'Define your scope below.');
+  }, [byocForm, addToast]);
+
   const triggerSmartContractUpdate = () => { const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' }; setMessages(prev => [...prev, userMsg]); setTimeout(() => { const aiProposal = { id: Date.now() + 1, sender: 'ai', type: 'contract_update', data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 }, time: 'Now' }; setMessages(prev => [...prev, aiProposal]); }, 1500); };
   const acceptContractUpdate = (updateData) => { if (selectedItem) { setSelectedItem(prev => ({ ...prev, totalPoints: updateData.newTotal, acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"] })); } setScrambleTrigger(prev => prev + 1); setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: `Contract updated. Budget increased by ${formatNumber(updateData.additionalCost)} PTS.`, time: 'Now', type: 'text' }]); addToast('Smart Contract Updated', 'New budget locked in escrow.', 'success'); };
   const handleSendMessage = () => { if (!inputText.trim()) return; setMessages([...messages, { id: Date.now(), sender: 'me', text: inputText, time: 'Now', type: 'text' }]); setInputText(''); setTimeout(() => { setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', text: 'Context updated. Evidence logged.', time: 'Now', type: 'text' }]); }, 1000); };
@@ -357,6 +389,8 @@ const App = () => {
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
       <NeuralBackground />
 
+      {!hasOnboarded && <OnboardingView onComplete={handleOnboardingComplete} />}
+
       <ToastContainer toasts={toasts} removeToast={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
       {/* BiometricModal removed for MVP slimdown */}
@@ -373,6 +407,48 @@ const App = () => {
         </>
       )}
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} profile={profileData} addToast={addToast} />
+
+      {/* Activity Log Panel */}
+      {showActivityLog && (
+        <div className="fixed top-20 right-6 z-[90] w-80 max-h-[70vh] flex flex-col bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-[28px] shadow-2xl overflow-hidden animate-fade-in-up">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+            <div className="flex items-center gap-2"><Activity className="w-4 h-4 text-indigo-400" /><span className="text-sm font-black text-white">Activity Log</span></div>
+            <button onClick={() => setShowActivityLog(false)} className="text-slate-500 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="overflow-y-auto flex-1 p-3 space-y-2">
+            {activityLog.length === 0 && <p className="text-xs text-slate-600 text-center py-6 font-bold">No activity yet.</p>}
+            {activityLog.map(item => (
+              <div key={item.id} className={`px-4 py-3 rounded-2xl border text-xs ${item.type === 'success' ? 'bg-emerald-900/20 border-emerald-500/20' : item.type === 'warning' ? 'bg-amber-900/20 border-amber-500/20' : 'bg-indigo-900/20 border-indigo-500/20'}`}>
+                <p className="font-black text-white mb-0.5">{item.title}</p>
+                <p className="text-slate-400">{item.message}</p>
+                <p className="text-slate-600 mt-1">{item.timestamp.toLocaleTimeString()}</p>
+              </div>
+            ))}
+          </div>
+          {activityLog.length > 0 && (
+            <div className="px-6 py-3 border-t border-white/5">
+              <button onClick={() => setActivityLog([])} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-bold uppercase tracking-widest">Clear log</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* BYOC Form Modal */}
+      {showBYOCForm && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setShowBYOCForm(false); }}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-[36px] p-10 w-full max-w-md shadow-2xl space-y-6 animate-fade-in-up">
+            <div><h3 className="text-2xl font-black text-white mb-1">Work with someone you know</h3><p className="text-slate-400 text-sm">Define the agreement together — no marketplace needed.</p></div>
+            <div className="space-y-4">
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Their name or handle</label><input type="text" value={byocForm.name} onChange={e => setByocForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g., Alex Chen / @alexchen" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">What are you building together?</label><textarea value={byocForm.description} onChange={e => setByocForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g., Mobile app redesign — 3 screens, Figma handoff included" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[100px]" /></div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowBYOCForm(false)} className="flex-1 py-4 rounded-2xl border border-white/10 text-slate-400 hover:text-white font-bold transition-all">Cancel</button>
+              <button onClick={handleBYOCSubmit} className="flex-[2] py-4 rounded-2xl bg-white text-[#020617] font-black hover:bg-indigo-400 hover:text-white transition-all">Define Scope →</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(status === 'processing' || status === 'switching') && (<div className="fixed inset-0 z-[100] bg-[#020617]/90 backdrop-blur-md flex flex-col items-center justify-center"><Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-6" /><p className="text-indigo-400 font-black tracking-[0.5em] text-[10px] uppercase animate-pulse">{status === 'switching' ? 'Reconfiguring Interface...' : 'Verifying Ledger...'}</p></div>)}
 
@@ -414,6 +490,14 @@ const App = () => {
             onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('command-center'); }}
           >
             <Layers className="w-6 h-6" />
+          </button>
+          <button
+            className={`hidden sm:inline-flex p-2 ml-1 rounded-full border border-white/10 transition-colors relative ${showActivityLog ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-indigo-300 hover:bg-white/10'}`}
+            title="Activity Log"
+            onClick={() => setShowActivityLog(prev => !prev)}
+          >
+            <Activity className="w-5 h-5" />
+            {activityLog.length > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full" />}
           </button>
           <div className="flex items-center gap-3 pl-2 border-l border-white/10">
             {/* Chat button: only enabled if unlocked */}
@@ -458,7 +542,7 @@ const App = () => {
       </nav>
 
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
-        {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} onHire={talent => { setSelectedItem(talent); setView('contract'); setStep(1); addToast('Contract Initiated', 'Contract flow started.'); }} />}
+        {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} onBYOC={handleBYOCStart} onHire={talent => { setSelectedItem(talent); setView('contract'); setStep(1); addToast('Contract Initiated', 'Contract flow started.'); }} />}
         {/* Shared chat state for negotiation stream */}
         {view === 'project-detail' && projectDetail && (
           <ProjectDetailView
@@ -505,6 +589,7 @@ const App = () => {
           />
         )}
         {/* ScopingView removed from contract flow. */}
+        {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setView('marketplace'); setSelectedItem(null); }} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (

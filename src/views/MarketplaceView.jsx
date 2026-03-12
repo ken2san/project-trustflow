@@ -1,9 +1,9 @@
 import React from "react";
 import SpotlightCard from "../components/ui/SpotlightCard";
 import ScrambleText from "../components/ui/ScrambleText";
-import { ArrowRight, BrainCircuit, ShieldCheck, Sparkles, FileSignature, CheckCircle2 } from "lucide-react";
+import { ArrowRight, BrainCircuit, ShieldCheck, Sparkles, FileSignature, CheckCircle2, UserPlus } from "lucide-react";
 
-const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger, formatNumber, onHire }) => (
+const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, setProjectPrompt, handleAIArchitectSubmit, aiSuggestions, scrambleTrigger, formatNumber, onHire, onBYOC }) => (
     <div className="space-y-16 animate-fade-in-up">
         <p className="text-center text-xs font-black text-indigo-400/40 tracking-[0.3em] uppercase">Make trust the default, not the exception</p>
         <div className="flex flex-col md:flex-row gap-10 items-center">
@@ -61,6 +61,15 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
                         <div className="w-20 h-20 bg-emerald-600/20 rounded-3xl flex items-center justify-center mx-auto border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)]"><BrainCircuit className="w-10 h-10 text-emerald-400" /></div>
                         <div><h1 className="text-5xl font-black text-white tracking-tighter mb-4">Scope Builder</h1><p className="text-slate-400 text-lg">Describe what you need. We'll convert it into a clear Definition of Done — your enforceable agreement before any funds move.</p></div>
                         <div className="relative"><textarea value={projectPrompt} onChange={(e) => setProjectPrompt(e.target.value)} placeholder="e.g., I'm working with a developer I already know. Help us define exactly what 'done' looks like — before any money moves." className="w-full bg-[#0f172a] border border-white/10 rounded-[32px] p-8 text-lg text-white outline-none focus:border-emerald-500/50 transition-all min-h-[200px] resize-none shadow-2xl" /><div className="absolute bottom-6 right-6"><button onClick={handleAIArchitectSubmit} disabled={!projectPrompt.trim()} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Define Scope</button></div></div>
+                        <div className="flex items-center gap-4 max-w-sm mx-auto">
+                            <div className="h-px flex-1 bg-white/10" />
+                            <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">or</span>
+                            <div className="h-px flex-1 bg-white/10" />
+                        </div>
+                        <button onClick={onBYOC} className="flex items-center gap-2 text-indigo-400 hover:text-white transition-colors font-bold text-sm mx-auto">
+                            <UserPlus className="w-4 h-4" />
+                            I already know who I'm working with →
+                        </button>
                     </div>
                 ) : (
                     <div className="space-y-12">
