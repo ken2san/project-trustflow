@@ -55,3 +55,11 @@ export const STEPS_DATA = [
   { id: 3, label: 'INSPECT' },
   { id: 4, label: 'RATING' }
 ];
+
+// Feature #7: Progressive Trust Ladder — contract limits by user level
+export const TRUST_LADDER = [
+  { level: 1,  label: 'Newcomer',   contractLimit: 50000 },
+  { level: 3,  label: 'Established', contractLimit: 200000 },
+  { level: 5,  label: 'Trusted',    contractLimit: 500000 },
+  { level: 10, label: 'Elite Node', contractLimit: null },
+];

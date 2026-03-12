@@ -13,7 +13,9 @@ const ContractStep2 = ({
     autoReleaseFired,
     contractDeadline,
     handleNextStep, status,
-    handleReDelivery
+    handleReDelivery,
+    milestonesEnabled, milestones, currentMilestoneIndex,
+    stagedDeliveryEnabled, stagedPhase, onAdvanceToFull
 }) => {
     const isHirer = mode === 'hirer';
 
@@ -29,6 +31,33 @@ const ContractStep2 = ({
                 <div className="flex items-center gap-3 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-5 py-3 text-amber-300 text-sm font-bold max-w-md mx-auto mb-4">
                     <AlertTriangle className="w-5 h-5 shrink-0" />
                     Deadline passed: {parseDeadlineLocal(contractDeadline).toLocaleDateString()}. Consider renegotiating.
+                </div>
+            )}
+            {/* Milestone tracker */}
+            {milestonesEnabled && milestones && milestones.length > 0 && (
+                <div className="max-w-md mx-auto mb-4">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Milestone Progress</p>
+                    <div className="flex gap-2">
+                        {milestones.map((m, i) => (
+                            <div key={m.id} className={`flex-1 rounded-xl p-2 text-center border ${
+                                i < currentMilestoneIndex ? 'bg-emerald-900/40 border-emerald-500/30 text-emerald-300'
+                                : i === currentMilestoneIndex ? 'bg-indigo-900/40 border-indigo-500/30 text-indigo-300'
+                                : 'bg-slate-800/40 border-white/5 text-slate-600'
+                            }`}>
+                                <span className="text-[10px] font-black uppercase block truncate">{m.name || `Stage ${i + 1}`}</span>
+                                <span className="text-[10px]">{m.amount ? `${parseInt(m.amount).toLocaleString()}` : '—'}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {/* Staged delivery phase badge */}
+            {stagedDeliveryEnabled && (
+                <div className={`max-w-md mx-auto mb-4 flex items-center gap-3 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border ${
+                    stagedPhase === 'preview' ? 'bg-violet-900/30 border-violet-500/30 text-violet-300' : 'bg-emerald-900/30 border-emerald-500/30 text-emerald-300'
+                }`}>
+                    <span className="w-2 h-2 rounded-full bg-current" />
+                    {stagedPhase === 'preview' ? 'Preview Phase' : 'Final Delivery Phase'}
                 </div>
             )}
             <div className="space-y-10 animate-fade-in-up">
@@ -55,6 +84,14 @@ const ContractStep2 = ({
                             )}
                         </div>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{deliverables.length === 0 ? 'You will be notified when files are submitted.' : 'You can download submitted files.'}</p>
+                        {stagedDeliveryEnabled && stagedPhase === 'preview' && deliverables.length > 0 && (
+                            <button
+                                onClick={onAdvanceToFull}
+                                className="w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-black text-sm transition-all"
+                            >
+                                Approve Preview → Unlock Full Delivery
+                            </button>
+                        )}
                         <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="btn-primary-hold w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
                     </div>
                 ) : isUploading ? (

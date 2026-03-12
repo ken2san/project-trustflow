@@ -312,6 +312,11 @@ const App = () => {
   }, [step, mode, selectedItem, status]);
 
   const handleReject = () => { setIsDisputeOpen(true); };
+  const handleRehire = React.useCallback(() => {
+    setStep(1);
+    setView('scoping');
+    addToast('Re-hire', 'Returning to scoping with same counterparty.', 'info');
+  }, [addToast]);
   const handleDisputeResolve = () => { setIsDisputeOpen(false); addToast('Dispute Resolved', 'Extension time added to contract.', 'success'); };
 
   const handleFileUpload = () => {
@@ -596,7 +601,7 @@ const App = () => {
         )}
         {/* ScopingView removed from contract flow. */}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setView('marketplace'); setSelectedItem(null); }} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">

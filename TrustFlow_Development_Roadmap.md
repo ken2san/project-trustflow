@@ -157,14 +157,14 @@ Implement only after Phase 1 & 2 are validated by user feedback.
 
 - [x] Auto-Release Timer — Feature #1
 - [x] Mutual Stake (Symmetric Escrow) — Feature #2
-- [ ] Milestone Payment — Feature #3
+- [x] Milestone Payment — Feature #3
 - [x] Human Arbiter Escalation modal — Feature #4
-- [ ] Behavior Signals on profile — Feature #6
-- [ ] Progressive Trust Ladder — Feature #7
+- [x] Behavior Signals on profile — Feature #6
+- [x] Progressive Trust Ladder — Feature #7
 - [x] Contract Health Score — Feature #10
-- [ ] Staged Delivery — Feature #11
-- [ ] Vouching System — Feature #12
-- [ ] Re-hire / Contract Template — Feature #13
+- [x] Staged Delivery — Feature #11
+- [x] Vouching System — Feature #12
+- [x] Re-hire / Contract Template — Feature #13
 - [x] Contract Pause / Resume — Feature #14
 
 ### Phase 4 — Infrastructure (priority: LOW until validated)

@@ -32,6 +32,12 @@ const ContractView = (props) => {
     const [autoReleaseArmed, setAutoReleaseArmed] = React.useState(false);
     const [autoReleaseFired, setAutoReleaseFired] = React.useState(false);
     const [isPaused, setIsPaused] = React.useState(false);
+    const [milestonesEnabled, setMilestonesEnabled] = React.useState(false);
+    const [milestones, setMilestones] = React.useState([]);
+    const [currentMilestoneIndex, setCurrentMilestoneIndex] = React.useState(0);
+    const [stagedDeliveryEnabled, setStagedDeliveryEnabled] = React.useState(false);
+    const [stagedPhase, setStagedPhase] = React.useState('preview');
+    const [previewSubmitted, setPreviewSubmitted] = React.useState(false); // eslint-disable-line no-unused-vars
 
     const {
         step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status,
@@ -51,6 +57,18 @@ const ContractView = (props) => {
         showRejectConfirm, setShowRejectConfirm, rejectTimeoutId, setRejectTimeoutId, pendingReject, setPendingReject,
         showDisputeConfirm, setShowDisputeConfirm, disputeSubmitted, setDisputeSubmitted
     } = workflow;
+
+    const onApproveMilestone = React.useCallback(() => {
+        const label = milestones[currentMilestoneIndex]?.name || `Milestone ${currentMilestoneIndex + 1}`;
+        setCurrentMilestoneIndex(i => i + 1);
+        if (addToast) addToast(`${label} Approved`, 'Payment for this stage released.', 'success');
+    }, [milestones, currentMilestoneIndex, addToast]);
+
+    const onAdvanceToFull = React.useCallback(() => {
+        setStagedPhase('full');
+        setPreviewSubmitted(false);
+        if (addToast) addToast('Preview Approved', 'Earner can now submit final delivery.', 'success');
+    }, [addToast]);
 
     const healthScore = React.useMemo(() => {
         let score = 100;
@@ -350,6 +368,13 @@ const ContractView = (props) => {
                                 setMutualStakeAmount={setMutualStakeAmount}
                                 autoReleaseArmed={autoReleaseArmed}
                                 setAutoReleaseArmed={setAutoReleaseArmed}
+                                milestonesEnabled={milestonesEnabled}
+                                setMilestonesEnabled={setMilestonesEnabled}
+                                milestones={milestones}
+                                setMilestones={setMilestones}
+                                stagedDeliveryEnabled={stagedDeliveryEnabled}
+                                setStagedDeliveryEnabled={setStagedDeliveryEnabled}
+                                userLevel={userStats?.level ?? 1}
                                 handleNextStep={handleNextStep}
                                 status={status}
                             />
@@ -371,6 +396,12 @@ const ContractView = (props) => {
                                 handleNextStep={handleNextStep}
                                 status={status}
                                 handleReDelivery={handleReDelivery}
+                                milestonesEnabled={milestonesEnabled}
+                                milestones={milestones}
+                                currentMilestoneIndex={currentMilestoneIndex}
+                                stagedDeliveryEnabled={stagedDeliveryEnabled}
+                                stagedPhase={stagedPhase}
+                                onAdvanceToFull={onAdvanceToFull}
                             />
                         )}
                     </>
@@ -408,6 +439,10 @@ const ContractView = (props) => {
                         rejectReason={rejectReason}
                         setRejectReason={setRejectReason}
                         status={status}
+                        milestonesEnabled={milestonesEnabled}
+                        milestones={milestones}
+                        currentMilestoneIndex={currentMilestoneIndex}
+                        onApproveMilestone={onApproveMilestone}
                     />
                 )}
                 {step === 4 && (
@@ -431,6 +466,7 @@ const ContractView = (props) => {
                     <ContractStep5
                         settledLabel={settledLabel}
                         handleNextStep={handleNextStep}
+                        onRehire={props.onRehire}
                     />
                 )}
             </div>

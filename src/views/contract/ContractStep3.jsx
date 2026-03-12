@@ -19,9 +19,15 @@ const ContractStep3 = ({
     pendingReject,
     showRejectModal, setShowRejectModal,
     rejectReason, setRejectReason,
-    status
+    status,
+    milestonesEnabled, milestones, currentMilestoneIndex, onApproveMilestone
 }) => {
     const isHirer = mode === 'hirer';
+
+    const handleApproveWithMilestone = () => {
+        if (milestonesEnabled && onApproveMilestone) onApproveMilestone();
+        handleApproveClick();
+    };
 
     return (
         <div className="space-y-10 animate-fade-in-up">
@@ -29,6 +35,13 @@ const ContractStep3 = ({
                 <Scan className="w-14 h-14 text-amber-500" />
             </div>
             <h2 className="text-5xl font-black text-white italic tracking-tighter">{inspectLabel}</h2>
+            {milestonesEnabled && milestones && currentMilestoneIndex < milestones.length && (
+                <div className="max-w-md mx-auto flex items-center gap-3 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-900/30 border border-emerald-500/30 text-emerald-300">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Stage {currentMilestoneIndex + 1} of {milestones.length}: 
+                    {milestones[currentMilestoneIndex]?.name || `Milestone ${currentMilestoneIndex + 1}`}
+                </div>
+            )}
             <div className="bg-black/20 p-6 rounded-2xl border border-white/5 max-w-md mx-auto">
                 <p className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-4 h-4" /> 98.2% Match Verified
@@ -54,7 +67,7 @@ const ContractStep3 = ({
                 <HoldButton
                     key={`btn-3-${showApproveConfirm ? 'modal' : 'main'}`}
                     holdKey={`3-${showApproveConfirm}-${pendingApprove}`}
-                    onClick={handleApproveClick}
+                    onClick={handleApproveWithMilestone}
                     label={inspectActionLabel}
                     className="btn-primary-hold flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl"
                     disabled={status !== 'idle' || pendingApprove}
