@@ -41,3 +41,16 @@ export function truncate(str, maxLength = 20) {
 export function uniqueArray(arr) {
   return Array.from(new Set(arr));
 }
+
+/**
+ * Parse a YYYY-MM-DD date string as end-of-day LOCAL time.
+ * Avoids the UTC-midnight trap where new Date("2026-03-15") is UTC and
+ * can read as "yesterday" in timezones ahead of UTC (e.g. JST).
+ * @param {string} dateStr  - format: "YYYY-MM-DD"
+ * @returns {Date|null}
+ */
+export function parseDeadlineLocal(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59);
+}

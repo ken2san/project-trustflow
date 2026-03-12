@@ -3,6 +3,7 @@ import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
 import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint, Heart, AlertTriangle, Timer, Pause, Play } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
+import { parseDeadlineLocal } from "../lib/utils";
 
 // Ensure animation always appears when step 5 is rendered
 // (moved below inside component)
@@ -71,8 +72,7 @@ const ContractView = (props) => {
             if (h.type === 'renegotiation-proposed') score -= 10;
         });
         if (contractDeadline) {
-            const d = new Date(contractDeadline);
-            d.setHours(23, 59, 59);
+            const d = parseDeadlineLocal(contractDeadline);
             if (new Date() > d) score -= 20;
         }
         if (autoReleaseFired) score -= 20;
@@ -83,8 +83,7 @@ const ContractView = (props) => {
     // Auto-release timer effect
     React.useEffect(() => {
         if (!autoReleaseArmed || autoReleaseFired || step !== 2 || !contractDeadline) return;
-        const deadlineDate = new Date(contractDeadline);
-        deadlineDate.setHours(23, 59, 59);
+        const deadlineDate = parseDeadlineLocal(contractDeadline);
         if (new Date() >= deadlineDate) {
             const t = setTimeout(() => {
                 setAutoReleaseFired(true);
@@ -93,6 +92,28 @@ const ContractView = (props) => {
             return () => clearTimeout(t);
         }
     }, [step, autoReleaseArmed, autoReleaseFired, contractDeadline, addToast]);
+
+    // Mutual stake: deduct earner points on escrow lock, refund on settle
+    const mutualStakeDeductedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (mutualStakeEnabled && step === 2 && !mutualStakeDeductedRef.current) {
+            const stakeVal = parseInt(mutualStakeAmount, 10);
+            if (stakeVal > 0 && setUserStats) {
+                setUserStats(s => ({ ...s, points: Math.max(0, (s.points ?? 0) - stakeVal) }));
+                if (addToast) addToast('Mutual Stake Locked', `${stakeVal.toLocaleString()} PTS staked by earner.`, 'info');
+                mutualStakeDeductedRef.current = true;
+            }
+        }
+        if (step === 5 && mutualStakeDeductedRef.current) {
+            const stakeVal = parseInt(mutualStakeAmount, 10);
+            if (stakeVal > 0 && setUserStats) {
+                setUserStats(s => ({ ...s, points: (s.points ?? 0) + stakeVal }));
+                if (addToast) addToast('Stake Returned', `${stakeVal.toLocaleString()} PTS stake returned.`, 'success');
+                mutualStakeDeductedRef.current = false;
+            }
+        }
+    // eslint-disable-next-line
+    }, [step, mutualStakeEnabled, mutualStakeAmount]);
 
     // Handler for Dispute button
     const handleDisputeClick = () => {
@@ -437,10 +458,10 @@ const ContractView = (props) => {
                             <div>Auto-Release triggered. Deadline passed with no delivery. Funds have been released. Both parties notified.</div>
                         </div>
                     )}
-                    {step === 2 && contractDeadline && new Date(contractDeadline) < new Date() && (
+                    {step === 2 && contractDeadline && new Date() > parseDeadlineLocal(contractDeadline) && (
                         <div className="flex items-center gap-3 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-5 py-3 text-amber-300 text-sm font-bold max-w-md mx-auto mb-4">
                             <AlertTriangle className="w-5 h-5 shrink-0" />
-                            Deadline passed: {new Date(contractDeadline).toLocaleDateString()}. Consider renegotiating.
+                            Deadline passed: {parseDeadlineLocal(contractDeadline).toLocaleDateString()}. Consider renegotiating.
                         </div>
                     )}
                     {step === 2 && (

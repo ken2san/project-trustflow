@@ -228,7 +228,13 @@ const App = () => {
   const [profileData, setProfileData] = useState(null);
   const [activityLog, setActivityLog] = useState([]);
   const [showActivityLog, setShowActivityLog] = useState(false);
-  const [hasOnboarded, setHasOnboarded] = useState(() => !!localStorage.getItem('tf_onboarded'));
+  const [hasOnboarded, setHasOnboarded] = useState(() => {
+    if (new URLSearchParams(window.location.search).has('reset')) {
+      localStorage.removeItem('tf_onboarded');
+      return false;
+    }
+    return !!localStorage.getItem('tf_onboarded');
+  });
   const [showBYOCForm, setShowBYOCForm] = useState(false);
   const [byocForm, setByocForm] = useState({ name: '', description: '' });
 
