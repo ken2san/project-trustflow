@@ -1,6 +1,6 @@
 // filepath: src/components/modals/ProfileModal.jsx
 import React from "react";
-import { User, BadgeCheck, MapPin, Calendar, Hexagon, Activity, ShieldCheck, ArrowRight, Share2 } from "lucide-react";
+import { User, BadgeCheck, MapPin, Calendar, Hexagon, Activity, ShieldCheck, ArrowRight, Share2, AlertTriangle } from "lucide-react";
 import { TRUST_LADDER } from "../../lib/constants";
 
 const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, onAction, addToast }) => {
@@ -131,6 +131,27 @@ const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, o
               })}
             </div>
           </div>
+          {/* Permanent Record — bad-actor flags (immutable, append-only) */}
+          {(unifiedProfile.badActorFlags?.length > 0) && (
+            <div className="relative z-10">
+              <h4 className="text-xs font-black text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5" /> Permanent Record
+              </h4>
+              <div className="space-y-2">
+                {unifiedProfile.badActorFlags.map((flag, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-red-950/30 border border-red-500/20 rounded-xl">
+                    <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-red-400 uppercase tracking-wide">{flag.label}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 truncate">Contract {flag.contractId} · {new Date(flag.date).toLocaleDateString()}</p>
+                    </div>
+                    <span className="text-[9px] font-bold text-red-600/70 uppercase tracking-widest flex-shrink-0">Immutable</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-600 mt-2">Permanently attached via append-only event log. Cannot be removed or hidden.</p>
+            </div>
+          )}
           {/* Vouch modal */}
           {showVouchModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={e => { if (e.target === e.currentTarget) { setShowVouchModal(false); setVouchReason(''); } }}>

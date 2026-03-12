@@ -24,7 +24,7 @@ package-lock.json
 # pnpm
 pnpm-lock.yaml
 
-# Environment
+# Environment — real credentials are never committed
 .env
 .env.*
 .env.local
@@ -33,6 +33,9 @@ local.env
 # Explicit envs for future-proofing
 .env.development
 .env.production
+
+# Allow the example template (contains no real credentials)
+!.env.example
 
 *.log
 *.tmp

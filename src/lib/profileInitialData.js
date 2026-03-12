@@ -15,6 +15,7 @@ export const initialUIProfileStats = {
   verified: false,
   location: '',
   joinDate: new Date().toISOString(),
+  badActorFlags: [],
 };
 
 // Initial values for InternalProfileStats
