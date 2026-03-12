@@ -172,6 +172,50 @@ Implement only after Phase 1 & 2 are validated by user feedback.
 > **Goal:** Make every action immutable, timestamped, and verifiable. "It happened" can never be disputed.
 > This is not a backend convenience feature. It is the product's core promise.
 
+#### Architecture: DB + Notary Layer
+
+The trust model separates **data storage** from **proof of existence**.
+The DB holds events; external notaries make those events impossible to deny — including by the platform operator.
+
+```
+[TrustFlow App]
+  Hirer  ──signs──▶ Contract Event
+  Earner ──signs──▶ Contract Event
+                        │
+                        ▼
+              [Supabase DB — append-only events table]
+                        │
+              ┌─────────┴──────────┐
+              ▼                    ▼
+    [RFC 3161 TSA             [Polygon / Base
+     e.g. FreeTSA]             on-chain anchor]
+     Proves: WHEN              Proves: WHAT
+     (tamper-evident           (operator cannot
+      timestamp)                deny the content)
+              └─────────┬──────────┘
+                        ▼
+              [Anyone can verify:
+               contract ID → raw events → recompute hash
+               → compare against TSA token + on-chain tx]
+```
+
+**Threat model:**
+| Attacker | DB trigger alone | + TSA | + Blockchain anchor |
+|---|---|---|---|
+| Regular user | blocked | blocked | blocked |
+| Malicious employee (DB admin) | can bypass | blocked | blocked |
+| Platform operator (self) | can bypass | blocked | blocked |
+| Infrastructure failure / restore | can overwrite | blocked | blocked |
+
+**Implementation order:**
+1. Supabase DB + append-only trigger (blocks regular users)
+2. RFC 3161 TSA per event (free, no account needed — freeTSA.org)
+3. Polygon / Base anchoring of Merkle root per milestone (~$0.01/tx)
+
+**Chain selection rationale:** Ethereum mainnet for legitimacy; Polygon or Base (Coinbase L2) for cost ($0.001–0.01/tx vs $5–50 on mainnet). Full smart-contract escrow is Phase 5+.
+
+---
+
 - [ ] **Supabase backend** — authentication (email + magic link), append-only event log table (no UPDATE/DELETE), Row Level Security
 - [ ] **Immutable contract hash** — at initiation, the full Definition of Done is SHA-256 hashed and stored; any later change creates a new event, never overwrites
 - [ ] **RFC 3161 trusted timestamping** — every event receives a cryptographic timestamp from a public TSA (e.g. FreeTSA); proves "this existed at this moment" without a blockchain
