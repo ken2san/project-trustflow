@@ -15,6 +15,11 @@ yarn-error.log*
 # OS
 Thumbs.db
 
+# Playwright
+test-results/
+playwright-report/
+.playwright/
+
 # Misc
 
 # Node.js & Package
