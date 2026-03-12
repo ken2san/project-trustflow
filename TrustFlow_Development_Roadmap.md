@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-12 (added BYOC-first GTM strategy)_
+_Last updated: 2026-03-12 (added BYOC-first GTM strategy, two-sided user model, counterparty invite flow)_
 ---
 
 ## 0. Mission
@@ -18,12 +18,27 @@ This is not about profit. It is about changing how people work together.
 
 ### Target User
 
-**Professionals — freelancers and clients — who have been burned by scope creep or broken agreements.**
+TrustFlow has two distinct user types who arrive with fundamentally different contexts. Both must be designed for explicitly.
 
+#### Type 1: The Initiator (primary acquisition target)
+**A professional who has been burned and is actively seeking a better way.**
 - Has experienced "it's not what I asked for" after delivery
-- Wants protection without bureaucracy
+- Motivated to change how they work — willing to convince their counterparty
 - Already has an existing relationship with the counterparty ("Bring Your Own Client" model)
 - Values audit trails and enforceable agreements over convenience
+- Entry point: discovers TrustFlow, sets up a contract, sends an invite link
+
+#### Type 2: The Invited Counterparty (retention-critical)
+**Someone who receives an invite link from the Initiator — with zero prior context.**
+- Has no existing motivation to use TrustFlow
+- Potential objection: "Why do you need a system? Don't you trust me?"
+- If the first screen they see doesn't immediately show *what they gain*, they leave
+- Entry point: invite link → must land on a screen that explains value, not mechanics
+- Key insight: this person also accumulates a portable Trust Passport from day one — that is the hook
+
+**We are NOT targeting:**
+- Professionals looking to browse and discover new work opportunities (Type A / Upwork model)
+- This profile is the future state after the data flywheel turns; it is not the entry point
 
 ### Core Value Proposition
 
@@ -38,6 +53,7 @@ TrustFlow converts ambiguous project briefs into structured, AI-generated Defini
 2. **Behavior over credentials** — What you do matters more than what you claim
 3. **Transparency as prevention** — Make problems visible before they escalate
 4. **Friction as a feature** — A little friction at the start prevents enormous friction later
+5. **Trust as a portable asset** — Every completed contract builds a verifiable record that belongs to the user, not the platform. This is the answer to "why should I join?" — participation compounds in the user's favor, permanently
 
 ### What We Are NOT Building (Scope Boundaries)
 
@@ -118,6 +134,7 @@ Features are organized by their role in the mission: protecting both parties, bu
 
 | #   | Feature                             | Purpose                                                                                                   |
 | --- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 0   | **Counterparty Invite Flow**        | Initiator sends a link → Invited user lands on a context-aware screen showing who invited them, what the project is, and — critically — what *they* gain (Trust Passport from day one). Without this, BYOC adoption fails at the second person. |
 | 1   | **Auto-Release Timer**              | 72–96h after delivery with no client response → funds auto-release. Earners cannot be ghosted.            |
 | 2   | **Mutual Stake (Symmetric Escrow)** | Earner also deposits a small stake. Both parties have skin in the game. Abandonment costs both sides.     |
 | 3   | **Milestone Payment**               | Multi-step escrow for large projects. 70%+ of real freelance work is milestone-based.                     |
