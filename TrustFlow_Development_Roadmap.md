@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-12 (added BYOC-first GTM strategy, two-sided user model, counterparty invite flow)_
+_Last updated: 2026-03-12 (added BYOC-first GTM strategy, two-sided user model, counterparty invite flow, Trust Passport as portable public utility)_
 ---
 
 ## 0. Mission
@@ -11,6 +11,16 @@ _Last updated: 2026-03-12 (added BYOC-first GTM strategy, two-sided user model, 
 The freelance economy runs on broken trust infrastructure. Scope disputes, ghosting, and unpaid work are not edge cases — they are the norm. TrustFlow is not a product. It is a piece of social infrastructure: a protocol that makes exploitation structurally harder and cooperation structurally easier.
 
 This is not about profit. It is about changing how people work together.
+
+### The deeper problem
+
+The proof of a person's capability and integrity has always been controlled by intermediaries — academic institutions, certification bodies, employers, hiring agencies. These intermediaries profit from being the sole translators of human ability into something others will trust. The individual accumulates the track record; the institution captures the value.
+
+This asymmetry is not accidental. It is structural, and those who benefit from it have little incentive to fix it.
+
+TrustFlow is a protocol-level response: every completed contract, every honored deadline, every fairly resolved dispute becomes a tamper-evident, portable record that belongs to the individual — not to the platform, not to any institution. A public notary does not own what they witness. Neither does TrustFlow.
+
+**The entry point is freelance contracts. The destination is a portable trust infrastructure that individuals carry across every context — work, credit, collaboration — without asking anyone's permission.**
 
 ---
 
@@ -178,6 +188,7 @@ Features are organized by their role in the mission: protecting both parties, bu
 - Multi-Earner / team contracts
 - Streak & referral engagement loops
 - eKYC integration (when regulated)
+- **Trust Passport as Verifiable Credential** — self-sovereign, W3C VC standard; individual carries their record across any platform without TrustFlow's involvement
 
 ---
 
@@ -279,6 +290,24 @@ The DB holds events; external notaries make those events impossible to deny — 
 - [ ] Gemini API integration (real DoD generation, inspection scoring)
 - [ ] eKYC identity verification
 - [ ] AML / KYC compliance
+
+### Phase 6 — Trust Passport as Public Utility (priority: VISION — defines the destination)
+
+> **Goal:** The trust record an individual builds on TrustFlow becomes portable proof, usable outside the platform — by employers, banks, other platforms — without requiring TrustFlow as an intermediary.
+
+This is the answer to the structural asymmetry that has always existed between institutions and individuals. Credentials have been owned by the institutions that issued them. TrustFlow behavior data is owned by the person who earned it.
+
+**API model: consent-first, not platform-first**
+
+Three tiers, in order of individual sovereignty:
+
+| Tier | Model                         | Description                                                                                                                                                                                                     |
+| ---- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **Consent-gated API**         | Individual authorizes a third party (employer, bank, platform) to query their Trust Passport via OAuth-style consent. TrustFlow issues a scoped read token. Revenue: API access fee paid by the querying party. |
+| 2    | **Self-presented credential** | Individual exports a signed JSON object (Trust Passport snapshot). Recipient verifies authenticity using TrustFlow's public key. No API call required — works even if TrustFlow is offline.                     |
+| 3    | **W3C Verifiable Credential** | Trust Passport issued as a standards-compliant VC. Storable in any compatible digital wallet. Verifiable by anyone without contacting TrustFlow. Fully self-sovereign.                                          |
+
+**Design constraint:** TrustFlow must never become a gatekeeper of its own data. Tier 1 is the business model; Tiers 2 and 3 are the insurance policy — proof that the platform does not own what it witnesses.
 
 ---
 
