@@ -34,7 +34,7 @@ export function truncate(str, maxLength = 20) {
 }
 
 /**
- * 配列のユニーク化
+ * Returns a new array with duplicate values removed.
  * @param {Array} arr
  * @returns {Array}
  */
