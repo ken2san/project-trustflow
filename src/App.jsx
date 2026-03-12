@@ -72,6 +72,8 @@ import {
 // Centralized constants and mock data
 import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, TRANSACTIONS_DATA, STEPS_DATA } from './lib/constants';
 import { formatNumber } from './lib/utils';
+import { sha256, buildDodCanonical } from './lib/crypto.js';
+import { logEvent, EVENT_TYPES } from './lib/eventLog.js';
 
 
 // ...existing code...
@@ -228,6 +230,9 @@ const App = () => {
   const [profileData, setProfileData] = useState(null);
   const [activityLog, setActivityLog] = useState([]);
   const [showActivityLog, setShowActivityLog] = useState(false);
+  // Phase 4: append-only contract event log (persisted to Supabase when connected)
+  const [contractEvents, setContractEvents] = useState([]);
+  const [dodHash, setDodHash] = useState(null);
   const [hasOnboarded, setHasOnboarded] = useState(() => {
     if (new URLSearchParams(window.location.search).has('reset')) {
       localStorage.removeItem('tf_onboarded');
@@ -279,7 +284,31 @@ const App = () => {
   };
   const handleAIArchitectSubmit = () => { setStatus('processing'); setTimeout(() => { setAiSuggestions({ summary: "Based on your request, I've architected a project scope.", dod: ["React Native Codebase", "Stripe Integration", "Biometric Auth Flow"], budget: "250,000 - 300,000 PTS", candidates: TALENTS_DATA }); setStatus('idle'); }, 1500); };
   // BiometricModal removed: go directly to contract view
-  const initiateContract = () => { setView('contract'); setStep(1); addToast('Contract Initiated', 'Contract flow started.'); };
+  const initiateContract = async () => {
+    setView('contract');
+    setStep(1);
+    addToast('Contract Initiated', 'Contract flow started.');
+    if (selectedItem) {
+      const dodText = selectedItem.acceptanceCriteria?.join('\n') ?? selectedItem.title ?? '';
+      const canonical = buildDodCanonical({
+        dodText,
+        hirerId: mode === 'hirer' ? 'user' : String(selectedItem.id),
+        earnerId: mode === 'earner' ? 'user' : String(selectedItem.id),
+        budgetPoints: String(selectedItem.totalPoints ?? 0),
+        deadline: selectedItem.deadline ?? 'TBD',
+      });
+      const hash = await sha256(canonical);
+      setDodHash(hash);
+      const event = await logEvent({
+        type: EVENT_TYPES.CONTRACT_INITIATED,
+        contractId: String(selectedItem.id ?? 'mock-' + Date.now()),
+        actorId: 'user',
+        payload: { title: selectedItem.title, budgetPoints: selectedItem.totalPoints },
+        dodHash: hash,
+      });
+      setContractEvents(prev => [event, ...prev]);
+    }
+  };
 
   const handleNextStep = useCallback(() => {
     const now = Date.now();
@@ -289,17 +318,32 @@ const App = () => {
     lastActionTime.current = now;
     setStatus('processing');
 
-    setTimeout(() => {
+    setTimeout(async () => {
       // Logic execution
       if (step === 2) { if (mode === 'hirer') setUIProfile(s => ({ ...s, points: (s.points ?? 0) - selectedItem.totalPoints })); else setUIProfile(s => ({ ...s, points: (s.points ?? 0) + selectedItem.totalPoints })); }
+
+      // Phase 4: log step transition events
+      const contractId = String(selectedItem?.id ?? 'mock');
+      if (step === 1) {
+        const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_ACCEPTED, contractId, actorId: 'user', payload: { step: 1 } });
+        setContractEvents(prev => [ev, ...prev]);
+      } else if (step === 4) {
+        const ev = await logEvent({ type: EVENT_TYPES.WORK_APPROVED, contractId, actorId: 'user', payload: { step: 4 } });
+        setContractEvents(prev => [ev, ...prev]);
+      }
 
       // Navigation
       // (negotiationMessages and negotiationAgreed state are now at the top level)
       if (step === 5) {
+          // Log contract completion before resetting
+          const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_COMPLETED, contractId, actorId: 'user', payload: {} });
+          setContractEvents(prev => [ev, ...prev]);
           // Reset everything for next cycle
           setView('marketplace');
           setSelectedItem(null);
           setStep(1);
+          setDodHash(null);
+          setContractEvents([]);
           setIsUploading(false);
           setUploadProgress(0);
           setStatus('idle');
@@ -332,7 +376,15 @@ const App = () => {
               setUploadProgress(0);
               // Directly call handleNextStep logic here to avoid race conditions with button state
               setStatus('processing');
-              setTimeout(() => {
+              setTimeout(async () => {
+                  // Phase 4: log work submitted event
+                  const ev = await logEvent({
+                    type: EVENT_TYPES.WORK_SUBMITTED,
+                    contractId: String(selectedItem?.id ?? 'mock'),
+                    actorId: 'user',
+                    payload: { step: 3 },
+                  });
+                  setContractEvents(prev => [ev, ...prev]);
                   setStep(prev => prev + 1);
                   setStatus('idle');
                   addToast('Upload Complete', 'AI Inspection initiated.');
@@ -601,7 +653,7 @@ const App = () => {
         )}
         {/* ScopingView removed from contract flow. */}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setView('marketplace'); setSelectedItem(null); }} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
