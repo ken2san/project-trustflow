@@ -232,9 +232,9 @@ Implement only after Phase 1 & 2 are validated by user feedback.
 
 ## Edit Terms & Cancel Timing (Implementation)
 
-- Edit Terms（条件修正）とCancel（契約中止）は、Definition of Done（DoD）提示～Commitment Locked前までのみ利用可能。
-- Commitment Locked以降は契約条件が不可逆的に確定し、原則として条件変更や中止は不可。
-- 詳細なルール・根拠はTrustFlow_Protocol.mdを参照。
+- Edit Terms and Cancel are only available between DoD presentation and Commitment Locked.
+- Once Commitment Locked, contract terms are irreversibly finalized; modifications and cancellations are not permitted in principle.
+- See TrustFlow_Protocol.md for detailed rules and rationale.
 
 ---
 

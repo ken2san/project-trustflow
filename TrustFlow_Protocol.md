@@ -50,9 +50,9 @@ This section outlines the implementation plan for adding edge case and exception
 
 ### Rationale
 
-- Locked後に条件変更やキャンセルが可能だと、契約の価値・信頼・法的安定性が損なわれる。
-- 最高のUXは「迷いゼロ・納得感・安心感」。Locked前に全ての調整・中止を済ませ、Locked後は履行に集中できる設計が理想。
-- 世界標準の契約プロトコル（金融・法律・Web3含む）も同様のルールを採用している。
+- Allowing term changes or cancellations after locking undermines the contract's value, trust, and legal stability.
+- The ideal UX is "zero ambiguity, full confidence." All adjustments and cancellations must be completed before locking; after locking, both parties focus solely on execution.
+- This rule is consistent with global contract protocols across finance, law, and Web3.
 
 For implementation details and UI/UX guidelines, see TrustFlow_Development_Roadmap.md.
 
