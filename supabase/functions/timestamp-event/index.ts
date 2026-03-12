@@ -1,5 +1,7 @@
 // supabase/functions/timestamp-event/index.ts
 // Supabase Edge Function — RFC 3161 TSA proxy for production use.
+// Runs on Deno runtime — Node.js TypeScript errors here are expected and harmless.
+// @ts-nocheck
 //
 // Browser → TSA direct calls are CORS-blocked.
 // This Edge Function acts as a server-side proxy: receives a hashHex,
