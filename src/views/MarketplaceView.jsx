@@ -35,6 +35,8 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
             </div>
         </div>
         {mode === 'earner' ? (
+            <div className="space-y-8">
+            <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.25em] text-center">Trust-based referrals — not a job board</p>
             <div className="grid grid-cols-1 gap-8">
                 {jobs.map(item => (
                     <SpotlightCard key={item.id} className="rounded-[40px] p-8 group">
@@ -53,6 +55,14 @@ const MarketplaceView = ({ mode, jobs, talents, onViewDetails, projectPrompt, se
                         </div>
                     </SpotlightCard>
                 ))}
+            </div>
+            <div className="flex flex-col items-center gap-3 pt-4">
+                <p className="text-xs text-slate-600">Already working with someone? Bring them here — and protect the agreement from day one.</p>
+                <button onClick={onBYOC} className="flex items-center gap-2 text-indigo-400 hover:text-white transition-colors font-bold text-sm">
+                    <UserPlus className="w-4 h-4" />
+                    Bring your own client →
+                </button>
+            </div>
             </div>
         ) : (
             <div className="space-y-16 animate-fade-in-up">

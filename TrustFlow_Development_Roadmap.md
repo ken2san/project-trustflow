@@ -21,7 +21,9 @@ This is not about profit. It is about changing how people work together.
 TrustFlow has two distinct user types who arrive with fundamentally different contexts. Both must be designed for explicitly.
 
 #### Type 1: The Initiator (primary acquisition target)
+
 **A professional who has been burned and is actively seeking a better way.**
+
 - Has experienced "it's not what I asked for" after delivery
 - Motivated to change how they work — willing to convince their counterparty
 - Already has an existing relationship with the counterparty ("Bring Your Own Client" model)
@@ -29,14 +31,17 @@ TrustFlow has two distinct user types who arrive with fundamentally different co
 - Entry point: discovers TrustFlow, sets up a contract, sends an invite link
 
 #### Type 2: The Invited Counterparty (retention-critical)
+
 **Someone who receives an invite link from the Initiator — with zero prior context.**
+
 - Has no existing motivation to use TrustFlow
 - Potential objection: "Why do you need a system? Don't you trust me?"
-- If the first screen they see doesn't immediately show *what they gain*, they leave
+- If the first screen they see doesn't immediately show _what they gain_, they leave
 - Entry point: invite link → must land on a screen that explains value, not mechanics
 - Key insight: this person also accumulates a portable Trust Passport from day one — that is the hook
 
 **We are NOT targeting:**
+
 - Professionals looking to browse and discover new work opportunities (Type A / Upwork model)
 - This profile is the future state after the data flywheel turns; it is not the entry point
 
@@ -132,13 +137,13 @@ Features are organized by their role in the mission: protecting both parties, bu
 
 ### 🔴 Critical — Trust Infrastructure (platform cannot function without these)
 
-| #   | Feature                             | Purpose                                                                                                   |
-| --- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 0   | **Counterparty Invite Flow**        | Initiator sends a link → Invited user lands on a context-aware screen showing who invited them, what the project is, and — critically — what *they* gain (Trust Passport from day one). Without this, BYOC adoption fails at the second person. |
-| 1   | **Auto-Release Timer**              | 72–96h after delivery with no client response → funds auto-release. Earners cannot be ghosted.            |
-| 2   | **Mutual Stake (Symmetric Escrow)** | Earner also deposits a small stake. Both parties have skin in the game. Abandonment costs both sides.     |
-| 3   | **Milestone Payment**               | Multi-step escrow for large projects. 70%+ of real freelance work is milestone-based.                     |
-| 4   | **Human Arbiter Escalation**        | When AI cannot resolve a dispute, a human arbiter is summoned. AI is the first line; humans are the last. |
+| #   | Feature                             | Purpose                                                                                                                                                                                                                                         |
+| --- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | **Counterparty Invite Flow**        | Initiator sends a link → Invited user lands on a context-aware screen showing who invited them, what the project is, and — critically — what _they_ gain (Trust Passport from day one). Without this, BYOC adoption fails at the second person. |
+| 1   | **Auto-Release Timer**              | 72–96h after delivery with no client response → funds auto-release. Earners cannot be ghosted.                                                                                                                                                  |
+| 2   | **Mutual Stake (Symmetric Escrow)** | Earner also deposits a small stake. Both parties have skin in the game. Abandonment costs both sides.                                                                                                                                           |
+| 3   | **Milestone Payment**               | Multi-step escrow for large projects. 70%+ of real freelance work is milestone-based.                                                                                                                                                           |
+| 4   | **Human Arbiter Escalation**        | When AI cannot resolve a dispute, a human arbiter is summoned. AI is the first line; humans are the last.                                                                                                                                       |
 
 ### 🟡 High — Verifiable Trust (makes the platform worth joining)
 
