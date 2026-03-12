@@ -76,6 +76,40 @@ Most contract disputes do not start from bad intent. They start from ambiguity �
 6. **Agreement quality is the platform's responsibility** — Users are not contract lawyers. TrustFlow's AI must ensure the DoD is unambiguous, complete, and dispute-resistant before either party signs. Asking users to "read carefully" is a failure of design.
 7. **Invisible enforcement** — The protection mechanisms must work without the user understanding them. A surgeon does not explain anesthesia to the patient before operating. TrustFlow's mutual stakes, append-only logs, blind ratings, and DoD hashes operate silently in the background. The user's only awareness should be: "if I act in good faith, I am protected; if I don't, I will pay for it." The system is the expert — not the user.
 
+### Canonical Contract State Machine
+
+Principles #6 and #7 are not just UX guidelines — they have a direct consequence for system architecture. If the platform is responsible for agreement quality, and protections operate silently, then most of the complexity in a typical contract system is caused by the platform _not_ taking that responsibility. Ambiguous DoDs produce subjective disputes. Subjective disputes require negotiation loops. Negotiation loops require pause states, renegotiation flows, and admin override buttons.
+
+**The correct state machine for a DoD-quality-guaranteed contract is linear:**
+
+```
+DRAFTING ──(AI validates DoD quality)──▶ LOCKED ──▶ IN_PROGRESS ──▶ DELIVERED
+                                                                          │
+                                              ┌───────────────────────────┤
+                                              ▼                           ▼
+                                         CONFIRMED                   DISPUTED
+                                              │                           │
+                                              └───────────┬───────────────┘
+                                                          ▼
+                                                       SETTLED
+```
+
+One branch. One direction. No loops.
+
+**What this eliminates — and why:**
+
+| Mechanism                               | Why it exists today                                             | Why it disappears                                              |
+| --------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------- |
+| Renegotiation flow                      | DoD was vague; parties disagree mid-contract on what was agreed | AI-validated DoD cannot be vague; re-scoping = a new contract  |
+| Pause / Resume                          | Parties are confused or blocked; no clear next action           | Clear DoD always defines the next action; pausing is avoidance |
+| Rejection loops (unlimited)             | Subjective "done" criteria allow endless dispute                | AI-generated DoD produces objective binary pass/fail           |
+| Multiple-rejection-forced-dispute logic | Escalation heuristic for unresolvable loops                     | Loops don't exist; DISPUTED is entered on explicit trigger     |
+| Admin Intervention button               | Human override for states the system cannot exit                | System always has an exit; unresolvable → AI arbitration       |
+
+**A rejection is still possible** — it signals "deliverable does not meet the DoD." That is a binary factual dispute, mediated by AI against the signed DoD hash. If AI cannot resolve it, a human arbiter is invoked (Feature #4). The system does not ask the user what to do next; it proceeds.
+
+**One exception: emergency exit.** Cancellation remains available as a mutual-consent off-ramp, with symmetric stake penalty. It is not a user convenience; it is an acknowledgment that circumstances outside both parties' control sometimes require abandonment. But this is rare, and the penalty makes it non-trivial.
+
 ### What We Are NOT Building (Scope Boundaries)
 
 - A general-purpose freelance marketplace (Upwork, Lancers)
