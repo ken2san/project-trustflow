@@ -1,7 +1,7 @@
 
 import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
-import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint, Heart, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint, Heart, AlertTriangle, Timer, Pause, Play } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
 
 // Ensure animation always appears when step 5 is rendered
@@ -37,6 +37,12 @@ const ContractView = (props) => {
     const [blindRatingSubmitted, setBlindRatingSubmitted] = React.useState(false);
     const [ratingsRevealed, setRatingsRevealed] = React.useState(false);
     const [partnerRating, setPartnerRating] = React.useState(null);
+    // Phase 3 — Feature state
+    const [mutualStakeEnabled, setMutualStakeEnabled] = React.useState(false);
+    const [mutualStakeAmount, setMutualStakeAmount] = React.useState('');
+    const [autoReleaseArmed, setAutoReleaseArmed] = React.useState(false);
+    const [autoReleaseFired, setAutoReleaseFired] = React.useState(false);
+    const [isPaused, setIsPaused] = React.useState(false);
     const {
         step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode
     } = props;
@@ -54,6 +60,40 @@ const ContractView = (props) => {
         showRejectConfirm, setShowRejectConfirm, rejectTimeoutId, setRejectTimeoutId, pendingReject, setPendingReject,
         showDisputeConfirm, setShowDisputeConfirm, disputeSubmitted, setDisputeSubmitted
     } = workflow;
+
+    // Contract Health Score (derived)
+    const healthScore = React.useMemo(() => {
+        let score = 100;
+        (history || []).forEach(h => {
+            if (h.type === 'reject') score -= 15;
+            if (h.type === 're-delivery') score -= 5;
+            if (h.type === 'dispute') score -= 30;
+            if (h.type === 'renegotiation-proposed') score -= 10;
+        });
+        if (contractDeadline) {
+            const d = new Date(contractDeadline);
+            d.setHours(23, 59, 59);
+            if (new Date() > d) score -= 20;
+        }
+        if (autoReleaseFired) score -= 20;
+        if (mutualStakeEnabled) score += 10;
+        return Math.max(0, Math.min(100, score));
+    }, [history, contractDeadline, autoReleaseFired, mutualStakeEnabled]);
+
+    // Auto-release timer effect
+    React.useEffect(() => {
+        if (!autoReleaseArmed || autoReleaseFired || step !== 2 || !contractDeadline) return;
+        const deadlineDate = new Date(contractDeadline);
+        deadlineDate.setHours(23, 59, 59);
+        if (new Date() >= deadlineDate) {
+            const t = setTimeout(() => {
+                setAutoReleaseFired(true);
+                if (addToast) addToast('Auto-Release Triggered', 'Deadline passed with no delivery. Funds released to earner.', 'warning');
+            }, 2000);
+            return () => clearTimeout(t);
+        }
+    }, [step, autoReleaseArmed, autoReleaseFired, contractDeadline, addToast]);
+
     // Handler for Dispute button
     const handleDisputeClick = () => {
         setShowDisputeConfirm(true);
@@ -229,8 +269,36 @@ const ContractView = (props) => {
             ))}
         </div>
 
+        {/* Health Score + Pause/Resume bar */}
+        {step >= 1 && (
+            <div className="flex items-center justify-between max-w-4xl mx-auto mb-2 px-2">
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition-colors ${
+                    healthScore >= 80 ? 'bg-emerald-900/30 border-emerald-500/30 text-emerald-400'
+                    : healthScore >= 50 ? 'bg-amber-900/30 border-amber-500/30 text-amber-400'
+                    : 'bg-red-900/30 border-red-500/30 text-red-400'
+                }`}>
+                    <Heart className="w-3.5 h-3.5" />
+                    Health {healthScore}%
+                </div>
+                <button
+                    onClick={() => { setIsPaused(p => !p); if (addToast) addToast(isPaused ? 'Contract Resumed' : 'Contract Paused', isPaused ? 'Actions unlocked.' : 'All actions suspended.', 'info'); }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all ${
+                        isPaused ? 'bg-amber-600 border-amber-500 text-white' : 'border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    {isPaused ? <><Play className="w-3.5 h-3.5" /> Resume</> : <><Pause className="w-3.5 h-3.5" /> Pause</>}
+                </button>
+            </div>
+        )}
 
-        <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
+        <div className={`max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center transition-opacity ${isPaused ? 'opacity-60 pointer-events-none' : ''}`}>
+            {/* Pause banner */}
+            {isPaused && (
+                <div className="flex items-center gap-4 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-6 py-4 text-amber-300 mb-6 text-left">
+                    <Pause className="w-5 h-5 shrink-0" />
+                    <div><p className="font-black text-sm">Contract Paused</p><p className="text-xs text-amber-400/70">All actions are suspended. Use the Resume button above to continue.</p></div>
+                </div>
+            )}
             {/* Acceptance Protocol: show only Abort Sequence and Initiate Contract after negotiation, before contract initiation */}
             {((typeof currentStep !== 'number' || currentStep === 0) && !isCancelled) && (
                 <div className="flex flex-col items-center justify-center mt-12 mb-6 gap-8">
@@ -324,12 +392,49 @@ const ContractView = (props) => {
                         <div className="space-y-10 animate-fade-in-up">
                             <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2>
                             <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds secured in escrow. Both parties are protected from this point forward.<br/>This action cannot be undone.</p>
-                            <div className="max-w-md mx-auto text-left space-y-2">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Project Deadline <span className="text-slate-700">(optional)</span></label>
-                                <input type="date" value={contractDeadline} onChange={e => setContractDeadline(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500/50 transition-all" />
-                                <p className="text-xs text-slate-600">If set, you'll be alerted if no delivery arrives by this date.</p>
+                            <div className="max-w-md mx-auto text-left space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Project Deadline <span className="text-slate-700">(optional)</span></label>
+                                    <input type="date" value={contractDeadline} onChange={e => setContractDeadline(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500/50 transition-all" />
+                                    <p className="text-xs text-slate-600">If set, you'll be alerted if no delivery arrives by this date.</p>
+                                </div>
+                                <div className="pt-3 border-t border-white/5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-black text-slate-300">Mutual Stake</p>
+                                            <p className="text-xs text-slate-600">Both parties put skin in the game</p>
+                                        </div>
+                                        <button onClick={() => setMutualStakeEnabled(v => !v)} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${mutualStakeEnabled ? 'bg-indigo-600' : 'bg-slate-700'}`}>
+                                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${mutualStakeEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                    {mutualStakeEnabled && (
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Earner stakes (PTS)</label>
+                                            <input type="number" value={mutualStakeAmount} onChange={e => setMutualStakeAmount(e.target.value)} placeholder="e.g. 50000" min={0} className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-5 py-3 text-white font-bold outline-none focus:border-indigo-500/50 transition-all" />
+                                            <p className="text-xs text-slate-600 mt-1">Earner's stake is returned on approval.</p>
+                                        </div>
+                                    )}
+                                    {contractDeadline && (
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-black text-slate-300">Auto-Release on deadline</p>
+                                                <p className="text-xs text-slate-600">Funds auto-release if no delivery by deadline</p>
+                                            </div>
+                                            <button onClick={() => setAutoReleaseArmed(v => !v)} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${autoReleaseArmed ? 'bg-amber-600' : 'bg-slate-700'}`}>
+                                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${autoReleaseArmed ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <HoldButton key="btn-1" onClick={handleNextStep} label="Secure Funds in Escrow" icon={ArrowRight} className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" disabled={status !== 'idle'} />
+                        </div>
+                    )}
+                    {step === 2 && autoReleaseFired && (
+                        <div className="flex items-center gap-3 bg-rose-900/30 border border-rose-500/30 rounded-2xl px-5 py-4 text-rose-300 text-sm font-bold max-w-md mx-auto mb-4 animate-fade-in-up">
+                            <Timer className="w-5 h-5 shrink-0" />
+                            <div>Auto-Release triggered. Deadline passed with no delivery. Funds have been released. Both parties notified.</div>
                         </div>
                     )}
                     {step === 2 && contractDeadline && new Date(contractDeadline) < new Date() && (

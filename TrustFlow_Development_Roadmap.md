@@ -155,17 +155,17 @@ Reframe every UI string: lead with the mission (fair work), not the technology.
 
 Implement only after Phase 1 & 2 are validated by user feedback.
 
-- [ ] Auto-Release Timer — Feature #1
-- [ ] Mutual Stake (Symmetric Escrow) — Feature #2
+- [x] Auto-Release Timer — Feature #1
+- [x] Mutual Stake (Symmetric Escrow) — Feature #2
 - [ ] Milestone Payment — Feature #3
-- [ ] Human Arbiter Escalation modal — Feature #4
+- [x] Human Arbiter Escalation modal — Feature #4
 - [ ] Behavior Signals on profile — Feature #6
 - [ ] Progressive Trust Ladder — Feature #7
-- [ ] Contract Health Score — Feature #10
+- [x] Contract Health Score — Feature #10
 - [ ] Staged Delivery — Feature #11
 - [ ] Vouching System — Feature #12
 - [ ] Re-hire / Contract Template — Feature #13
-- [ ] Contract Pause / Resume — Feature #14
+- [x] Contract Pause / Resume — Feature #14
 
 ### Phase 4 — Infrastructure (priority: LOW until validated)
 
