@@ -59,6 +59,10 @@ TrustFlow has two distinct user types who arrive with fundamentally different co
 
 TrustFlow converts ambiguous project briefs into structured, AI-generated Definitions of Done — creating a mutual agreement that is logged, locked, and enforceable before any money moves. Both parties are protected symmetrically.
 
+Most contract disputes do not start from bad intent. They start from ambiguity — "done" meant different things to each side. TrustFlow eliminates that ambiguity before money moves, and holds the record of what was agreed so neither side can rewrite history.
+
+**The platform takes responsibility for the quality of the agreement, not just its existence.** A user should not need to read legal language or understand contract law. TrustFlow's AI is the expert in the room — it detects vague terms, fills structural gaps, and flags conditions that could cause disputes. The user's only job is a final "yes, this is what I want."
+
 **Not competing on:** Price, talent discovery, or ease of onboarding light users.
 **Competing on:** Making fair outcomes the structural default for both sides.
 
@@ -69,6 +73,8 @@ TrustFlow converts ambiguous project briefs into structured, AI-generated Defini
 3. **Transparency as prevention** — Make problems visible before they escalate
 4. **Friction as a feature** — A little friction at the start prevents enormous friction later
 5. **Trust as a portable asset** — Every completed contract builds a verifiable record that belongs to the user, not the platform. This is the answer to "why should I join?" — participation compounds in the user's favor, permanently
+6. **Agreement quality is the platform's responsibility** — Users are not contract lawyers. TrustFlow's AI must ensure the DoD is unambiguous, complete, and dispute-resistant before either party signs. Asking users to "read carefully" is a failure of design.
+7. **Invisible enforcement** — The protection mechanisms must work without the user understanding them. A surgeon does not explain anesthesia to the patient before operating. TrustFlow's mutual stakes, append-only logs, blind ratings, and DoD hashes operate silently in the background. The user's only awareness should be: "if I act in good faith, I am protected; if I don't, I will pay for it." The system is the expert — not the user.
 
 ### What We Are NOT Building (Scope Boundaries)
 
