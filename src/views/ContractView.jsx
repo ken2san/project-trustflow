@@ -1,57 +1,47 @@
-
 import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
-import { CheckCircle2, Lock, Scan, User, Star, ArrowRight, UploadCloud, Fingerprint, Heart, AlertTriangle, Timer, Pause, Play } from "lucide-react";
+import { Heart, Pause, Play, ArrowRight } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
 import { parseDeadlineLocal } from "../lib/utils";
-
-// Ensure animation always appears when step 5 is rendered
-// (moved below inside component)
-
-const STEPS_DATA = [
-    { id: 1, label: 'PROTOCOL' },
-    { id: 2, label: 'ESCROW' },
-    { id: 3, label: 'INSPECT' },
-    { id: 4, label: 'RATING' }
-];
-
-
+import ContractStepTracker from "./contract/ContractStepTracker";
+import ContractStep1 from "./contract/ContractStep1";
+import ContractStep2 from "./contract/ContractStep2";
+import ContractStep3 from "./contract/ContractStep3";
+import ContractStep4 from "./contract/ContractStep4";
+import ContractStep5 from "./contract/ContractStep5";
 
 const ContractView = (props) => {
-    // Payment delay simulation state
     const [showPaymentDelay, setShowPaymentDelay] = React.useState(false);
     const [paymentDelayed, setPaymentDelayed] = React.useState(false);
-    // Cancel feature state
     const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
     const [cancelReason, setCancelReason] = React.useState("");
     const [isCancelled, setIsCancelled] = React.useState(false);
     const [chatLocked, setChatLocked] = React.useState(false);
     const stepFromProps = typeof props.step === 'number' ? props.step : 0;
     const [currentStep, setCurrentStep] = React.useState(stepFromProps);
-    // Renegotiation state
     const [showRenegotiate, setShowRenegotiate] = React.useState(false);
     const [renegotiationFields, setRenegotiationFields] = React.useState({ deadline: '', amount: '', scope: '' });
     const [isRenegotiating, setIsRenegotiating] = React.useState(false);
     const [pendingRenegotiation, setPendingRenegotiation] = React.useState(null);
-    // Deadline + blind rating state
     const [contractDeadline, setContractDeadline] = React.useState('');
     const [blindRatingSubmitted, setBlindRatingSubmitted] = React.useState(false);
     const [ratingsRevealed, setRatingsRevealed] = React.useState(false);
     const [partnerRating, setPartnerRating] = React.useState(null);
-    // Phase 3 — Feature state
     const [mutualStakeEnabled, setMutualStakeEnabled] = React.useState(false);
     const [mutualStakeAmount, setMutualStakeAmount] = React.useState('');
     const [autoReleaseArmed, setAutoReleaseArmed] = React.useState(false);
     const [autoReleaseFired, setAutoReleaseFired] = React.useState(false);
     const [isPaused, setIsPaused] = React.useState(false);
+
     const {
-        step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status, formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode
+        step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status,
+        formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode
     } = props;
-    // Use custom hook for all workflow state/logic
+
     const workflow = useContractWorkflow({
         step, setUserStats, userStats, addToast, triggerLevelUp, triggerParamUp, mode, handleNextStep, handleReject, status
     });
-    // Destructure all state/handlers from hook for use in UI
+
     const {
         rating, setRating, hasUpdatedStats, deliverables, setDeliverables,
         uploadMessage, setUploadMessage, uploadFile, setUploadFile,
@@ -62,7 +52,6 @@ const ContractView = (props) => {
         showDisputeConfirm, setShowDisputeConfirm, disputeSubmitted, setDisputeSubmitted
     } = workflow;
 
-    // Contract Health Score (derived)
     const healthScore = React.useMemo(() => {
         let score = 100;
         (history || []).forEach(h => {
@@ -80,7 +69,6 @@ const ContractView = (props) => {
         return Math.max(0, Math.min(100, score));
     }, [history, contractDeadline, autoReleaseFired, mutualStakeEnabled]);
 
-    // Auto-release timer effect
     React.useEffect(() => {
         if (!autoReleaseArmed || autoReleaseFired || step !== 2 || !contractDeadline) return;
         const deadlineDate = parseDeadlineLocal(contractDeadline);
@@ -93,7 +81,6 @@ const ContractView = (props) => {
         }
     }, [step, autoReleaseArmed, autoReleaseFired, contractDeadline, addToast]);
 
-    // Mutual stake: deduct earner points on escrow lock, refund on settle
     const mutualStakeDeductedRef = React.useRef(false);
     React.useEffect(() => {
         if (mutualStakeEnabled && step === 2 && !mutualStakeDeductedRef.current) {
@@ -115,25 +102,18 @@ const ContractView = (props) => {
     // eslint-disable-next-line
     }, [step, mutualStakeEnabled, mutualStakeAmount]);
 
-    // Handler for Dispute button
-    const handleDisputeClick = () => {
-        setShowDisputeConfirm(true);
-    };
+    const handleDisputeClick = () => setShowDisputeConfirm(true);
 
-    // Handler for confirming Dispute (aggregate evidence and notify admin)
     const handleConfirmDispute = () => {
         setShowDisputeConfirm(false);
         setDisputeSubmitted(true);
-        // Simulate evidence aggregation and admin notification
         if (addToast) addToast('Dispute Submitted', 'All evidence sent to admin/arbitrator.', 'warning');
-        // Optionally, add to history
         setHistory(prev => [
             { type: 'dispute', message: 'Dispute raised. Evidence sent to admin.', timestamp: Date.now(), actor: mode },
             ...prev
         ]);
     };
 
-    // Handler for Acceptance Protocol Abort (reset to negotiation, unlock chat)
     const handleBlindRatingSubmit = () => {
         if (rating === 0) return;
         setBlindRatingSubmitted(true);
@@ -147,7 +127,7 @@ const ContractView = (props) => {
         setIsCancelled(false);
         setShowCancelConfirm(false);
         setCancelReason("");
-        setCurrentStep(0); // negotiation phase
+        setCurrentStep(0);
         setChatLocked(false);
         setHistory(prev => [
             { type: 'abort', message: 'Acceptance Protocol aborted. Returned to negotiation.', timestamp: Date.now(), actor: mode },
@@ -156,34 +136,13 @@ const ContractView = (props) => {
         if (addToast) addToast('Aborted', 'Returned to negotiation phase.', 'info');
     };
 
+    const handleRejectClick = () => setShowRejectConfirm(true);
 
-
-    // Mode-specific UI helpers
-    const isHirer = mode === 'hirer';
-    const isEarner = mode === 'earner';
-
-    // Mode-specific labels
-    const escrowLabel = isHirer ? 'Awaiting Deliverables' : 'Upload Deliverables';
-    const escrowDesc = isHirer ? 'Waiting for provider to submit files.' : 'Upload your work artifacts for client review.';
-    const escrowActionLabel = isHirer ? 'Skip to Next Phase' : 'Enter Build Phase';
-    const inspectLabel = isHirer ? 'Review Deliverables' : 'Neural Inspection';
-    const inspectActionLabel = isHirer ? 'Approve & Release Funds' : 'Release Funds';
-    const ratingLabel = isHirer ? 'Rate Provider' : 'Rate Experience';
-    const settledLabel = isHirer ? 'Contract Settled. Provider Paid.' : 'Settled';
-
-
-    // Handler for Reject button (with confirm dialog)
-    const handleRejectClick = () => {
-        setShowRejectConfirm(true);
-    };
-
-    // Handler for Approve button (with confirm dialog)
     const handleApproveClick = () => {
         setShowApproveConfirm(true);
-        setPendingApprove(false); // Reset approve state when opening modal
+        setPendingApprove(false);
     };
 
-    // Confirm Approve with Undo (5s)
     const confirmApprove = () => {
         setPendingApprove(true);
         const timeout = setTimeout(() => {
@@ -193,565 +152,289 @@ const ContractView = (props) => {
         }, 5000);
         setApproveTimeoutId(timeout);
     };
+
     const undoApprove = () => {
         if (approveTimeoutId) clearTimeout(approveTimeoutId);
         setPendingApprove(false);
         setShowApproveConfirm(false);
     };
 
-    // Confirm Reject with Undo (5s)
     const confirmReject = () => {
         setPendingReject(true);
         const timeout = setTimeout(() => {
             setPendingReject(false);
             setShowRejectConfirm(false);
-            setShowRejectModal(true); // show reason modal after confirm
+            setShowRejectModal(true);
         }, 5000);
         setRejectTimeoutId(timeout);
     };
+
     const undoReject = () => {
         if (rejectTimeoutId) clearTimeout(rejectTimeoutId);
         setPendingReject(false);
         setShowRejectConfirm(false);
     };
 
-    // Handler for confirming rejection
     const handleConfirmReject = () => {
         if (!rejectReason.trim()) return;
         setHistory(prev => [
-            { type: 'reject', message: rejectReason, timestamp: Date.now(), actor: isHirer ? 'hirer' : 'earner' },
+            { type: 'reject', message: rejectReason, timestamp: Date.now(), actor: mode === 'hirer' ? 'hirer' : 'earner' },
             ...prev
         ]);
         setShowRejectModal(false);
         setRejectReason("");
-        // Optionally, move to a REJECTED step or allow re-delivery
         if (addToast) addToast('Rejected', 'Re-delivery requested with reason.', 'warning');
-        // For demo: allow re-delivery by going back to step 2
         if (handleReject) handleReject();
     };
 
-    // Handler for re-delivery (file upload)
     const handleReDelivery = (file, message) => {
         const url = URL.createObjectURL(file);
         setDeliverables(prev => [
             ...prev,
-            {
-                version: prev.length + 1,
-                fileUrl: url,
-                message: message || `Deliverable v${prev.length + 1}`,
-                timestamp: Date.now()
-            }
+            { version: prev.length + 1, fileUrl: url, message: message || `Deliverable v${prev.length + 1}`, timestamp: Date.now() }
         ]);
         setHistory(prev => [
-            { type: 're-delivery', message: message || `Re-delivery v${deliverables.length + 1}`, timestamp: Date.now(), actor: isEarner ? 'earner' : 'hirer' },
+            { type: 're-delivery', message: message || `Re-delivery v${deliverables.length + 1}`, timestamp: Date.now(), actor: mode === 'earner' ? 'earner' : 'hirer' },
             ...prev
         ]);
-        // Reset approval state so stale confirm modal doesn't persist after re-delivery
         setShowApproveConfirm(false);
         setPendingApprove(false);
         setApproveTimeoutId(null);
         if (addToast) addToast('Re-delivery', 'Deliverable re-submitted.', 'info');
     };
 
-    // Step labels and badge helpers
-    const stepLabels = [
-        'Escrow Start',
-        'Awaiting Delivery',
-        'Review/Inspection',
-        'Rating',
-        'Complete'
-    ];
-    const stepBadges = [
-        'ESCROW',
-        deliverables.length === 0 ? 'NOT SUBMITTED' : 'SUBMITTED',
-        history.find(h => h.type === 'reject') ? 'REVISION REQUESTED' : 'UNDER REVIEW',
-        'RATING',
-        'COMPLETE'
-    ];
-    const stepDescriptions = [
-        'Funds are locked in escrow. Awaiting next action.',
-        deliverables.length === 0 ? 'Provider must submit deliverables.' : 'Deliverables submitted. Awaiting review.',
-        history.find(h => h.type === 'reject') ? 'Revision requested. Awaiting re-delivery.' : 'Review submitted deliverables.',
-        'Rate your experience to finalize the contract.',
-        'Contract is complete. All actions are recorded.'
-    ];
+    const isHirer = mode === 'hirer';
+    const escrowDesc = isHirer ? 'Waiting for provider to submit files.' : 'Upload your work artifacts for client review.';
+    const escrowActionLabel = isHirer ? 'Skip to Next Phase' : 'Enter Build Phase';
+    const inspectLabel = isHirer ? 'Review Deliverables' : 'Neural Inspection';
+    const inspectActionLabel = isHirer ? 'Approve & Release Funds' : 'Release Funds';
+    const ratingLabel = isHirer ? 'Rate Provider' : 'Rate Experience';
+    const settledLabel = isHirer ? 'Contract Settled. Provider Paid.' : 'Settled';
 
     return (
-    <div className="animate-fade-in-up space-y-16">
-        <div className="mb-16 flex flex-wrap justify-between items-center max-w-2xl mx-auto relative px-1 sm:px-4 gap-2">
-            {STEPS_DATA.map((s, idx) => (
-                <React.Fragment key={s.id}>
-                    <div className="flex flex-col items-center z-10">
-                        <div className={`w-14 h-14 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center mb-2 sm:mb-3 transition-all duration-700 ${step > s.id ? 'bg-emerald-600 text-white shadow-lg' : step === s.id ? 'bg-indigo-700 text-white scale-110 shadow-2xl' : 'bg-slate-800 border border-white/10 text-slate-500'}`}>{step > s.id ? <CheckCircle2 className="w-6 h-6" /> : <span className="font-black italic text-lg tracking-tighter">{s.id}</span>}</div>
-                        <span className={`text-xs sm:text-[10px] font-black uppercase tracking-[0.2em] ${step === s.id ? 'text-white' : 'text-slate-500'}`}>{s.label}</span>
-                    </div>
-                    {idx < STEPS_DATA.length - 1 && (<div className="flex-1 h-0.5 bg-slate-800 mx-2 -mt-10 relative overflow-hidden"><div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: step > s.id ? '100%' : '0%' }} /></div>)}
-                </React.Fragment>
-            ))}
-        </div>
+        <div className="animate-fade-in-up space-y-16">
+            <ContractStepTracker step={step} />
 
-        {/* Health Score + Pause/Resume bar */}
-        {step >= 1 && (
-            <div className="flex items-center justify-between max-w-4xl mx-auto mb-2 px-2">
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition-colors ${
-                    healthScore >= 80 ? 'bg-emerald-900/30 border-emerald-500/30 text-emerald-400'
-                    : healthScore >= 50 ? 'bg-amber-900/30 border-amber-500/30 text-amber-400'
-                    : 'bg-red-900/30 border-red-500/30 text-red-400'
-                }`}>
-                    <Heart className="w-3.5 h-3.5" />
-                    Health {healthScore}%
-                </div>
-                <button
-                    onClick={() => { setIsPaused(p => !p); if (addToast) addToast(isPaused ? 'Contract Resumed' : 'Contract Paused', isPaused ? 'Actions unlocked.' : 'All actions suspended.', 'info'); }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all ${
-                        isPaused ? 'bg-amber-600 border-amber-500 text-white' : 'border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                    {isPaused ? <><Play className="w-3.5 h-3.5" /> Resume</> : <><Pause className="w-3.5 h-3.5" /> Pause</>}
-                </button>
-            </div>
-        )}
-
-        <div className={`max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center transition-opacity ${isPaused ? 'opacity-60 pointer-events-none' : ''}`}>
-            {/* Pause banner */}
-            {isPaused && (
-                <div className="flex items-center gap-4 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-6 py-4 text-amber-300 mb-6 text-left">
-                    <Pause className="w-5 h-5 shrink-0" />
-                    <div><p className="font-black text-sm">Contract Paused</p><p className="text-xs text-amber-400/70">All actions are suspended. Use the Resume button above to continue.</p></div>
-                </div>
-            )}
-            {/* Acceptance Protocol: show only Abort Sequence and Initiate Contract after negotiation, before contract initiation */}
-            {((typeof currentStep !== 'number' || currentStep === 0) && !isCancelled) && (
-                <div className="flex flex-col items-center justify-center mt-12 mb-6 gap-8">
-                    <div className="mb-4">
-                        <h2 className="text-3xl font-black text-white mb-2">Acceptance Protocol</h2>
-                        <p className="text-slate-400 text-lg">Review the Definition of Done below. Every item becomes an enforceable commitment, logged on the record. If you disagree, return to negotiation. If you agree, lock terms — and hold both sides accountable.</p>
-                        <ul className="mt-4 text-left text-slate-200 text-base font-bold bg-slate-800/60 rounded-xl p-4 max-w-md mx-auto">
-                            <li>Definitive Figma Library</li>
-                            <li>Dark Mode Tokens</li>
-                            <li>Atomic Design Compliance</li>
-                        </ul>
+            {step >= 1 && (
+                <div className="flex items-center justify-between max-w-4xl mx-auto mb-2 px-2">
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition-colors ${
+                        healthScore >= 80 ? 'bg-emerald-900/30 border-emerald-500/30 text-emerald-400'
+                        : healthScore >= 50 ? 'bg-amber-900/30 border-amber-500/30 text-amber-400'
+                        : 'bg-red-900/30 border-red-500/30 text-red-400'
+                    }`}>
+                        <Heart className="w-3.5 h-3.5" />
+                        Health {healthScore}%
                     </div>
-                    <div className="flex justify-center gap-6">
-                        <button onClick={() => setShowCancelConfirm(true)}
-                            className="flex items-center min-w-[140px] max-w-[200px] px-6 py-3 rounded-full bg-pink-600 text-white font-black hover:bg-pink-700 shadow-xl text-base border border-pink-200"
-                            style={{ boxShadow: '0 2px 8px 0 rgba(255, 0, 90, 0.10)' }}
-                            title="Decline and return to negotiation">
-                            Decline &amp; Return
-                        </button>
-                        <HoldButton key="btn-initiate" onClick={() => { setCurrentStep(1); setChatLocked(true); handleNextStep && handleNextStep(); }} label="Initiate Contract" icon={ArrowRight} className="btn-primary-hold min-w-[140px] max-w-[200px] bg-white text-[#020617] py-3 rounded-full font-black text-base shadow-xl border border-white/20" disabled={status !== 'idle'} />
-                    </div>
-                </div>
-            )}
-            {/* Renegotiation Modal: Instant Preview + One-Click Send UX */}
-            {showRenegotiate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={e => { if (e.target === e.currentTarget) setShowRenegotiate(false); }}>
-                    <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-2xl space-y-6 relative flex flex-col">
-                        <button aria-label="Close" onClick={() => setShowRenegotiate(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl font-bold focus:outline-none">×</button>
-                        <h3 className="text-xl font-bold text-white mb-2 text-center">Renegotiate Terms</h3>
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            {/* Current Terms */}
-                            <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-slate-700">
-                                <h4 className="text-sm font-bold text-slate-300 mb-2">Current Terms</h4>
-                                <div className="text-xs text-slate-400 mb-1">Deadline: <span className="font-bold text-white">{pendingRenegotiation?.deadline || '—'}</span></div>
-                                <div className="text-xs text-slate-400 mb-1">Amount: <span className="font-bold text-white">{pendingRenegotiation?.amount || '—'}</span></div>
-                                <div className="text-xs text-slate-400">Scope: <span className="font-bold text-white">{pendingRenegotiation?.scope || '—'}</span></div>
-                            </div>
-                            {/* New Terms (Editable) */}
-                            <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-yellow-700">
-                                <h4 className="text-sm font-bold text-yellow-300 mb-2">New Terms (Editable)</h4>
-                                <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Deadline (optional)" value={renegotiationFields.deadline} onChange={e => setRenegotiationFields(f => ({ ...f, deadline: e.target.value }))} />
-                                <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Amount (optional)" value={renegotiationFields.amount} onChange={e => setRenegotiationFields(f => ({ ...f, amount: e.target.value }))} />
-                                <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700" placeholder="Scope/Terms Change (optional)" value={renegotiationFields.scope} onChange={e => setRenegotiationFields(f => ({ ...f, scope: e.target.value }))} rows={3} />
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-center mt-4">
-                            <button onClick={() => {
-                                setIsRenegotiating(true);
-                                setShowRenegotiate(false);
-                                setPendingRenegotiation({ ...renegotiationFields, proposer: mode, timestamp: Date.now() });
-                                setHistory(prev => [
-                                    { type: 'renegotiation-proposed', message: `Proposed changes: ${JSON.stringify(renegotiationFields)}`, timestamp: Date.now(), actor: mode },
-                                    ...prev
-                                ]);
-                                if (addToast) addToast('Renegotiation Proposed', 'Awaiting other party response.', 'info');
-                            }} className="px-6 py-3 rounded bg-yellow-600 text-white font-bold text-lg hover:bg-yellow-700 transition-all w-full max-w-xs">Send Proposal</button>
-                            <span className="text-xs text-slate-500 mt-2">Changes will not be saved unless you send.<br/>Click × or outside to close without saving.</span>
-                        </div>
-                    </div>
+                    <button
+                        onClick={() => {
+                            setIsPaused(p => !p);
+                            if (addToast) addToast(isPaused ? 'Contract Resumed' : 'Contract Paused', isPaused ? 'Actions unlocked.' : 'All actions suspended.', 'info');
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all ${
+                            isPaused ? 'bg-amber-600 border-amber-500 text-white' : 'border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        {isPaused ? <><Play className="w-3.5 h-3.5" /> Resume</> : <><Pause className="w-3.5 h-3.5" /> Pause</>}
+                    </button>
                 </div>
             )}
 
-            {/* Renegotiation Banner/Lockout */}
-            {isRenegotiating && pendingRenegotiation && (
-                <div className="mb-6 p-4 rounded-xl bg-yellow-900/80 border border-yellow-400 text-yellow-100 flex flex-col items-center">
-                    <div className="font-bold mb-2">Renegotiation in Progress</div>
-                    <div className="text-xs mb-2">Proposed by: {pendingRenegotiation.proposer} at {new Date(pendingRenegotiation.timestamp).toLocaleString()}</div>
-                    <div className="text-xs">Deadline: {pendingRenegotiation.deadline || '—'} | Amount: {pendingRenegotiation.amount || '—'}<br/>Scope: {pendingRenegotiation.scope || '—'}</div>
-                    {/* Accept/Reject buttons will be added in next step */}
-                </div>
-            )}
-            {/* Cancel Confirmation Dialog */}
-            {showCancelConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                    <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                        <h3 className="text-xl font-bold text-white mb-2">Decline Contract</h3>
-                        <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Reason for declining (required)" value={cancelReason} onChange={e => setCancelReason(e.target.value)} required rows={4} />
-                        <div className="flex gap-4 justify-end">
-                            <button onClick={() => { setShowCancelConfirm(false); setCancelReason(""); }} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                            <button onClick={() => { if (cancelReason.trim()) { handleAbortSequence(); }}} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!cancelReason.trim()}>Confirm Decline</button>
+            <div className={`max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center transition-opacity ${isPaused ? 'opacity-60 pointer-events-none' : ''}`}>
+                {isPaused && (
+                    <div className="flex items-center gap-4 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-6 py-4 text-amber-300 mb-6 text-left">
+                        <Pause className="w-5 h-5 shrink-0" />
+                        <div>
+                            <p className="font-black text-sm">Contract Paused</p>
+                            <p className="text-xs text-amber-400/70">All actions are suspended. Use the Resume button above to continue.</p>
                         </div>
                     </div>
-                </div>
-            )}
-            {/* If chatLocked, show lockout banner in chat UI (implement in chat component as needed) */}
-            {/* ...existing code... */}
-            {/* If not locked, continue normal workflow */}
-            {!chatLocked && (
-                <>
-                    {step === 1 && (
-                        <div className="space-y-10 animate-fade-in-up">
-                            <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-white leading-none">Commitment Locked</h2>
-                            <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-2xl mx-auto">Funds secured in escrow. Both parties are protected from this point forward.<br/>This action cannot be undone.</p>
-                            <div className="max-w-md mx-auto text-left space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Project Deadline <span className="text-slate-700">(optional)</span></label>
-                                    <input type="date" value={contractDeadline} onChange={e => setContractDeadline(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500/50 transition-all" />
-                                    <p className="text-xs text-slate-600">If set, you'll be alerted if no delivery arrives by this date.</p>
+                )}
+
+                {((typeof currentStep !== 'number' || currentStep === 0) && !isCancelled) && (
+                    <div className="flex flex-col items-center justify-center mt-12 mb-6 gap-8">
+                        <div className="mb-4">
+                            <h2 className="text-3xl font-black text-white mb-2">Acceptance Protocol</h2>
+                            <p className="text-slate-400 text-lg">Review the Definition of Done below. Every item becomes an enforceable commitment, logged on the record. If you disagree, return to negotiation. If you agree, lock terms &#8212; and hold both sides accountable.</p>
+                            <ul className="mt-4 text-left text-slate-200 text-base font-bold bg-slate-800/60 rounded-xl p-4 max-w-md mx-auto">
+                                <li>Definitive Figma Library</li>
+                                <li>Dark Mode Tokens</li>
+                                <li>Atomic Design Compliance</li>
+                            </ul>
+                        </div>
+                        <div className="flex justify-center gap-6">
+                            <button
+                                onClick={() => setShowCancelConfirm(true)}
+                                className="flex items-center min-w-[140px] max-w-[200px] px-6 py-3 rounded-full bg-pink-600 text-white font-black hover:bg-pink-700 shadow-xl text-base border border-pink-200"
+                                style={{ boxShadow: '0 2px 8px 0 rgba(255, 0, 90, 0.10)' }}
+                            >
+                                Decline &amp; Return
+                            </button>
+                            <HoldButton
+                                key="btn-initiate"
+                                onClick={() => { setCurrentStep(1); setChatLocked(true); handleNextStep && handleNextStep(); }}
+                                label="Initiate Contract"
+                                icon={ArrowRight}
+                                className="btn-primary-hold min-w-[140px] max-w-[200px] bg-white text-[#020617] py-3 rounded-full font-black text-base shadow-xl border border-white/20"
+                                disabled={status !== 'idle'}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {showRenegotiate && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={e => { if (e.target === e.currentTarget) setShowRenegotiate(false); }}>
+                        <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-2xl space-y-6 relative flex flex-col">
+                            <button aria-label="Close" onClick={() => setShowRenegotiate(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl font-bold focus:outline-none">&times;</button>
+                            <h3 className="text-xl font-bold text-white mb-2 text-center">Renegotiate Terms</h3>
+                            <div className="flex flex-col sm:flex-row gap-6">
+                                <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                                    <h4 className="text-sm font-bold text-slate-300 mb-2">Current Terms</h4>
+                                    <div className="text-xs text-slate-400 mb-1">Deadline: <span className="font-bold text-white">{pendingRenegotiation?.deadline || '\u2014'}</span></div>
+                                    <div className="text-xs text-slate-400 mb-1">Amount: <span className="font-bold text-white">{pendingRenegotiation?.amount || '\u2014'}</span></div>
+                                    <div className="text-xs text-slate-400">Scope: <span className="font-bold text-white">{pendingRenegotiation?.scope || '\u2014'}</span></div>
                                 </div>
-                                <div className="pt-3 border-t border-white/5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-black text-slate-300">Mutual Stake</p>
-                                            <p className="text-xs text-slate-600">Both parties put skin in the game</p>
-                                        </div>
-                                        <button onClick={() => setMutualStakeEnabled(v => !v)} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${mutualStakeEnabled ? 'bg-indigo-600' : 'bg-slate-700'}`}>
-                                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${mutualStakeEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-                                    {mutualStakeEnabled && (
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Earner stakes (PTS)</label>
-                                            <input type="number" value={mutualStakeAmount} onChange={e => setMutualStakeAmount(e.target.value)} placeholder="e.g. 50000" min={0} className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-5 py-3 text-white font-bold outline-none focus:border-indigo-500/50 transition-all" />
-                                            <p className="text-xs text-slate-600 mt-1">Earner's stake is returned on approval.</p>
-                                        </div>
-                                    )}
-                                    {contractDeadline && (
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-black text-slate-300">Auto-Release on deadline</p>
-                                                <p className="text-xs text-slate-600">Funds auto-release if no delivery by deadline</p>
-                                            </div>
-                                            <button onClick={() => setAutoReleaseArmed(v => !v)} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${autoReleaseArmed ? 'bg-amber-600' : 'bg-slate-700'}`}>
-                                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${autoReleaseArmed ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
-                                        </div>
-                                    )}
+                                <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-yellow-700">
+                                    <h4 className="text-sm font-bold text-yellow-300 mb-2">New Terms (Editable)</h4>
+                                    <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Deadline (optional)" value={renegotiationFields.deadline} onChange={e => setRenegotiationFields(f => ({ ...f, deadline: e.target.value }))} />
+                                    <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Amount (optional)" value={renegotiationFields.amount} onChange={e => setRenegotiationFields(f => ({ ...f, amount: e.target.value }))} />
+                                    <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700" placeholder="Scope/Terms Change (optional)" value={renegotiationFields.scope} onChange={e => setRenegotiationFields(f => ({ ...f, scope: e.target.value }))} rows={3} />
                                 </div>
                             </div>
-                            <HoldButton key="btn-1" onClick={handleNextStep} label="Secure Funds in Escrow" icon={ArrowRight} className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl" disabled={status !== 'idle'} />
-                        </div>
-                    )}
-                    {step === 2 && autoReleaseFired && (
-                        <div className="flex items-center gap-3 bg-rose-900/30 border border-rose-500/30 rounded-2xl px-5 py-4 text-rose-300 text-sm font-bold max-w-md mx-auto mb-4 animate-fade-in-up">
-                            <Timer className="w-5 h-5 shrink-0" />
-                            <div>Auto-Release triggered. Deadline passed with no delivery. Funds have been released. Both parties notified.</div>
-                        </div>
-                    )}
-                    {step === 2 && contractDeadline && new Date() > parseDeadlineLocal(contractDeadline) && (
-                        <div className="flex items-center gap-3 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-5 py-3 text-amber-300 text-sm font-bold max-w-md mx-auto mb-4">
-                            <AlertTriangle className="w-5 h-5 shrink-0" />
-                            Deadline passed: {parseDeadlineLocal(contractDeadline).toLocaleDateString()}. Consider renegotiating.
-                        </div>
-                    )}
-                    {step === 2 && (
-                        <div className="space-y-10 animate-fade-in-up">
-                            <div className="w-32 h-32 bg-indigo-500/10 rounded-[48px] flex items-center justify-center border border-indigo-500/20 rotate-12 mx-auto">
-                                <Lock className="w-14 h-14 text-indigo-400 -rotate-12" />
+                            <div className="flex flex-col items-center mt-4">
+                                <button onClick={() => {
+                                    setIsRenegotiating(true);
+                                    setShowRenegotiate(false);
+                                    setPendingRenegotiation({ ...renegotiationFields, proposer: mode, timestamp: Date.now() });
+                                    setHistory(prev => [
+                                        { type: 'renegotiation-proposed', message: `Proposed changes: ${JSON.stringify(renegotiationFields)}`, timestamp: Date.now(), actor: mode },
+                                        ...prev
+                                    ]);
+                                    if (addToast) addToast('Renegotiation Proposed', 'Awaiting other party response.', 'info');
+                                }} className="px-6 py-3 rounded bg-yellow-600 text-white font-bold text-lg hover:bg-yellow-700 transition-all w-full max-w-xs">Send Proposal</button>
+                                <span className="text-xs text-slate-500 mt-2">Changes will not be saved unless you send.<br/>Click &times; or outside to close without saving.</span>
                             </div>
-                            <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">Vault Secured</h2>
-                            <p className="text-slate-400 text-lg mb-6">{escrowDesc}</p>
-                            {isHirer ? (
-                                <div className="max-w-md mx-auto space-y-4">
-                                    <div className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 bg-slate-900/30">
-                                        <h3 className="text-xl font-black text-white">{deliverables.length === 0 ? 'Awaiting Provider Upload' : 'Deliverables Submitted'}</h3>
-                                        {deliverables.length > 0 && (
-                                            <>
-                                                <ul className="mb-2 w-full text-left">
-                                                    {deliverables.map((d, i) => (
-                                                        <li key={i} className="flex items-center gap-2 text-xs text-slate-300 mb-1">
-                                                            <span className="font-bold">Version {d.version}:</span>
-                                                            <span>{d.message}</span>
-                                                            <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
-                                                            <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{deliverables.length === 0 ? 'You will be notified when files are submitted.' : 'You can download submitted files.'}</p>
-                                    <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="btn-primary-hold w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
-                                </div>
-                            ) : (
-                                isUploading ? (
-                                    <div className="space-y-8 max-w-md mx-auto">
-                                        <div className="w-32 h-32 mx-auto relative flex items-center justify-center">
-                                            <svg className="w-full h-full -rotate-90">
-                                                <circle cx="64" cy="64" r="50" fill="none" stroke="#1e293b" strokeWidth="8" />
-                                                <circle cx="64" cy="64" r="50" fill="none" stroke="#6366f1" strokeWidth="8" strokeDasharray="314" strokeDashoffset={314 - (314 * uploadProgress / 100)} strokeLinecap="round" className="transition-all duration-100" />
-                                            </svg>
-                                            <span className="absolute text-2xl font-black text-white">{uploadProgress}%</span>
-                                        </div>
-                                        <p className="text-indigo-400 font-black tracking-widest uppercase animate-pulse">Uploading...</p>
-                                    </div>
-                                ) : (
-                                    <div className="max-w-md mx-auto space-y-4">
-                                        <form className="border-4 border-dashed border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 bg-slate-900/30 w-full" onSubmit={e => {
-                                            e.preventDefault();
-                                            if (!uploadFile) return;
-                                            handleReDelivery(uploadFile, uploadMessage);
-                                            setUploadFile(null);
-                                            setUploadMessage("");
-                                        }}>
-                                            <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <UploadCloud className="w-8 h-8 text-indigo-400" />
-                                            </div>
-                                            <input type="file" className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" onChange={e => setUploadFile(e.target.files[0])} required />
-                                            <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Delivery message (required)" value={uploadMessage} onChange={e => setUploadMessage(e.target.value)} required />
-                                            <button type="submit" className="mt-2 px-6 py-2 bg-indigo-600 text-white rounded-full font-bold hover:bg-emerald-500 transition-colors">Submit Deliverable</button>
-                                        </form>
-                                        {deliverables.length > 0 && (
-                                            <div className="w-full mt-4">
-                                                <h4 className="text-xs font-bold text-slate-400 mb-2">Previous Deliverables</h4>
-                                                <ul className="text-left">
-                                                    {deliverables.map((d, i) => (
-                                                        <li key={i} className="flex items-center gap-2 text-xs text-slate-300 mb-1">
-                                                            <span className="font-bold">Version {d.version}:</span>
-                                                            <span>{d.message}</span>
-                                                            <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
-                                                            <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                        {deliverables.length === 0 && (
-                                            <>
-                                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Or skip to next phase</p>
-                                                <HoldButton key="btn-2" onClick={handleNextStep} label={escrowActionLabel} className="w-full bg-indigo-600 text-white py-6 rounded-[32px] font-black text-xl shadow-xl" color="indigo" disabled={status !== 'idle'} />
-                                            </>
-                                        )}
-                                    </div>
-                                )
-                            )}
                         </div>
-                    )}
-                    {/* ...repeat for step === 3, step === 4, step === 5 as in original code... */}
-                </>
-            )}
-
-            {step === 3 && (
-                <div className="space-y-10 animate-fade-in-up">
-                    <div className="w-32 h-32 bg-amber-500/10 rounded-[48px] flex items-center justify-center border border-amber-500/20 mx-auto animate-pulse">
-                        <Scan className="w-14 h-14 text-amber-500" />
                     </div>
-                    <h2 className="text-5xl font-black text-white italic tracking-tighter">{inspectLabel}</h2>
-                    <div className="bg-black/20 p-6 rounded-2xl border border-white/5 max-w-md mx-auto">
-                        <p className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4"/> 98.2% Match Verified</p>
-                        {isHirer && deliverables.length > 0 && (
-                            <div className="mt-4 text-left">
-                                <h4 className="text-xs font-bold text-slate-400 mb-2">Submitted Deliverables</h4>
-                                <ul>
-                                    {deliverables.map((d, i) => (
-                                        <li key={i} className="flex items-center gap-2 text-xs text-slate-300 mb-1">
-                                            <span className="font-bold">Version {d.version}:</span>
-                                            <span>{d.message}</span>
-                                            <span className="text-slate-500">({new Date(d.timestamp).toLocaleString()})</span>
-                                            <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
-                                        </li>
-                                    ))}
-                                </ul>
+                )}
+
+                {isRenegotiating && pendingRenegotiation && (
+                    <div className="mb-6 p-4 rounded-xl bg-yellow-900/80 border border-yellow-400 text-yellow-100 flex flex-col items-center">
+                        <div className="font-bold mb-2">Renegotiation in Progress</div>
+                        <div className="text-xs mb-2">Proposed by: {pendingRenegotiation.proposer} at {new Date(pendingRenegotiation.timestamp).toLocaleString()}</div>
+                        <div className="text-xs">Deadline: {pendingRenegotiation.deadline || '\u2014'} | Amount: {pendingRenegotiation.amount || '\u2014'}<br/>Scope: {pendingRenegotiation.scope || '\u2014'}</div>
+                    </div>
+                )}
+
+                {showCancelConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                        <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
+                            <h3 className="text-xl font-bold text-white mb-2">Decline Contract</h3>
+                            <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Reason for declining (required)" value={cancelReason} onChange={e => setCancelReason(e.target.value)} required rows={4} />
+                            <div className="flex gap-4 justify-end">
+                                <button onClick={() => { setShowCancelConfirm(false); setCancelReason(""); }} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
+                                <button onClick={() => { if (cancelReason.trim()) handleAbortSequence(); }} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!cancelReason.trim()}>Confirm Decline</button>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {!chatLocked && (
+                    <>
+                        {step === 1 && (
+                            <ContractStep1
+                                contractDeadline={contractDeadline}
+                                setContractDeadline={setContractDeadline}
+                                mutualStakeEnabled={mutualStakeEnabled}
+                                setMutualStakeEnabled={setMutualStakeEnabled}
+                                mutualStakeAmount={mutualStakeAmount}
+                                setMutualStakeAmount={setMutualStakeAmount}
+                                autoReleaseArmed={autoReleaseArmed}
+                                setAutoReleaseArmed={setAutoReleaseArmed}
+                                handleNextStep={handleNextStep}
+                                status={status}
+                            />
                         )}
-                    </div>
-                    <div className="flex justify-center gap-4 max-w-md mx-auto">
-                        <button onClick={handleRejectClick} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button>
-                        <HoldButton key={`btn-3-${showApproveConfirm ? 'modal' : 'main'}`} holdKey={`${step}-${showApproveConfirm}-${pendingApprove}`} onClick={handleApproveClick} label={inspectActionLabel} className="btn-primary-hold flex-[2] bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle' || pendingApprove} />
-                        <button onClick={handleDisputeClick} className="flex-1 py-6 rounded-[32px] border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-white font-bold transition-all">Dispute</button>
-                    </div>
-                                                    {/* Dispute Confirmation Dialog */}
-                                                    {showDisputeConfirm && (
-                                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                                                            <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                                                                <h3 className="text-xl font-bold text-white mb-2">Raise Dispute</h3>
-                                                                <p className="text-slate-300">Are you sure you want to escalate this contract to admin/arbitrator? All files and history will be sent as evidence.</p>
-                                                                <div className="flex gap-4 justify-end">
-                                                                    <button onClick={() => setShowDisputeConfirm(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                                                                    <button onClick={handleConfirmDispute} className="px-4 py-2 rounded bg-red-600 text-white font-bold">Confirm Dispute</button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {/* Dispute Submitted Dialog (optional) */}
-                                                    {disputeSubmitted && (
-                                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                                                            <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6 text-center">
-                                                                <h3 className="text-xl font-bold text-white mb-2">Dispute Submitted</h3>
-                                                                <p className="text-slate-300 mb-4">All evidence has been sent to admin/arbitrator.<br/>You will be notified of the outcome.</p>
-                                                                <button onClick={() => setDisputeSubmitted(false)} className="px-6 py-2 rounded bg-emerald-600 text-white font-bold">OK</button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                        {/* Approve Confirmation Dialog with Undo */}
-                                        {showApproveConfirm && (
-                                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                                                <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                                                    <h3 className="text-xl font-bold text-white mb-2">Approve Deliverable</h3>
-                                                    <p className="text-slate-300">Are you sure you want to approve and release funds?</p>
-                                                    {pendingApprove ? (
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <span className="text-emerald-400 font-bold">Approved! You can undo for 5 seconds.</span>
-                                                            <button onClick={undoApprove} className="px-4 py-2 rounded-full bg-yellow-400 text-indigo-900 font-bold border border-yellow-300/30 shadow hover:bg-yellow-300 transition-all">Undo</button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex gap-4 justify-end mt-4">
-                                                            <button onClick={() => { setShowApproveConfirm(false); setPendingApprove(false); }} className="px-4 py-2 rounded-full bg-indigo-900 text-indigo-300 font-bold border border-indigo-400/30 hover:bg-indigo-800 transition-all">Cancel</button>
-                                                            <button onClick={confirmApprove} className="px-4 py-2 rounded-full bg-emerald-600 text-white font-bold border border-emerald-400/30 hover:bg-emerald-700 transition-all">Confirm Approve</button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
+                        {step === 2 && (
+                            <ContractStep2
+                                mode={mode}
+                                deliverables={deliverables}
+                                isUploading={isUploading}
+                                uploadProgress={uploadProgress}
+                                uploadMessage={uploadMessage}
+                                setUploadMessage={setUploadMessage}
+                                uploadFile={uploadFile}
+                                setUploadFile={setUploadFile}
+                                escrowDesc={escrowDesc}
+                                escrowActionLabel={escrowActionLabel}
+                                autoReleaseFired={autoReleaseFired}
+                                contractDeadline={contractDeadline}
+                                handleNextStep={handleNextStep}
+                                status={status}
+                                handleReDelivery={handleReDelivery}
+                            />
+                        )}
+                    </>
+                )}
 
-                                        {/* Reject Confirmation Dialog with Undo */}
-                                        {showRejectConfirm && (
-                                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                                                <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                                                    <h3 className="text-xl font-bold text-white mb-2">Reject Deliverable</h3>
-                                                    <p className="text-slate-300">Are you sure you want to reject and request re-delivery?</p>
-                                                    {pendingReject ? (
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <span className="text-red-400 font-bold">Rejected! You can undo for 5 seconds.</span>
-                                                            <button onClick={undoReject} className="px-4 py-2 rounded bg-yellow-500 text-black font-bold">Undo</button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex gap-4 justify-end">
-                                                            <button onClick={() => setShowRejectConfirm(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                                                            <button onClick={confirmReject} className="px-4 py-2 rounded bg-red-600 text-white font-bold">Confirm Reject</button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-                            {/* Reject Reason Modal */}
-                            {showRejectModal && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                                    <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-                                        <h3 className="text-xl font-bold text-white mb-2">Reject Deliverable</h3>
-                                        <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-800 text-white border border-slate-700" placeholder="Enter rejection reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} required rows={4} />
-                                        <div className="flex gap-4 justify-end">
-                                            <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 rounded bg-slate-700 text-white font-bold">Cancel</button>
-                                            <button onClick={handleConfirmReject} className="px-4 py-2 rounded bg-red-600 text-white font-bold disabled:opacity-50" disabled={!rejectReason.trim()}>Confirm Reject</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {/* Always show History Panel */}
-                            <div className="max-w-2xl mx-auto mt-6 sm:mt-10 bg-slate-800/70 rounded-xl sm:rounded-2xl p-2 sm:p-5 text-left overflow-x-auto">
-                                <h4 className="text-base sm:text-lg font-bold text-white mb-2 sm:mb-3">Contract History</h4>
-                                <ul className="space-y-1 sm:space-y-2">
-                                    {deliverables.map((d, i) => (
-                                        <li key={`d-${i}`} className="text-xs sm:text-sm text-indigo-200 flex flex-wrap gap-1 sm:gap-2 items-center py-1">
-                                            <span className="font-bold uppercase text-indigo-100 bg-indigo-800/70 px-2 py-1 rounded">DELIVERABLE</span>
-                                            <span className="break-all">Version {d.version}: {d.message}</span>
-                                            <span className="text-slate-400">({new Date(d.timestamp).toLocaleString()})</span>
-                                            <a href={d.fileUrl} download className="ml-2 px-2 py-1 bg-indigo-600 text-white rounded hover:bg-emerald-500 transition-colors">Download</a>
-                                        </li>
-                                    ))}
-                                    {history.map((h, i) => (
-                                        <li key={`h-${i}`} className="text-xs sm:text-sm text-slate-200 flex flex-wrap gap-1 sm:gap-2 items-center py-1">
-                                            <span className={`font-bold uppercase px-2 py-1 rounded ${h.type==='reject' ? 'bg-red-800/80 text-red-200' : h.type==='re-delivery' ? 'bg-yellow-800/80 text-yellow-100' : h.type==='dispute' ? 'bg-red-700/80 text-white' : 'bg-slate-700/80 text-slate-100'}`}>{h.type}</span>
-                                            <span className="break-all">{h.message}</span>
-                                            <span className="text-slate-400">({new Date(h.timestamp).toLocaleString()})</span>
-                                            <span className="text-slate-500">[{h.actor}]</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                </div>
-            )}
-            {step === 4 && (
-                <div className="space-y-12 animate-fade-in-up">
-                    {!blindRatingSubmitted ? (
-                        <>
-                            <div className="flex flex-col items-center gap-6">
-                                <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px]">
-                                    <div className="w-full h-full rounded-full bg-[#020617] flex items-center justify-center overflow-hidden">
-                                        <User className="w-12 h-12 text-slate-300" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <h2 className="text-4xl font-black text-white mb-2">{ratingLabel}</h2>
-                                    <p className="text-slate-400 text-sm max-w-xs">Your rating is <strong className="text-indigo-300">sealed</strong> until the other party submits theirs. Neither side can game the score.</p>
-                                </div>
-                                <div className="flex gap-4">{[1, 2, 3, 4, 5].map((star) => (
-                                    <button key={star} onClick={() => setRating(star)} className="group focus:outline-none transition-transform active:scale-90">
-                                        <Star className={`w-10 h-10 transition-colors ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-slate-700 group-hover:text-slate-500'}`} />
-                                    </button>
-                                ))}</div>
-                            </div>
-                            {rating > 0 ? (
-                                <div className="animate-fade-in-up flex flex-col items-center gap-3">
-                                    <button onClick={handleBlindRatingSubmit} className="px-10 py-4 bg-white text-[#020617] rounded-[24px] font-black text-lg hover:bg-indigo-400 hover:text-white transition-all shadow-xl">Submit Rating</button>
-                                    <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Ratings reveal simultaneously</p>
-                                </div>
-                            ) : (
-                                <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Select stars to submit</p>
-                            )}
-                        </>
-                    ) : !ratingsRevealed ? (
-                        <div className="flex flex-col items-center gap-6 py-8">
-                            <Lock className="w-12 h-12 text-indigo-400 animate-pulse" />
-                            <div>
-                                <h3 className="text-2xl font-black text-white mb-2">Rating locked in.</h3>
-                                <p className="text-slate-400">Waiting for the other party to submit...</p>
-                            </div>
-                            <div className="flex gap-2 mt-4">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce" style={{animationDelay: `${i * 0.15}s`}} />)}</div>
-                        </div>
-                    ) : (
-                        <div className="space-y-8 animate-fade-in-up">
-                            <div><h3 className="text-3xl font-black text-white mb-1">Both ratings revealed.</h3><p className="text-slate-400 text-sm">Neither party could influence the other's score.</p></div>
-                            <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-                                <div className="bg-indigo-900/30 border border-indigo-500/20 rounded-[24px] p-6 text-center">
-                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Your Rating</p>
-                                    <div className="flex justify-center gap-1 flex-wrap">{[1,2,3,4,5].map(s => <Star key={s} className={`w-6 h-6 ${rating >= s ? 'text-amber-400 fill-amber-400' : 'text-slate-700'}`} />)}</div>
-                                </div>
-                                <div className="bg-emerald-900/30 border border-emerald-500/20 rounded-[24px] p-6 text-center">
-                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Their Rating</p>
-                                    <div className="flex justify-center gap-1 flex-wrap">{[1,2,3,4,5].map(s => <Star key={s} className={`w-6 h-6 ${partnerRating >= s ? 'text-amber-400 fill-amber-400' : 'text-slate-700'}`} />)}</div>
-                                </div>
-                            </div>
-                            <HoldButton key="btn-4" onClick={handleNextStep} label="Commit & Close" className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-xl" disabled={status !== 'idle'} />
-                        </div>
-                    )}
-                    {!paymentDelayed && !isCancelled && !blindRatingSubmitted && (
-                        <div className="flex justify-center mt-4">
-                            <button onClick={() => setShowPaymentDelay(true)} className="px-4 py-2 rounded bg-yellow-600 text-white font-bold hover:bg-yellow-700 transition-all text-sm">Simulate Payment Delay</button>
-                        </div>
-                    )}
-                </div>
-            )}
-            {step === 5 && (
-                <div className="relative flex flex-col items-center justify-center min-h-[300px]">
-                    {/* Minimal Settled UI */}
-                    <h2 className="text-4xl font-black text-white tracking-tight uppercase mb-8">{settledLabel}</h2>
-                    <button onClick={handleNextStep} className="px-8 py-3 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all">Return to Feed</button>
-                </div>
-            )}
-
+                {step === 3 && (
+                    <ContractStep3
+                        mode={mode}
+                        deliverables={deliverables}
+                        history={history}
+                        inspectLabel={inspectLabel}
+                        inspectActionLabel={inspectActionLabel}
+                        handleApproveClick={handleApproveClick}
+                        handleRejectClick={handleRejectClick}
+                        handleDisputeClick={handleDisputeClick}
+                        handleConfirmReject={handleConfirmReject}
+                        handleConfirmDispute={handleConfirmDispute}
+                        confirmApprove={confirmApprove}
+                        undoApprove={undoApprove}
+                        confirmReject={confirmReject}
+                        undoReject={undoReject}
+                        showDisputeConfirm={showDisputeConfirm}
+                        setShowDisputeConfirm={setShowDisputeConfirm}
+                        disputeSubmitted={disputeSubmitted}
+                        setDisputeSubmitted={setDisputeSubmitted}
+                        showApproveConfirm={showApproveConfirm}
+                        setShowApproveConfirm={setShowApproveConfirm}
+                        pendingApprove={pendingApprove}
+                        setPendingApprove={setPendingApprove}
+                        showRejectConfirm={showRejectConfirm}
+                        setShowRejectConfirm={setShowRejectConfirm}
+                        pendingReject={pendingReject}
+                        showRejectModal={showRejectModal}
+                        setShowRejectModal={setShowRejectModal}
+                        rejectReason={rejectReason}
+                        setRejectReason={setRejectReason}
+                        status={status}
+                    />
+                )}
+                {step === 4 && (
+                    <ContractStep4
+                        rating={rating}
+                        setRating={setRating}
+                        blindRatingSubmitted={blindRatingSubmitted}
+                        ratingsRevealed={ratingsRevealed}
+                        partnerRating={partnerRating}
+                        ratingLabel={ratingLabel}
+                        handleBlindRatingSubmit={handleBlindRatingSubmit}
+                        handleNextStep={handleNextStep}
+                        status={status}
+                        showPaymentDelay={showPaymentDelay}
+                        setShowPaymentDelay={setShowPaymentDelay}
+                        paymentDelayed={paymentDelayed}
+                        isCancelled={isCancelled}
+                    />
+                )}
+                {step === 5 && (
+                    <ContractStep5
+                        settledLabel={settledLabel}
+                        handleNextStep={handleNextStep}
+                    />
+                )}
+            </div>
         </div>
-    </div>
     );
 };
 
