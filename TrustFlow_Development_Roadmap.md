@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-12_
 ---
 
 ## 0. Mission
@@ -167,12 +167,23 @@ Implement only after Phase 1 & 2 are validated by user feedback.
 - [x] Re-hire / Contract Template — Feature #13
 - [x] Contract Pause / Resume — Feature #14
 
-### Phase 4 — Infrastructure (priority: LOW until validated)
+### Phase 4 — Record Integrity (priority: HIGH — this is the core differentiator)
 
-- Firebase Firestore persistence
-- Gemini API integration (real DoD generation, inspection scoring)
-- eKYC identity verification
-- AML / KYC compliance
+> **Goal:** Make every action immutable, timestamped, and verifiable. "It happened" can never be disputed.
+> This is not a backend convenience feature. It is the product's core promise.
+
+- [ ] **Supabase backend** — authentication (email + magic link), append-only event log table (no UPDATE/DELETE), Row Level Security
+- [ ] **Immutable contract hash** — at initiation, the full Definition of Done is SHA-256 hashed and stored; any later change creates a new event, never overwrites
+- [ ] **RFC 3161 trusted timestamping** — every event receives a cryptographic timestamp from a public TSA (e.g. FreeTSA); proves "this existed at this moment" without a blockchain
+- [ ] **Signed audit trail export** — full contract event chain exportable as a signed JSON or PDF; admissible as evidence; replaces the need for a lawyer in most disputes
+- [ ] **Portable reputation record** — bad-actor events (ghosting, dispute loss, forced cancellation) are permanently attached to the identity; cannot be deleted or hidden
+
+### Phase 5 — Full Infrastructure (priority: LOW until Phase 4 validated)
+
+- [ ] Real payment layer (Stripe Escrow API or equivalent)
+- [ ] Gemini API integration (real DoD generation, inspection scoring)
+- [ ] eKYC identity verification
+- [ ] AML / KYC compliance
 
 ---
 
