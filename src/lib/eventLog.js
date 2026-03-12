@@ -2,8 +2,16 @@
 // Append-only contract event log.
 // Provides event creation and persistence (Supabase when connected, in-memory fallback).
 // All writes are INSERT-only — no UPDATE or DELETE ever happens here.
+//
+// Phase 4 integrity chain per event:
+//   1. createEvent() — assigns UUID + ISO timestamp
+//   2. sha256(canonical event string) → event_hash
+//   3. requestTimestamp(event_hash) → RFC 3161 TSA token (null if CORS blocks — non-fatal)
+//   4. persistEvent() — single INSERT with hash + token already set
 
 import { supabase } from './supabase.js'
+import { sha256 } from './crypto.js'
+import { requestTimestamp } from './tsa.js'
 
 // ── Event type constants ────────────────────────────────────────────────────
 
@@ -84,12 +92,29 @@ export async function persistEvent(event) {
 }
 
 /**
- * Convenience: create + persist in one call.
+ * Convenience: create → hash → TSA stamp → persist in one call.
+ * The TSA token is obtained BEFORE insert so the record is complete and immutable on write.
+ * TSA failure is non-fatal: token will be null, event is still recorded.
  *
  * @param {object} params - same as createEvent()
  * @returns {Promise<object>} persisted event
  */
 export async function logEvent(params) {
   const event = createEvent(params)
-  return persistEvent(event)
+
+  // Build a canonical string of the event's identifying fields for hashing
+  const canonical = JSON.stringify({
+    id:          event.id,
+    type:        event.type,
+    contract_id: event.contract_id,
+    actor_id:    event.actor_id,
+    dod_hash:    event.dod_hash,
+    created_at:  event.created_at,
+  })
+  const eventHash = await sha256(canonical)
+
+  // Request RFC 3161 timestamp — best-effort, null if CORS/network blocks
+  const tsaToken = await requestTimestamp(eventHash)
+
+  return persistEvent({ ...event, event_hash: eventHash, tsa_token: tsaToken })
 }
