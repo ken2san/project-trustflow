@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-12_
+_Last updated: 2026-03-12 (added BYOC-first GTM strategy)_
 ---
 
 ## 0. Mission
@@ -44,6 +44,31 @@ TrustFlow converts ambiguous project briefs into structured, AI-generated Defini
 - A general-purpose freelance marketplace (Upwork, Lancers)
 - A payment processor or wallet (regulated territory)
 - A tool for one-off, low-stakes transactions
+
+### Go-To-Market Strategy: BYOC First
+
+TrustFlow's matching engine is only as good as the trust data behind it. That data comes from completed contracts — which means matching must come *after* the data flywheel has started turning.
+
+**The flywheel:**
+```
+BYOC (bring existing relationships)
+  → contracts complete
+  → behavior data accumulates
+  → matching recommendations gain meaning
+  → new relationships form via matching
+  → more contracts → more data
+```
+
+**Implication for the product:**
+- Early users will find their own counterparties elsewhere and bring them to TrustFlow to use the protocol
+- This is not a weakness — it is the correct entry point for a trust-infrastructure product
+- The marketplace matching UI (Earner mode) is a *vision demo* of what the platform becomes once data accumulates, not the primary user acquisition path
+- "Zero matches" is not a failure state; it is a signal to go deeper into BYOC and build trust history first
+
+**Implication for UI design:**
+- BYOC flow and contract protocol are the highest-priority surfaces
+- Matching UI should not mimic keyword-search marketplaces (Upwork model)
+- When matching does surface candidates, the UI should speak as a trusted introducer: "Based on your history, here is why this person is the right fit" — not a ranked list for the user to filter
 
 ---
 
