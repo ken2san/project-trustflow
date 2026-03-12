@@ -221,7 +221,7 @@ The DB holds events; external notaries make those events impossible to deny — 
 - [x] **Immutable contract hash** — at initiation, the full Definition of Done is SHA-256 hashed (Web Crypto API) and stored; all subsequent events carry the same DoD hash
 - [x] **RFC 3161 trusted timestamping** — every event receives a cryptographic timestamp from FreeTSA.org; DER-encoded TimeStampReq built in-browser + Edge Function proxy; token stored in events table
 - [x] **Signed audit trail export** — full contract event chain exportable as tamper-evident JSON; re-verifies SHA-256 hashes at export time; downloadable from Step 5
-- [ ] **Portable reputation record** — bad-actor events (ghosting, dispute loss, forced cancellation) are permanently attached to the identity; cannot be deleted or hidden
+- [x] **Portable reputation record** — bad-actor events (dispute loss, forced cancellation, ghosting) are permanently logged via append-only event log and displayed in Trust Passport; cannot be deleted or hidden
 
 ### Phase 5 — Full Infrastructure (priority: LOW until Phase 4 validated)
 
