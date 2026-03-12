@@ -7,6 +7,7 @@ const ContractStep1 = ({
     contractDeadline, setContractDeadline,
     mutualStakeEnabled, setMutualStakeEnabled,
     mutualStakeAmount, setMutualStakeAmount,
+    hirerStakeAmount, setHirerStakeAmount,
     autoReleaseArmed, setAutoReleaseArmed,
     milestonesEnabled, setMilestonesEnabled,
     milestones, setMilestones,
@@ -64,17 +65,32 @@ const ContractStep1 = ({
                         </button>
                     </div>
                     {mutualStakeEnabled && (
-                        <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Earner stakes (PTS)</label>
-                            <input
-                                type="number"
-                                value={mutualStakeAmount}
-                                onChange={e => setMutualStakeAmount(e.target.value)}
-                                placeholder="e.g. 50000"
-                                min={0}
-                                className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-5 py-3 text-white font-bold outline-none focus:border-indigo-500/50 transition-all"
-                            />
-                            <p className="text-xs text-slate-600 mt-1">Earner's stake is returned on approval.</p>
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Earner stakes (PTS)</label>
+                                    <input
+                                        type="number"
+                                        value={mutualStakeAmount}
+                                        onChange={e => setMutualStakeAmount(e.target.value)}
+                                        placeholder="e.g. 50000"
+                                        min={0}
+                                        className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500/50 transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Hirer stakes (PTS)</label>
+                                    <input
+                                        type="number"
+                                        value={hirerStakeAmount}
+                                        onChange={e => setHirerStakeAmount(e.target.value)}
+                                        placeholder="e.g. 50000"
+                                        min={0}
+                                        className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500/50 transition-all"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-600">Both stakes are returned when the contract completes successfully. Abandonment costs both sides.</p>
                         </div>
                     )}
                     {contractDeadline && (

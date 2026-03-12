@@ -29,6 +29,7 @@ const ContractView = (props) => {
     const [partnerRating, setPartnerRating] = React.useState(null);
     const [mutualStakeEnabled, setMutualStakeEnabled] = React.useState(false);
     const [mutualStakeAmount, setMutualStakeAmount] = React.useState('');
+    const [hirerStakeAmount, setHirerStakeAmount] = React.useState('');
     const [autoReleaseArmed, setAutoReleaseArmed] = React.useState(false);
     const [autoReleaseFired, setAutoReleaseFired] = React.useState(false);
     const [isPaused, setIsPaused] = React.useState(false);
@@ -103,23 +104,33 @@ const ContractView = (props) => {
     const mutualStakeDeductedRef = React.useRef(false);
     React.useEffect(() => {
         if (mutualStakeEnabled && step === 2 && !mutualStakeDeductedRef.current) {
-            const stakeVal = parseInt(mutualStakeAmount, 10);
-            if (stakeVal > 0 && setUserStats) {
-                setUserStats(s => ({ ...s, points: Math.max(0, (s.points ?? 0) - stakeVal) }));
-                if (addToast) addToast('Mutual Stake Locked', `${stakeVal.toLocaleString()} PTS staked by earner.`, 'info');
+            const earnerStake = parseInt(mutualStakeAmount, 10) || 0;
+            const hirerStake = parseInt(hirerStakeAmount, 10) || 0;
+            if ((earnerStake > 0 || hirerStake > 0) && setUserStats) {
+                setUserStats(s => ({ ...s, points: Math.max(0, (s.points ?? 0) - earnerStake) }));
+                if (addToast) addToast(
+                    'Mutual Stake Locked',
+                    `Both parties staked: Earner ${earnerStake.toLocaleString()} PTS · Hirer ${hirerStake.toLocaleString()} PTS. Neither side can walk away without cost.`,
+                    'info'
+                );
                 mutualStakeDeductedRef.current = true;
             }
         }
         if (step === 5 && mutualStakeDeductedRef.current) {
-            const stakeVal = parseInt(mutualStakeAmount, 10);
-            if (stakeVal > 0 && setUserStats) {
-                setUserStats(s => ({ ...s, points: (s.points ?? 0) + stakeVal }));
-                if (addToast) addToast('Stake Returned', `${stakeVal.toLocaleString()} PTS stake returned.`, 'success');
-                mutualStakeDeductedRef.current = false;
+            const earnerStake = parseInt(mutualStakeAmount, 10) || 0;
+            const hirerStake = parseInt(hirerStakeAmount, 10) || 0;
+            if (setUserStats) {
+                setUserStats(s => ({ ...s, points: (s.points ?? 0) + earnerStake }));
             }
+            if (addToast) addToast(
+                'Stakes Returned',
+                `Earner +${earnerStake.toLocaleString()} PTS · Hirer +${hirerStake.toLocaleString()} PTS returned to both parties.`,
+                'success'
+            );
+            mutualStakeDeductedRef.current = false;
         }
     // eslint-disable-next-line
-    }, [step, mutualStakeEnabled, mutualStakeAmount]);
+    }, [step, mutualStakeEnabled, mutualStakeAmount, hirerStakeAmount]);
 
     const handleDisputeClick = () => setShowDisputeConfirm(true);
 
@@ -389,6 +400,8 @@ const ContractView = (props) => {
                                 setMutualStakeEnabled={setMutualStakeEnabled}
                                 mutualStakeAmount={mutualStakeAmount}
                                 setMutualStakeAmount={setMutualStakeAmount}
+                                hirerStakeAmount={hirerStakeAmount}
+                                setHirerStakeAmount={setHirerStakeAmount}
                                 autoReleaseArmed={autoReleaseArmed}
                                 setAutoReleaseArmed={setAutoReleaseArmed}
                                 milestonesEnabled={milestonesEnabled}
