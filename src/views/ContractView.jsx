@@ -1,6 +1,6 @@
 import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
-import { Heart, Pause, Play, ArrowRight } from "lucide-react";
+import { Heart, Pause, Play, ArrowRight, Hash, ShieldCheck } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
 import { parseDeadlineLocal } from "../lib/utils";
 import ContractStepTracker from "./contract/ContractStepTracker";
@@ -41,7 +41,8 @@ const ContractView = (props) => {
 
     const {
         step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status,
-        formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode
+        formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode,
+        dodHash, contractEvents
     } = props;
 
     const workflow = useContractWorkflow({
@@ -257,6 +258,18 @@ const ContractView = (props) => {
                 </div>
             )}
 
+            {dodHash && currentStep > 0 && (
+                <div className="max-w-4xl mx-auto mb-2 px-2 flex justify-end">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-900/30 border border-emerald-500/20 text-emerald-400">
+                        <ShieldCheck className="w-3 h-3" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">On Record</span>
+                        <span className="text-[10px] font-mono text-emerald-500/70 ml-1">{dodHash.slice(0, 8)}…</span>
+                        {contractEvents?.length > 0 && (
+                            <span className="ml-1 text-[10px] text-emerald-500/50">{contractEvents.length} event{contractEvents.length > 1 ? 's' : ''}</span>
+                        )}
+                    </div>
+                </div>
+            )}
             <div className={`max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center transition-opacity ${isPaused ? 'opacity-60 pointer-events-none' : ''}`}>
                 {isPaused && (
                     <div className="flex items-center gap-4 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-6 py-4 text-amber-300 mb-6 text-left">
@@ -278,6 +291,16 @@ const ContractView = (props) => {
                                 <li>Dark Mode Tokens</li>
                                 <li>Atomic Design Compliance</li>
                             </ul>
+                            {dodHash && (
+                                <div className="mt-4 bg-slate-900/70 border border-emerald-500/20 rounded-xl p-4 max-w-md mx-auto text-left">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Hash className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                        <span className="text-xs font-black uppercase tracking-widest text-emerald-400">Contract Fingerprint</span>
+                                    </div>
+                                    <p className="text-[10px] font-mono text-slate-300 break-all leading-relaxed">{dodHash}</p>
+                                    <p className="text-[10px] text-slate-500 mt-2">SHA-256 · Generated from DoD text · Immutable after initiation</p>
+                                </div>
+                            )}
                         </div>
                         <div className="flex justify-center gap-6">
                             <button
