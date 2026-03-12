@@ -490,6 +490,9 @@ const ContractView = (props) => {
                         settledLabel={settledLabel}
                         handleNextStep={handleNextStep}
                         onRehire={props.onRehire}
+                        contractEvents={contractEvents}
+                        dodHash={dodHash}
+                        contractId={props.contractId ?? 'contract'}
                     />
                 )}
             </div>
