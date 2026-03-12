@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-12 (added BYOC-first GTM strategy, two-sided user model, counterparty invite flow, Trust Passport as portable public utility)_
+_Last updated: 2026-03-13 (canonical state machine, AGENTS.md intellectual honesty policy, current sprint documented)_
 ---
 
 ## 0. Mission
@@ -143,6 +143,21 @@ BYOC (bring existing relationships)
 - BYOC flow and contract protocol are the highest-priority surfaces
 - Matching UI should not mimic keyword-search marketplaces (Upwork model)
 - When matching does surface candidates, the UI should speak as a trusted introducer: "Based on your history, here is why this person is the right fit" — not a ranked list for the user to filter
+
+---
+
+## Current Sprint (as of 2026-03-13)
+
+### Decisions made this session (not yet reflected in code)
+
+- **Canonical state machine established** — Platform guarantees DoD quality → contract flow becomes linear (DRAFTING → LOCKED → IN_PROGRESS → DELIVERED → CONFIRMED | DISPUTED → SETTLED). Renegotiation, Pause/Resume, and unlimited rejection loops are architecturally eliminated. See Design Principles #6/#7 section above.
+- **`ContractView.jsx` has dead state** — `showRenegotiate`, `isRenegotiating`, `pendingRenegotiation`, `isPaused`, `stagedPhase`, `previewSubmitted` states exist in code but conflict with the canonical state machine. These should be removed in a future cleanup pass.
+
+### Next 3 tasks (priority order)
+
+1. **Trust Ladder upper limit enforcement** — Block "Initiate Contract" when contract amount exceeds the user's current tier limit. Change is in `ContractStep1.jsx`: add disabled state to HoldButton when `amount > tier.contractLimit`. Small, low-risk.
+2. **Re-hire data carry-over** — `handleRehire` in `App.jsx` currently just navigates; it should pre-populate DoD, amount, and counterparty from the completed contract. Medium complexity.
+3. **Counterparty Invite Flow** — New view for users arriving via invite link. Must show: who invited them, what the project is, what _they_ gain (Trust Passport from day one). This is Critical #0 per Feature Vision. Largest of the three.
 
 ---
 
