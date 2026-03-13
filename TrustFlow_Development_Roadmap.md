@@ -155,9 +155,14 @@ BYOC (bring existing relationships)
 
 ### Next 3 tasks (priority order)
 
-1. **Trust Ladder upper limit enforcement** — Block "Initiate Contract" when contract amount exceeds the user's current tier limit. Change is in `ContractStep1.jsx`: add disabled state to HoldButton when `amount > tier.contractLimit`. Small, low-risk.
-2. **Re-hire data carry-over** — `handleRehire` in `App.jsx` currently just navigates; it should pre-populate DoD, amount, and counterparty from the completed contract. Medium complexity.
-3. **Counterparty Invite Flow** — New view for users arriving via invite link. Must show: who invited them, what the project is, what _they_ gain (Trust Passport from day one). This is Critical #0 per Feature Vision. Largest of the three.
+1. ~~**Trust Ladder upper limit enforcement**~~ ✅ — `ContractStep1.jsx`: `isOverLimit` computed from `tier.contractLimit`; HoldButton disabled + red warning banner when over limit.
+2. ~~**Re-hire data carry-over**~~ ✅ — `handleRehire` in `App.jsx` now syncs `acceptanceCriteria` from `acceptanceProtocol`, resets `dodHash`/`contractEvents`, sets `isRehire` flag. ScopingView shows "Pre-filled" banner.
+3. ~~**Counterparty Invite Flow**~~ ✅ — `InviteView.jsx` created. Triggered via URL params: `?invite=1&inviter=NAME&project=TITLE&amount=POINTS&dod=item1,item2`. Shows: who invited, project + DoD, 3-panel "what you gain" pitch (protection, Trust Passport, DoD lock). Accept → populates `selectedItem` and navigates to ScopingView. Decline → marketplace. URL params cleared via `history.replaceState` after either action.
+
+### Demo: Counterparty Invite Flow
+```
+http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20System&amount=300000&dod=Definitive%20Figma%20Library,Dark%20Mode%20Tokens,Atomic%20Design%20Compliance
+```
 
 ---
 

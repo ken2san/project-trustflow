@@ -155,6 +155,9 @@ import CommandCenterView from './views/CommandCenterView';
 // ProjectDetailView moved to views/ProjectDetailView.jsx
 import ProjectDetailView from './views/ProjectDetailView';
 
+// InviteView for counterparty invite link flow
+import InviteView from './views/InviteView';
+
 // --- Main App Component ---
 
 const App = () => {
@@ -188,7 +191,20 @@ const App = () => {
   }, []);
 
   const [mode, setMode] = useState('earner');
-  const [view, setView] = useState('marketplace');
+  // Detect invite link params on mount; set initial view accordingly
+  const [inviteData] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('invite')) return null;
+    return {
+      inviter: params.get('inviter') || 'Someone',
+      project: params.get('project') || 'A Project',
+      amount: parseInt(params.get('amount'), 10) || 0,
+      dod: params.get('dod') ? params.get('dod').split(',').map(s => s.trim()).filter(Boolean) : [],
+    };
+  });
+  const [view, setView] = useState(() =>
+    new URLSearchParams(window.location.search).has('invite') ? 'invite' : 'marketplace'
+  );
   const [step, setStep] = useState(1);
 
   // UI profile state
@@ -682,6 +698,28 @@ const App = () => {
           />
         )}
         {/* ScopingView removed from contract flow. */}
+        {view === 'invite' && inviteData && (
+          <InviteView
+            inviteData={inviteData}
+            onAccept={() => {
+              const item = {
+                id: 'invite-' + Date.now(),
+                title: inviteData.project,
+                client: inviteData.inviter,
+                totalPoints: inviteData.amount,
+                acceptanceCriteria: inviteData.dod,
+              };
+              setSelectedItem(item);
+              window.history.replaceState({}, '', window.location.pathname);
+              setView('scoping');
+              addToast('Invite Accepted', `Welcome to the project with ${inviteData.inviter}.`, 'success');
+            }}
+            onDecline={() => {
+              window.history.replaceState({}, '', window.location.pathname);
+              setView('marketplace');
+            }}
+          />
+        )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} />}
               {/* Global Level Up/Param Up Animation */}
