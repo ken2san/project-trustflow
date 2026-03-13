@@ -39,6 +39,15 @@ _Last updated: 2026-03-07_
 - Before running a terminal command, run `clear` first to flush the buffer.
 - If output is long, do not attempt to read it in full — use `grep`, `head`, or `tail` to extract only what is needed.
 
+## Terminal Output Capture Limitation
+
+`run_in_terminal` with `isBackground: false` does not reliably return stdout — it captures the terminal screen buffer (prompt state) instead of command output. This is a known Copilot extension bug, not a shell configuration issue.
+
+Workaround for commands where output is needed:
+
+- Use `isBackground: true` then call `await_terminal` with the returned terminal ID to capture stdout.
+- For execution confirmation only, rely on exit code.
+
 ## Structure
 
 - Execution policy, project context, and git rules: VS Code User Settings (`github.copilot.chat.codeGeneration.instructions`)
