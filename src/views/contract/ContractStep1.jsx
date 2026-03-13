@@ -13,6 +13,7 @@ const ContractStep1 = ({
     milestones, setMilestones,
     stagedDeliveryEnabled, setStagedDeliveryEnabled,
     userLevel,
+    contractAmount,
     handleNextStep, status
 }) => {
     const addMilestone = () =>
@@ -24,6 +25,7 @@ const ContractStep1 = ({
 
     const tier = [...TRUST_LADDER].reverse().find(t => (userLevel ?? 1) >= t.level) || TRUST_LADDER[0];
     const limitLabel = tier.contractLimit ? `${tier.contractLimit.toLocaleString()} PTS` : 'Unlimited';
+    const isOverLimit = tier.contractLimit !== null && (contractAmount ?? 0) > tier.contractLimit;
 
     return (
         <div className="space-y-10 animate-fade-in-up">
@@ -174,13 +176,21 @@ const ContractStep1 = ({
                     )}
                 </div>
             </div>
+            {isOverLimit && (
+                <div className="max-w-md mx-auto px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-center">
+                    <p className="text-sm font-bold text-red-400">
+                        Contract amount exceeds your <span className="text-white">{tier.label}</span> tier limit of <span className="text-white">{limitLabel}</span>.
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">Complete more contracts to unlock a higher limit.</p>
+                </div>
+            )}
             <HoldButton
                 key="btn-1"
                 onClick={handleNextStep}
                 label="Secure Funds in Escrow"
                 icon={ArrowRight}
                 className="btn-primary-hold w-full max-w-md mx-auto bg-white text-[#020617] py-6 rounded-[32px] font-black text-xl shadow-2xl"
-                disabled={status !== 'idle'}
+                disabled={status !== 'idle' || isOverLimit}
             />
         </div>
     );

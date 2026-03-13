@@ -43,7 +43,7 @@ const ContractView = (props) => {
     const {
         step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status,
         formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode,
-        dodHash, contractEvents
+        dodHash, contractEvents, contractAmount
     } = props;
 
     const workflow = useContractWorkflow({
@@ -411,6 +411,7 @@ const ContractView = (props) => {
                                 stagedDeliveryEnabled={stagedDeliveryEnabled}
                                 setStagedDeliveryEnabled={setStagedDeliveryEnabled}
                                 userLevel={userStats?.level ?? 1}
+                                contractAmount={contractAmount ?? 0}
                                 handleNextStep={handleNextStep}
                                 status={status}
                             />
