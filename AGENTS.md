@@ -47,6 +47,7 @@ Workaround for commands where output is needed:
 
 - Use `isBackground: true` then call `await_terminal` with the returned terminal ID to capture stdout.
 - For execution confirmation only, rely on exit code.
+- If foreground output is not captured, immediately retry with `isBackground: true` — do not attempt foreground multiple times.
 
 ## Structure
 
