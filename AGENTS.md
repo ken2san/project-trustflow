@@ -34,6 +34,11 @@ _Last updated: 2026-03-07_
 - Do not implement Phase 3 or Phase 4 features (see `TrustFlow_Development_Roadmap.md`) without explicit user instruction.
 - All feature additions must align with the current active redesign phase.
 
+## Terminal Buffer Management
+
+- Before running a terminal command, run `clear` first to flush the buffer.
+- If output is long, do not attempt to read it in full — use `grep`, `head`, or `tail` to extract only what is needed.
+
 ## Structure
 
 - Execution policy, project context, and git rules: VS Code User Settings (`github.copilot.chat.codeGeneration.instructions`)
