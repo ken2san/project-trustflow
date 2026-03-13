@@ -235,6 +235,7 @@ const App = () => {
   const [dodHash, setDodHash] = useState(null);
   // Phase 4: permanent bad-actor flags — persist across contract cycles
   const [badActorFlags, setBadActorFlags] = useState([]);
+  const [isRehire, setIsRehire] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(() => {
     if (new URLSearchParams(window.location.search).has('reset')) {
       localStorage.removeItem('tf_onboarded');
@@ -359,10 +360,19 @@ const App = () => {
 
   const handleReject = () => { setIsDisputeOpen(true); };
   const handleRehire = React.useCallback(() => {
+    // Carry over negotiated DoD (acceptanceProtocol) into the re-hire item
+    setSelectedItem(prev => prev
+      ? { ...prev, acceptanceCriteria: acceptanceProtocol.length > 0 ? [...acceptanceProtocol] : prev.acceptanceCriteria }
+      : prev
+    );
+    // Reset stale contract state so new contract starts clean
+    setDodHash(null);
+    setContractEvents([]);
+    setIsRehire(true);
     setStep(1);
     setView('scoping');
-    addToast('Re-hire', 'Returning to scoping with same counterparty.', 'info');
-  }, [addToast]);
+    addToast('Re-hire Template Ready', 'DoD and amount pre-filled from your last contract.', 'info');
+  }, [acceptanceProtocol, addToast]);
   const handleDisputeResolve = async () => {
     setIsDisputeOpen(false);
     addToast('Dispute Resolved', 'Extension time added to contract.', 'success');
@@ -672,7 +682,7 @@ const App = () => {
           />
         )}
         {/* ScopingView removed from contract flow. */}
-        {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setView('marketplace'); setSelectedItem(null); }} onInitiate={initiateContract} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} />}
+        {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (

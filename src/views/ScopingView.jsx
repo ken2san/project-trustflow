@@ -4,7 +4,7 @@ import { ArrowLeft, ListChecks, CheckCircle2, Fingerprint } from "lucide-react";
 import ScrambleText from "../components/ui/ScrambleText";
 
 
-const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, formatNumber }) => {
+const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, formatNumber, isRehire }) => {
     // Unified HoldButton logic: immediate transition
     const handleHold = () => {
         if (typeof onInitiate === 'function') onInitiate();
@@ -19,6 +19,11 @@ const ScopingView = ({ selectedItem, onBack, onInitiate, scrambleTrigger, format
     return (
         <div className="space-y-12 animate-fade-in-up">
             <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black text-xs hover:text-white transition-colors uppercase tracking-[0.2em] group pl-2"><ArrowLeft className="w-3 h-3" /> Decline &amp; Return</button>
+            {isRehire && (
+                <div className="max-w-2xl mx-auto px-4 py-2 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl text-center">
+                    <p className="text-xs font-bold text-indigo-400">Pre-filled from your previous contract — review and initiate when ready.</p>
+                </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8 bg-[#0f172a]/60 rounded-[48px] p-10 sm:p-14 border border-white/5 shadow-2xl backdrop-blur-xl">
                     <div className="flex items-center gap-4 mb-8"><div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20"><ListChecks className="w-6 h-6 text-indigo-400" /></div><div><h1 className="text-3xl sm:text-4xl font-black tracking-tighter italic text-white leading-none">Acceptance Protocol</h1><p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Definition of Done (DoD)</p></div></div>
