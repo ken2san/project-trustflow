@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout)_
+_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout, runtime snapshot persistence)_
 ---
 
 ## 0. Mission
@@ -168,6 +168,7 @@ BYOC (bring existing relationships)
 - **Auto-Release Timer** ✅ — Was only firing if deadline had already passed at component mount. Rewritten to `setTimeout(delay)` so it fires at the correct future time. 24h advance warning toast added.
 - **Scope Builder** ✅ — `handleAIArchitectSubmit` always returned hardcoded "React Native / Stripe / Biometric" DoD regardless of prompt. Now extracts tokens from the actual user input.
 - **`totalSpent` tracking** ✅ — Hirer's `totalSpent` was not updated on escrow lock (Step 2 transition). Fixed alongside the existing points deduction.
+- **Runtime snapshot persistence (Supabase-first)** ✅ — App runtime state now auto-saves as append-only `runtime.snapshot` events and restores on reload. Falls back to local cache when Supabase is unavailable.
 
 ### Demo: Complete Invite Round-Trip
 
@@ -221,7 +222,7 @@ http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20Sy
 
 - Persistent Notification Center (audit log replacing ephemeral toasts)
 - Social/GitHub import for Trust Score bootstrap
-- Supabase persistence (currently React state / mock data only in prototype runtime)
+- Full multi-user persistence (Auth + RLS + realtime sync still required; current runtime snapshot persistence is single-device actor based)
 - Real Gemini API integration (Scope Builder currently uses token extraction)
 - Real Gemini API integration (currently mock responses)
 

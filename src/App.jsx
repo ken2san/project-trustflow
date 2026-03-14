@@ -74,6 +74,7 @@ import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, TRANSACTIONS_DATA, STEPS_DATA } 
 import { formatNumber } from './lib/utils';
 import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES } from './lib/eventLog.js';
+import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 
 
 // ...existing code...
@@ -263,6 +264,7 @@ const App = () => {
   const [byocForm, setByocForm] = useState({ name: '', description: '', amount: '', dod: '' });
   const [inviteLink, setInviteLink] = useState(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [isRuntimeHydrated, setIsRuntimeHydrated] = useState(false);
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -275,6 +277,69 @@ const App = () => {
   const chatEndRef = useRef(null);
 
   useEffect(() => { const handleKeyDown = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsCommandOpen(prev => !prev); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    const hydrate = async () => {
+      const snapshot = await loadRuntimeSnapshot();
+      if (!alive) return;
+
+      if (snapshot) {
+        if (typeof snapshot.hasOnboarded === 'boolean') setHasOnboarded(snapshot.hasOnboarded);
+        if (typeof snapshot.mode === 'string') setMode(snapshot.mode);
+        if (typeof snapshot.view === 'string') setView(snapshot.view);
+        if (typeof snapshot.step === 'number') setStep(snapshot.step);
+        if (snapshot.selectedItem) setSelectedItem(snapshot.selectedItem);
+        if (snapshot.uiProfile) setUIProfile(snapshot.uiProfile);
+        if (snapshot.internalProfile) setInternalProfile(snapshot.internalProfile);
+        if (Array.isArray(snapshot.acceptanceProtocol)) setAcceptanceProtocol(snapshot.acceptanceProtocol);
+        if (Array.isArray(snapshot.badActorFlags)) setBadActorFlags(snapshot.badActorFlags);
+        if (snapshot.byocForm) setByocForm(snapshot.byocForm);
+      }
+
+      setIsRuntimeHydrated(true);
+    };
+
+    hydrate();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isRuntimeHydrated) return;
+
+    const timer = setTimeout(() => {
+      saveRuntimeSnapshot({
+        hasOnboarded,
+        mode,
+        view,
+        step,
+        selectedItem,
+        uiProfile,
+        internalProfile,
+        acceptanceProtocol,
+        badActorFlags,
+        byocForm,
+      });
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [
+    isRuntimeHydrated,
+    hasOnboarded,
+    mode,
+    view,
+    step,
+    selectedItem,
+    uiProfile,
+    internalProfile,
+    acceptanceProtocol,
+    badActorFlags,
+    byocForm,
+  ]);
 
 
 
