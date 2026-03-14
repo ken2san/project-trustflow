@@ -9,6 +9,20 @@ export const USER_PROFILE = {
 
 export const JOBS_DATA = [
   {
+    id: 3,
+    type: 'job',
+    title: "Icon Set Redesign",
+    client: "Indie Studio",
+    totalPoints: 30000,
+    aiScore: 87,
+    matchReason: "Good entry-level match. Ideal first contract.",
+    description: "Redesign 24 app icons in a consistent flat style. Source files in Figma. SVG + PNG exports required.",
+    budget: "300,000",
+    skills: ["Figma", "Icon Design", "SVG"],
+    deadline: "2026-04-01",
+    acceptanceCriteria: ["24 Icons Delivered", "Figma Source File", "SVG + PNG Exports"]
+  },
+  {
     id: 1,
     type: 'job',
     title: "Mobile App Design System",

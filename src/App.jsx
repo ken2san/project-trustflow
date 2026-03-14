@@ -649,7 +649,7 @@ const App = () => {
           }
       }, 80);
   };
-  const handleDeposit = () => { setIsPaymentModalOpen(false); setStatus('processing'); setTimeout(() => { setUIProfile(s => ({ ...s, points: (s.points ?? 0) + 100000 })); setStatus('idle'); addToast('Deposit Successful', '100,000 PTS added to Vault.', 'success'); }, 1000); };
+  const handleDeposit = (pts) => { setIsPaymentModalOpen(false); setStatus('processing'); setTimeout(() => { setUIProfile(s => ({ ...s, points: (s.points ?? 0) + pts })); setStatus('idle'); addToast('Deposit Successful', `${pts.toLocaleString()} PTS added to Vault.`, 'success'); }, 1000); };
 
   const handleOnboardingComplete = useCallback(() => {
     localStorage.setItem('tf_onboarded', '1');
