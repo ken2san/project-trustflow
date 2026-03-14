@@ -132,6 +132,9 @@ const ContractView = (props) => {
     // eslint-disable-next-line
     }, [step, mutualStakeEnabled, mutualStakeAmount, hirerStakeAmount]);
 
+    const rejectCount = (history || []).filter(h => h.type === 'reject').length;
+    const MAX_REJECTS = 3;
+
     const handleDisputeClick = () => setShowDisputeConfirm(true);
 
     const handleConfirmDispute = () => {
@@ -165,14 +168,16 @@ const ContractView = (props) => {
     };
 
     const handleAbortSequence = () => {
+        const reason = cancelReason;
         setIsCancelled(true);
         setShowCancelConfirm(false);
         setCancelReason("");
         setHistory(prev => [
-            { type: 'abort', message: `Contract cancelled: ${cancelReason}`, timestamp: Date.now(), actor: mode },
+            { type: 'abort', message: `Contract cancelled: ${reason}`, timestamp: Date.now(), actor: mode },
             ...prev
         ]);
         if (addToast) addToast('Contract Cancelled', 'This contract has been cancelled and logged.', 'warning');
+        if (props.onContractCancel) props.onContractCancel({ reason });
     };
 
     const handleRejectClick = () => setShowRejectConfirm(true);
@@ -216,14 +221,20 @@ const ContractView = (props) => {
 
     const handleConfirmReject = () => {
         if (!rejectReason.trim()) return;
+        const newRejectCount = rejectCount + 1;
         setHistory(prev => [
             { type: 'reject', message: rejectReason, timestamp: Date.now(), actor: mode === 'hirer' ? 'hirer' : 'earner' },
             ...prev
         ]);
         setShowRejectModal(false);
         setRejectReason("");
-        if (addToast) addToast('Rejected', 'Re-delivery requested with reason.', 'warning');
-        if (handleReject) handleReject();
+        if (newRejectCount >= MAX_REJECTS) {
+            if (addToast) addToast('Dispute Required', `${MAX_REJECTS} rejections reached — dispute automatically opened.`, 'warning');
+            setShowDisputeConfirm(true);
+        } else {
+            if (addToast) addToast('Rejected', `Re-delivery requested. ${MAX_REJECTS - newRejectCount} rejection(s) left before forced dispute.`, 'warning');
+            if (handleReject) handleReject();
+        }
     };
 
     const handleReDelivery = (file, message) => {
@@ -386,6 +397,8 @@ const ContractView = (props) => {
                         milestones={milestones}
                         currentMilestoneIndex={currentMilestoneIndex}
                         onApproveMilestone={onApproveMilestone}
+                        rejectCount={rejectCount}
+                        maxRejects={MAX_REJECTS}
                     />
                 )}
                 {step === 4 && (

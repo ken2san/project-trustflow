@@ -254,6 +254,7 @@ const App = () => {
   const [dodHash, setDodHash] = useState(null);
   // Phase 4: permanent bad-actor flags — persist across contract cycles
   const [badActorFlags, setBadActorFlags] = useState([]);
+  const [contractHistory, setContractHistory] = useState([]);
   const [isRehire, setIsRehire] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(() => {
     if (new URLSearchParams(window.location.search).has('reset')) {
@@ -303,6 +304,7 @@ const App = () => {
         if (Array.isArray(snapshot.acceptanceProtocol)) setAcceptanceProtocol(snapshot.acceptanceProtocol);
         if (Array.isArray(snapshot.badActorFlags)) setBadActorFlags(snapshot.badActorFlags);
         if (snapshot.byocForm) setByocForm(snapshot.byocForm);
+        if (Array.isArray(snapshot.contractHistory)) setContractHistory(snapshot.contractHistory);
       }
 
       setIsRuntimeHydrated(true);
@@ -363,6 +365,7 @@ const App = () => {
         acceptanceProtocol,
         badActorFlags,
         byocForm,
+        contractHistory,
       });
     }, 900);
 
@@ -379,6 +382,7 @@ const App = () => {
     acceptanceProtocol,
     badActorFlags,
     byocForm,
+    contractHistory,
   ]);
 
 
@@ -498,6 +502,14 @@ const App = () => {
           // Log contract completion before resetting
           const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_COMPLETED, contractId, actorId, payload: {} });
           setContractEvents(prev => [ev, ...prev]);
+          setContractHistory(prev => [{
+            id: contractId,
+            title: selectedItem?.title ?? 'Contract',
+            client: selectedItem?.client ?? '—',
+            date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+            earned: mode === 'earner' ? (selectedItem?.totalPoints ?? 0) : 0,
+            rating: uiProfile.avgRating ?? '—',
+          }, ...prev]);
           // Reset everything for next cycle
           setView('marketplace');
           setSelectedItem(null);
@@ -530,6 +542,18 @@ const App = () => {
     setView('scoping');
     addToast('Re-hire Template Ready', 'DoD and amount pre-filled from your last contract.', 'info');
   }, [acceptanceProtocol, addToast]);
+
+  const handleContractCancel = React.useCallback(({ reason }) => {
+    setContractHistory(prev => [{
+      id: 'cancelled-' + Date.now(),
+      title: selectedItem?.title ?? 'Contract',
+      client: selectedItem?.client ?? '—',
+      date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+      earned: 0,
+      rating: '—',
+    }, ...prev]);
+  }, [selectedItem]);
+
   const handleDisputeResolve = async () => {
     setIsDisputeOpen(false);
     addToast('Dispute Resolved', 'Extension time added to contract.', 'success');
@@ -638,6 +662,21 @@ const App = () => {
       { id: 'switch', label: `Switch to ${mode === 'earner' ? 'Hirer' : 'Earner'} Mode`, icon: RefreshCw, action: toggleMode },
       { id: 'chat', label: 'Toggle Chat', icon: MessageSquare, action: () => setIsChatOpen(prev => !prev) },
   ], [mode]);
+
+  const activeOperations = useMemo(() => {
+    if (!selectedItem || step < 1 || step > 4) return [];
+    const PHASES = ['', 'COMMITMENT', 'IN ESCROW', 'INSPECTION', 'RATING'];
+    const PROGRESS = [0, 20, 40, 60, 80];
+    const NEXT_ACTIONS = ['', 'Lock contract terms', 'Submit deliverables', 'Awaiting hirer review', 'Submit rating'];
+    return [{
+      id: selectedItem.id,
+      phase: PHASES[step] || 'ACTIVE',
+      title: selectedItem.title || 'Active Contract',
+      client: selectedItem.client || '—',
+      progress: PROGRESS[step] || 0,
+      nextAction: NEXT_ACTIONS[step] || '—',
+    }];
+  }, [selectedItem, step]);
 
   // Strategy level (Conservative / Normal / Aggressive)
   const [strategy, setStrategy] = useState('Balanced');
@@ -916,7 +955,7 @@ const App = () => {
           />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
@@ -938,17 +977,20 @@ const App = () => {
         {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={uiProfile.points ?? 0} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}
         {view === 'command-center' && (
           <CommandCenterView
-            activeOperations={DUMMY_ACTIVE_OPERATIONS}
-            missionLogs={DUMMY_MISSION_LOGS}
+            activeOperations={activeOperations}
+            missionLogs={contractHistory}
             onOperationClick={op => {
-              setSelectedItem(op);
-              let stepNum = 1;
-              if (op.progress >= 100) stepNum = 5;
-              else if (op.progress >= 75) stepNum = 4;
-              else if (op.progress >= 50) stepNum = 3;
-              else if (op.progress >= 25) stepNum = 2;
-              setStep(stepNum);
-              setView('contract');
+              if (selectedItem && String(op.id) === String(selectedItem.id)) {
+                setView('contract');
+              } else {
+                setSelectedItem(op);
+                let stepNum = 1;
+                if (op.progress >= 80) stepNum = 4;
+                else if (op.progress >= 60) stepNum = 3;
+                else if (op.progress >= 40) stepNum = 2;
+                setStep(stepNum);
+                setView('contract');
+              }
             }}
             strategy={strategy}
             onStrategyChange={setStrategy}

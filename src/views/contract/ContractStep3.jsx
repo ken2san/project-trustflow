@@ -20,7 +20,8 @@ const ContractStep3 = ({
     showRejectModal, setShowRejectModal,
     rejectReason, setRejectReason,
     status,
-    milestonesEnabled, milestones, currentMilestoneIndex, onApproveMilestone
+    milestonesEnabled, milestones, currentMilestoneIndex, onApproveMilestone,
+    rejectCount = 0, maxRejects = 3
 }) => {
     const isHirer = mode === 'hirer';
 
@@ -62,8 +63,24 @@ const ContractStep3 = ({
                     </div>
                 )}
             </div>
+            {isHirer && rejectCount > 0 && (
+                <div className={`max-w-md mx-auto mt-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border flex items-center justify-center gap-2 ${
+                    rejectCount >= maxRejects - 1
+                        ? 'bg-red-900/30 border-red-500/30 text-red-400'
+                        : 'bg-amber-900/30 border-amber-500/30 text-amber-400'
+                }`}>
+                    {rejectCount >= maxRejects
+                        ? '⚠ Reject limit reached — dispute required'
+                        : `⚠ Rejection ${rejectCount}/${maxRejects} — ${maxRejects - rejectCount} remaining before forced dispute`
+                    }
+                </div>
+            )}
             <div className="flex justify-center gap-4 max-w-md mx-auto">
-                <button onClick={handleRejectClick} className="flex-1 py-6 rounded-[32px] border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white font-bold transition-all">Reject</button>
+                <button
+                    onClick={handleRejectClick}
+                    disabled={rejectCount >= maxRejects}
+                    className={`flex-1 py-6 rounded-[32px] border font-bold transition-all ${rejectCount >= maxRejects ? 'border-red-500/20 text-red-500/40 cursor-not-allowed opacity-50' : 'border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                >Reject</button>
                 <HoldButton
                     key={`btn-3-${showApproveConfirm ? 'modal' : 'main'}`}
                     holdKey={`3-${showApproveConfirm}-${pendingApprove}`}
