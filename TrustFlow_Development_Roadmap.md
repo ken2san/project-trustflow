@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-14 (bug fixes, Trust Passport write-back, deadline enforcement)_
+_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout)_
 ---
 
 ## 0. Mission
@@ -157,7 +157,9 @@ BYOC (bring existing relationships)
 
 1. ~~**Trust Ladder upper limit enforcement**~~ ✅ — `ContractStep1.jsx`: `isOverLimit` computed from `tier.contractLimit`; HoldButton disabled + red warning banner when over limit.
 2. ~~**Re-hire data carry-over**~~ ✅ — `handleRehire` in `App.jsx` now syncs `acceptanceCriteria` from `acceptanceProtocol`, resets `dodHash`/`contractEvents`, sets `isRehire` flag. ScopingView shows "Pre-filled" banner.
-3. ~~**Counterparty Invite Flow**~~ ✅ — `InviteView.jsx` created. Triggered via URL params: `?invite=1&inviter=NAME&project=TITLE&amount=POINTS&dod=item1,item2`. Shows: who invited, project + DoD, 3-panel "what you gain" pitch (protection, Trust Passport, DoD lock). Accept → populates `selectedItem` and navigates to ScopingView. Decline → marketplace. URL params cleared via `history.replaceState` after either action.
+3. ~~**Counterparty Invite Flow**~~ ✅ — Full round-trip implemented.
+   - **Sender side (A):** BYOC modal extended with Amount + DoD fields and a "Generate Link" button. Generates a `?invite=...` URL from form content; copy-to-clipboard with ✓ feedback. Can also "Start Myself →" to skip invite and go directly to ScopingView.
+   - **Recipient side (B):** `InviteView.jsx` receives URL params, shows inviter + project + amount + DoD, 3-panel "what you gain" pitch (protection, Trust Passport, DoD lock). Accept → populates `selectedItem` and navigates to ScopingView. Decline → marketplace. URL params cleared via `history.replaceState` after either action.
 
 ### Bug fixes & missing connections (2026-03-14)
 
@@ -167,7 +169,16 @@ BYOC (bring existing relationships)
 - **Scope Builder** ✅ — `handleAIArchitectSubmit` always returned hardcoded "React Native / Stripe / Biometric" DoD regardless of prompt. Now extracts tokens from the actual user input.
 - **`totalSpent` tracking** ✅ — Hirer's `totalSpent` was not updated on escrow lock (Step 2 transition). Fixed alongside the existing points deduction.
 
-### Demo: Counterparty Invite Flow
+### Demo: Complete Invite Round-Trip
+
+**Sender side (A) — in-app:**
+
+1. Marketplace → "Work with someone you know" (BYOC button)
+2. Fill: project description, amount, DoD items (one per line)
+3. Click "Generate Link" → copy URL
+4. Send to counterparty via any channel
+
+**Recipient side (B) — via link:**
 
 ```
 http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20System&amount=300000&dod=Definitive%20Figma%20Library,Dark%20Mode%20Tokens,Atomic%20Design%20Compliance
