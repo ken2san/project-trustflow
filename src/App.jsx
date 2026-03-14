@@ -751,7 +751,7 @@ const App = () => {
       <ToastContainer toasts={toasts} removeToast={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
       {/* BiometricModal removed for MVP slimdown */}
-      <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} />
+      <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} auditData={selectedItem ? { contractId: String(selectedItem.id ?? ''), dodHash, events: contractEvents, meta: { title: selectedItem.title ?? '' } } : null} />
       {isCommandOpen && (
         <>
           {/* Overlay for command palette modal: semi-transparent, blur, background visible */}
@@ -763,7 +763,7 @@ const App = () => {
           </div>
         </>
       )}
-      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} profile={profileData} addToast={addToast} />
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} profile={profileData} addToast={addToast} contractHistory={contractHistory} />
 
       {/* Activity Log Panel */}
       {showActivityLog && (

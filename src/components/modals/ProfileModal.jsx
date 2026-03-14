@@ -1,9 +1,9 @@
 // filepath: src/components/modals/ProfileModal.jsx
 import React from "react";
-import { User, BadgeCheck, MapPin, Calendar, Hexagon, Activity, ShieldCheck, ArrowRight, Share2, AlertTriangle } from "lucide-react";
+import { User, BadgeCheck, MapPin, Calendar, Hexagon, Activity, ShieldCheck, ArrowRight, Share2, AlertTriangle, FileText } from "lucide-react";
 import { TRUST_LADDER } from "../../lib/constants";
 
-const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, onAction, addToast }) => {
+const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, onAction, addToast, contractHistory }) => {
   const [showVouchModal, setShowVouchModal] = React.useState(false);
   const [vouchReason, setVouchReason] = React.useState('');
   if (!isOpen || !unifiedProfile) return null;
@@ -110,6 +110,34 @@ const ProfileModal = ({ isOpen, onClose, profile: unifiedProfile, actionLabel, o
             <div><h4 className="text-white font-bold">TrustFlow Guarantee</h4><p className="text-xs text-indigo-300">Identity verified via decentralized ledger.</p></div>
             <div className="ml-auto text-2xl font-black text-white italic">100%</div>
           </div>
+          {/* Verified Contract Records — cryptographic work history */}
+          {contractHistory && contractHistory.length > 0 && (
+            <div className="relative z-10">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Verified Contract Records
+              </h4>
+              <div className="space-y-2">
+                {contractHistory.map((c, i) => {
+                  const isCancelled = String(c.id).startsWith('cancelled-');
+                  return (
+                    <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${
+                      isCancelled ? 'bg-slate-900/40 border-white/5' : 'bg-emerald-950/30 border-emerald-500/20'
+                    }`}>
+                      <FileText className={`w-4 h-4 shrink-0 ${isCancelled ? 'text-slate-500' : 'text-emerald-400'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-white truncate">{c.title}</p>
+                        <p className="text-[10px] text-slate-500">{c.date}{c.client && c.client !== '—' ? ` · ${c.client}` : ''}</p>
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest shrink-0 ${
+                        isCancelled ? 'text-slate-600' : 'text-emerald-400'
+                      }`}>{isCancelled ? 'Cancelled' : 'Verified'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-slate-600 mt-2">Each record is sealed via SHA-256 event chain. Download audit trail at contract completion.</p>
+            </div>
+          )}
           {/* Trust Ladder */}
           <div className="relative z-10">
             <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Trust Ladder</h4>

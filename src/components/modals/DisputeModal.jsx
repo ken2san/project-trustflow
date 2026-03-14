@@ -1,6 +1,7 @@
 // filepath: src/components/modals/DisputeModal.jsx
 import React, { useState, useEffect } from "react";
-import { AlertTriangle, Scale, X, User, Shield, Cpu, ChevronRight, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Scale, X, User, Shield, Cpu, ChevronRight, CheckCircle2, Download, ShieldCheck } from "lucide-react";
+import { downloadAuditTrail } from "../../lib/auditExport";
 
 const REASONS = [
   "Deliverable does not match Definition of Done",
@@ -15,7 +16,7 @@ const ARBITERS = [
   { id: "panel", label: "Peer Panel", desc: "3 verified peers · 48–72h · Community consensus", icon: Shield },
 ];
 
-const DisputeModal = ({ isOpen, onClose, onResolve }) => {
+const DisputeModal = ({ isOpen, onClose, onResolve, auditData }) => {
   const [step, setStep] = useState(1);
   const [reason, setReason] = useState("");
   const [customReason, setCustomReason] = useState("");
@@ -90,6 +91,20 @@ const DisputeModal = ({ isOpen, onClose, onResolve }) => {
                   <div><p className="text-xs font-black text-slate-300">{e.label}</p><p className="text-xs text-slate-500">{e.value}</p></div>
                 </div>
               ))}
+            </div>
+            {/* Audit trail download — highest value moment before filing */}
+            <div className="flex items-center gap-3 p-3 bg-emerald-950/30 rounded-2xl border border-emerald-500/20">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-emerald-300">Tamper-evident audit trail ready</p>
+                <p className="text-[10px] text-slate-500">SHA-256 · RFC 3161 · Download before filing</p>
+              </div>
+              <button
+                onClick={() => auditData && downloadAuditTrail(auditData)}
+                disabled={!auditData}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-500 disabled:opacity-40 transition-all shrink-0">
+                <Download className="w-3.5 h-3.5" /> Export
+              </button>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setStep(1)} className="flex-1 py-4 rounded-2xl border border-white/10 text-slate-400 font-bold hover:text-white transition-all">Back</button>
