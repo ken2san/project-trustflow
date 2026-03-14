@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-14 (Phase 4 dead state removal complete)_
+_Last updated: 2026-03-14 (bug fixes, Trust Passport write-back, deadline enforcement)_
 ---
 
 ## 0. Mission
@@ -159,7 +159,16 @@ BYOC (bring existing relationships)
 2. ~~**Re-hire data carry-over**~~ ✅ — `handleRehire` in `App.jsx` now syncs `acceptanceCriteria` from `acceptanceProtocol`, resets `dodHash`/`contractEvents`, sets `isRehire` flag. ScopingView shows "Pre-filled" banner.
 3. ~~**Counterparty Invite Flow**~~ ✅ — `InviteView.jsx` created. Triggered via URL params: `?invite=1&inviter=NAME&project=TITLE&amount=POINTS&dod=item1,item2`. Shows: who invited, project + DoD, 3-panel "what you gain" pitch (protection, Trust Passport, DoD lock). Accept → populates `selectedItem` and navigates to ScopingView. Decline → marketplace. URL params cleared via `history.replaceState` after either action.
 
+### Bug fixes & missing connections (2026-03-14)
+
+- **Trust Passport write-back** ✅ — Contract completion (Step 4→5) now updates `completedContracts`, `exp` (+500), `trustScore` (+5, capped 1000), `level` (derived from completedContracts at 1/3/5/10 thresholds), `totalEarned` (earner), `totalSpent` (hirer). `avgRating` computed as weighted average from blind rating reveal. `triggerLevelUp()` fires on completion.
+- **`isCancelled` bug** ✅ — `handleAbortSequence` was calling `setIsCancelled(false)`, so contracts never entered the cancelled state. Fixed to `true`; cancel log now includes reason text.
+- **Auto-Release Timer** ✅ — Was only firing if deadline had already passed at component mount. Rewritten to `setTimeout(delay)` so it fires at the correct future time. 24h advance warning toast added.
+- **Scope Builder** ✅ — `handleAIArchitectSubmit` always returned hardcoded "React Native / Stripe / Biometric" DoD regardless of prompt. Now extracts tokens from the actual user input.
+- **`totalSpent` tracking** ✅ — Hirer's `totalSpent` was not updated on escrow lock (Step 2 transition). Fixed alongside the existing points deduction.
+
 ### Demo: Counterparty Invite Flow
+
 ```
 http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20System&amount=300000&dod=Definitive%20Figma%20Library,Dark%20Mode%20Tokens,Atomic%20Design%20Compliance
 ```
@@ -171,32 +180,38 @@ http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20Sy
 ### Implemented & Working
 
 - Dual-mode (Earner / Hirer) switching
-- Marketplace with AI-scored job/talent matching
-- AI Architect: text prompt → Acceptance Criteria generation
+- Marketplace with Scope Builder (prompt → DoD criteria extraction)
 - Definition of Done display and lock protocol
 - Negotiation chat with export capability
-- Full contract state machine (4 steps: Protocol → Escrow → Inspect → Rating)
-- Smart contract update proposals (budget modification flow)
+- Full contract state machine (5 steps: Commitment → Vault → Inspect → Blind Rating → Settled)
+- Contract Health Score (real-time, based on events + deadline)
+- Staged Delivery (Preview Phase → Approve → Full Delivery)
+- Milestone / partial payment
+- Auto-Release Timer (fires at deadline; 24h warning)
+- Mutual Stake (symmetric escrow deduction)
+- Deadline enforcement (past-deadline banner in Step 2; auto-release timer)
+- Mid-contract cancellation with reason logging (isCancelled state correctly set)
+- Human Arbiter Escalation modal
 - File upload simulation with progress bar
-- Mid-contract cancellation with reason logging
 - Payment delay simulation and retry flow
 - Dispute modal
-- Profile system with level, EXP, badges, skill endorsements
+- Profile system with level (derived from completedContracts), EXP, badges, skill endorsements
+- Trust Passport: completedContracts, avgRating, trustScore, totalEarned/Spent written back on completion
 - Feature unlock system (level-gated)
+- Progressive Trust Ladder (contract limit enforced at Step 1)
+- Re-hire / Contract Template from prior contract
+- Counterparty Invite Flow (URL params → InviteView)
 - Toast notifications, Command Palette (Cmd+K)
 - Trust Passport modal
+- Supabase append-only event log, SHA-256 DoD hash, RFC 3161 TSA timestamps
+- Signed audit trail export (tamper-evident JSON)
 
 ### Known Gaps (not yet implemented)
 
-- Auto-Release Timer (72h unresponsive client → auto fund release)
-- Milestone / partial payment
-- Human Arbiter Escalation UI
-- Contract Pause / Resume
-- Deadline enforcement with penalty flow
-- Re-hire / Contract Template from prior relationship
-- Persistent Notification Center (audit log)
+- Persistent Notification Center (audit log replacing ephemeral toasts)
 - Social/GitHub import for Trust Score bootstrap
-- Firebase persistence (currently React state / mock data only)
+- Supabase persistence (currently React state / mock data only in prototype runtime)
+- Real Gemini API integration (Scope Builder currently uses token extraction)
 - Real Gemini API integration (currently mock responses)
 
 ---
