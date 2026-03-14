@@ -32,6 +32,7 @@ export const EVENT_TYPES = {
   RATING_SUBMITTED:     'rating.submitted',      // blind rating submitted
   // Bad-actor events — permanently attached to an actor's reputation record
   DISPUTE_LOST:          'dispute.lost',           // arbiter / resolution ruled against this actor
+  DISPUTE_WON:           'dispute.won',            // arbiter / resolution ruled in this actor's favor
   FORCED_CANCELLATION:   'contract.forced_cancellation', // contract cancelled by the other party's action
   GHOSTING_FLAG:         'actor.ghosting_flag',    // unresponsive; auto-release timer triggered
 }

@@ -32,7 +32,7 @@ const ContractView = (props) => {
     const [stagedPhase, setStagedPhase] = React.useState('preview');
 
     const {
-        step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status,
+        step, handleNextStep, handleReject, onOpenDispute, isUploading, uploadProgress, handleFileUpload, status,
         formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode,
         dodHash, contractEvents, contractAmount
     } = props;
@@ -139,12 +139,11 @@ const ContractView = (props) => {
 
     const handleConfirmDispute = () => {
         setShowDisputeConfirm(false);
-        setDisputeSubmitted(true);
-        if (addToast) addToast('Dispute Submitted', 'All evidence sent to admin/arbitrator.', 'warning');
         setHistory(prev => [
-            { type: 'dispute', message: 'Dispute raised. Evidence sent to admin.', timestamp: Date.now(), actor: mode },
+            { type: 'dispute', message: 'Dispute escalated to arbitration.', timestamp: Date.now(), actor: mode },
             ...prev
         ]);
+        if (onOpenDispute) onOpenDispute();
     };
 
     const handleBlindRatingSubmit = () => {
@@ -229,8 +228,8 @@ const ContractView = (props) => {
         setShowRejectModal(false);
         setRejectReason("");
         if (newRejectCount >= MAX_REJECTS) {
-            if (addToast) addToast('Dispute Required', `${MAX_REJECTS} rejections reached — dispute automatically opened.`, 'warning');
-            setShowDisputeConfirm(true);
+            if (addToast) addToast('Dispute Required', `${MAX_REJECTS} rejections reached — escalating to arbitration.`, 'warning');
+            if (onOpenDispute) onOpenDispute();
         } else {
             if (addToast) addToast('Rejected', `Re-delivery requested. ${MAX_REJECTS - newRejectCount} rejection(s) left before forced dispute.`, 'warning');
             if (handleReject) handleReject();

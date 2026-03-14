@@ -527,7 +527,11 @@ const App = () => {
     }, 1200);
   }, [step, mode, selectedItem, status, actorId]);
 
-  const handleReject = () => { setIsDisputeOpen(true); };
+  const handleReject = () => {
+    setStep(2);
+    addToast('Re-delivery Requested', 'The hirer has requested a revised submission.', 'warning');
+  };
+  const handleOpenDispute = () => { setIsDisputeOpen(true); };
   const handleRehire = React.useCallback(() => {
     // Carry over negotiated DoD (acceptanceProtocol) into the re-hire item
     setSelectedItem(prev => prev
@@ -554,23 +558,36 @@ const App = () => {
     }, ...prev]);
   }, [selectedItem]);
 
-  const handleDisputeResolve = async () => {
+  const handleDisputeResolve = async ({ winner, arbiter, reason } = {}) => {
     setIsDisputeOpen(false);
-    addToast('Dispute Resolved', 'Extension time added to contract.', 'success');
     const contractId = String(selectedItem?.id ?? 'mock');
+    const isPending = winner === 'pending';
+    const currentUserWins = !isPending && winner === mode;
+
+    if (isPending) {
+      addToast('Arbitration Submitted', `${arbiter === 'human' ? 'Human arbiter' : 'Peer panel'} assigned — ruling expected within ${arbiter === 'human' ? '24–48h' : '48–72h'}.`, 'info');
+    } else if (currentUserWins) {
+      addToast('Dispute Won', 'Arbitration ruled in your favor. Proceeding to settlement.', 'success');
+    } else {
+      addToast('Dispute Lost', 'Arbitration ruled against you. Stake partially forfeited.', 'error');
+      setUIProfile(s => ({ ...s, trustScore: Math.max(0, (s.trustScore ?? 0) - 10) }));
+      setBadActorFlags(prev => [...prev, {
+        type: EVENT_TYPES.DISPUTE_LOST,
+        label: 'Dispute Lost',
+        contractId,
+        date: new Date().toISOString(),
+      }]);
+    }
+
     const ev = await logEvent({
-      type: EVENT_TYPES.DISPUTE_LOST,
+      type: currentUserWins ? EVENT_TYPES.DISPUTE_WON : EVENT_TYPES.DISPUTE_LOST,
       contractId,
-      actorId: String(selectedItem?.id ?? 'counterparty'),
-      payload: { resolvedAt: new Date().toISOString(), contractTitle: selectedItem?.title ?? '' },
+      actorId,
+      payload: { winner, arbiter, reason, resolvedAt: new Date().toISOString() },
     });
     setContractEvents(prev => [ev, ...prev]);
-    setBadActorFlags(prev => [...prev, {
-      type: EVENT_TYPES.DISPUTE_LOST,
-      label: 'Dispute Lost',
-      contractId,
-      date: ev.created_at,
-    }]);
+    // Advance to blind rating phase — both parties rate each other after any dispute resolution
+    setStep(4);
   };
 
   const handleFileUpload = () => {
@@ -955,7 +972,7 @@ const App = () => {
           />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} onOpenDispute={handleOpenDispute} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
@@ -1084,13 +1101,3 @@ const App = () => {
 };
 
 export default App;
-
-const DUMMY_ACTIVE_OPERATIONS = [
-  { id: 1, phase: 'INSPECT PHASE', title: 'Fintech Dashboard V2', client: 'Alpha Bank', progress: 75, nextAction: 'Review Codebase' },
-  { id: 2, phase: 'ESCROW PHASE', title: 'E-Commerce Micro-interactions', client: 'ShopFlow', progress: 25, nextAction: 'Await Deposit' },
-];
-const DUMMY_MISSION_LOGS = [
-  { id: 1, title: 'Health App UI Kit', client: 'MedCore', date: '2026.01.15', rating: 5, earned: 280000 },
-  { id: 2, title: 'Crypto Wallet Icons', client: 'ChainLink', date: '2025.12.20', rating: 4.8, earned: 50000 },
-  { id: 3, title: 'Landing Page Refresh', client: 'StartUp Inc', date: '2025.11.10', rating: 5, earned: 150000 },
-];

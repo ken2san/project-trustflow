@@ -20,9 +20,10 @@ const DisputeModal = ({ isOpen, onClose, onResolve }) => {
   const [reason, setReason] = useState("");
   const [customReason, setCustomReason] = useState("");
   const [selectedArbiter, setSelectedArbiter] = useState(null);
+  const [verdict, setVerdict] = useState(null);
 
   useEffect(() => {
-    if (isOpen) { setStep(1); setReason(""); setCustomReason(""); setSelectedArbiter(null); }
+    if (isOpen) { setStep(1); setReason(""); setCustomReason(""); setSelectedArbiter(null); setVerdict(null); }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -115,7 +116,17 @@ const DisputeModal = ({ isOpen, onClose, onResolve }) => {
             ))}
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="flex-1 py-4 rounded-2xl border border-white/10 text-slate-400 font-bold hover:text-white transition-all">Back</button>
-              <button disabled={!selectedArbiter} onClick={() => { setStep(4); setTimeout(() => onResolve(), 2500); }}
+              <button disabled={!selectedArbiter} onClick={() => {
+                const isAI = selectedArbiter === 'ai';
+                const winner = isAI
+                  ? (reason === REASONS[0] ? 'hirer' : (Math.random() > 0.5 ? 'hirer' : 'earner'))
+                  : 'pending';
+                setStep(4);
+                setTimeout(() => {
+                  setVerdict(winner);
+                  setTimeout(() => onResolve({ winner, arbiter: selectedArbiter, reason: isOther ? customReason : reason }), 1500);
+                }, 2000);
+              }}
                 className="flex-[2] py-4 rounded-2xl bg-rose-600 text-white font-black hover:bg-rose-500 disabled:opacity-40 transition-all">
                 Submit Dispute →
               </button>
@@ -123,16 +134,48 @@ const DisputeModal = ({ isOpen, onClose, onResolve }) => {
           </div>
         )}
 
-        {/* Step 4: Submitting */}
+        {/* Step 4: Processing + Verdict */}
         {step === 4 && (
           <div className="flex flex-col items-center justify-center py-10 space-y-6 text-center">
-            <div className="w-16 h-16 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" />
-            <div>
-              <h3 className="text-xl font-black text-rose-400 mb-2">Submitting Evidence</h3>
-              <p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">
-                Routing to {ARBITERS.find(a => a.id === selectedArbiter)?.label}…
-              </p>
-            </div>
+            {!verdict && (
+              <>
+                <div className="w-16 h-16 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                <div>
+                  <h3 className="text-xl font-black text-rose-400 mb-2">Submitting Evidence</h3>
+                  <p className="text-xs text-slate-500 tracking-widest uppercase animate-pulse">
+                    Routing to {ARBITERS.find(a => a.id === selectedArbiter)?.label}…
+                  </p>
+                </div>
+              </>
+            )}
+            {verdict && verdict !== 'pending' && (
+              <div className={`w-full p-6 rounded-2xl border ${
+                verdict === 'hirer' ? 'bg-emerald-900/30 border-emerald-500/30' : 'bg-rose-900/30 border-rose-500/30'
+              }`}>
+                <CheckCircle2 className={`w-10 h-10 mx-auto mb-3 ${
+                  verdict === 'hirer' ? 'text-emerald-400' : 'text-rose-400'
+                }`} />
+                <h3 className="text-xl font-black text-white mb-1">AI Verdict</h3>
+                <p className={`text-sm font-bold ${
+                  verdict === 'hirer' ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  {verdict === 'hirer'
+                    ? 'Hirer prevails — deliverable did not meet DoD.'
+                    : 'Earner prevails — work meets the agreed standard.'}
+                </p>
+                <p className="text-xs text-slate-500 mt-2">Settlement will be processed automatically.</p>
+              </div>
+            )}
+            {verdict === 'pending' && (
+              <div className="w-full p-6 rounded-2xl border bg-amber-900/30 border-amber-500/30">
+                <Scale className="w-10 h-10 mx-auto mb-3 text-amber-400" />
+                <h3 className="text-xl font-black text-white mb-1">Submitted for Review</h3>
+                <p className="text-sm font-bold text-amber-400">
+                  {ARBITERS.find(a => a.id === selectedArbiter)?.label} assigned. Ruling in {selectedArbiter === 'human' ? '24–48h' : '48–72h'}.
+                </p>
+                <p className="text-xs text-slate-500 mt-2">Contract is locked pending arbitration outcome.</p>
+              </div>
+            )}
           </div>
         )}
 

@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout, runtime snapshot persistence, identity/realtime scaffolding)_
+_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout, runtime snapshot persistence, identity/realtime scaffolding, reject loop cap, contract history, dispute resolution logic)_
 ---
 
 ## 0. Mission
@@ -168,7 +168,8 @@ BYOC (bring existing relationships)
 - **Auto-Release Timer** ✅ — Was only firing if deadline had already passed at component mount. Rewritten to `setTimeout(delay)` so it fires at the correct future time. 24h advance warning toast added.
 - **Scope Builder** ✅ — `handleAIArchitectSubmit` always returned hardcoded "React Native / Stripe / Biometric" DoD regardless of prompt. Now extracts tokens from the actual user input.
 - **`totalSpent` tracking** ✅ — Hirer's `totalSpent` was not updated on escrow lock (Step 2 transition). Fixed alongside the existing points deduction.
-- **Runtime snapshot persistence (Supabase-first)** ✅ — App runtime state now auto-saves as append-only `runtime.snapshot` events and restores on reload. Falls back to local cache when Supabase is unavailable.
+- **Dispute resolution real logic** ✅ — `DisputeModal` now shows a verdict card at step 4 (AI arbiter: DoD-based winner determination with coin-flip fallback; Human/Panel: "Pending review" with expected SLA). `onResolve({ winner, arbiter, reason })` propagates outcome to `handleDisputeResolve` in App.jsx, which: applies trustScore -10 penalty and bad-actor flag to the losing party, logs `DISPUTE_WON`/`DISPUTE_LOST` event with actorId, and advances the contract to step 4 (blind rating). Normal rejections (<3) now correctly step back to step 2 (re-delivery) rather than opening the dispute modal.
+- **Dead code removed** ✅ — `DUMMY_ACTIVE_OPERATIONS` and `DUMMY_MISSION_LOGS` constants deleted from App.jsx (replaced by `activeOperations` useMemo and `contractHistory` state in prior commit). Feature #14 (Contract Pause / Resume) removed from feature table — contradicts Canonical State Machine.
 - **Actor identity bootstrap (Supabase-first)** ✅ — App now attempts anonymous Supabase Auth session and uses `user.id` as `actor_id` for event writes; falls back to stable device ID if anon auth is disabled.
 - **Invite contract ID propagation** ✅ — Invite URL now carries `cid` so sender and recipient can reference the same contract record instead of generating separate local IDs.
 - **Realtime contract event sync scaffold** ✅ — Contract view now fetches historical events for `contract_id` and subscribes to Supabase `postgres_changes` inserts, merging remote events into local timeline.
@@ -263,7 +264,8 @@ Features are organized by their role in the mission: protecting both parties, bu
 | 11  | **Staged Delivery**             | Preview → Approve → Full delivery. Earner is not exposed to theft; Hirer is not exposed to non-delivery.                       |
 | 12  | **Vouching System**             | Established users can vouch for new users, sharing trust transitively. Organic solution to Cold Start without eKYC.            |
 | 13  | **Re-hire / Contract Template** | One-click re-contract with a known counterparty. Retention is the proof that the platform works.                               |
-| 14  | **Contract Pause / Resume**     | Temporary halt for either party's legitimate reasons (illness, budget freeze). Better than forced cancellation.                |
+
+> **Note:** Feature #14 (Contract Pause / Resume) was removed. The Canonical State Machine (Section 1) explicitly eliminates pause/resume — clear DoD always defines the next action, and pausing is avoidance. `isPaused` was also removed from `ContractView.jsx` in the Phase 4 dead-state cleanup.
 
 ### 🔵 Completion — Audit & Transparency
 
@@ -316,7 +318,7 @@ Implement only after Phase 1 & 2 are validated by user feedback.
 - [x] Staged Delivery — Feature #11
 - [x] Vouching System — Feature #12
 - [x] Re-hire / Contract Template — Feature #13
-- [x] Contract Pause / Resume — Feature #14
+- ~~Feature #14 (Contract Pause / Resume) — eliminated by canonical state machine (see Design Principles #6/#7)~~
 
 ### Phase 4 — Record Integrity (priority: HIGH — this is the core differentiator)
 
