@@ -1,6 +1,6 @@
 # AGENTS.md — TrustFlow
 
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-14_
 
 > Universal rules (execution policy, code quality, git) are in VS Code User Settings.
 > This file contains TrustFlow-specific agent behavior only.
@@ -28,26 +28,6 @@ _Last updated: 2026-03-07_
 
 - Eliminate redundancy and duplication in code and documentation.
 - Optimize for clarity, maintainability, and minimalism without sacrificing intent.
-
-## Phase Restrictions
-
-- Do not implement Phase 3 or Phase 4 features (see `TrustFlow_Development_Roadmap.md`) without explicit user instruction.
-- All feature additions must align with the current active redesign phase.
-
-## Terminal Buffer Management
-
-- Before running a terminal command, run `clear` first to flush the buffer.
-- If output is long, do not attempt to read it in full — use `grep`, `head`, or `tail` to extract only what is needed.
-
-## Terminal Output Capture Limitation
-
-`run_in_terminal` with `isBackground: false` does not reliably return stdout — it captures the terminal screen buffer (prompt state) instead of command output. This is a known Copilot extension bug, not a shell configuration issue.
-
-Workaround for commands where output is needed:
-
-- Use `isBackground: true` then call `await_terminal` with the returned terminal ID to capture stdout.
-- For execution confirmation only, rely on exit code.
-- If foreground output is not captured, immediately retry with `isBackground: true` — do not attempt foreground multiple times.
 
 ## Structure
 
