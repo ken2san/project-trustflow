@@ -260,7 +260,9 @@ const App = () => {
     return !!localStorage.getItem('tf_onboarded');
   });
   const [showBYOCForm, setShowBYOCForm] = useState(false);
-  const [byocForm, setByocForm] = useState({ name: '', description: '' });
+  const [byocForm, setByocForm] = useState({ name: '', description: '', amount: '', dod: '' });
+  const [inviteLink, setInviteLink] = useState(null);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -487,15 +489,33 @@ const App = () => {
       id: 'byoc-' + Date.now(),
       title: byocForm.description || 'Custom Engagement',
       client: byocForm.name || 'Direct Counterparty',
-      totalPoints: 0,
-      acceptanceCriteria: [],
+      totalPoints: parseInt(byocForm.amount, 10) || 0,
+      acceptanceCriteria: byocForm.dod
+        ? byocForm.dod.split('\n').map(s => s.trim()).filter(Boolean)
+        : [],
     };
     setSelectedItem(item);
     setShowBYOCForm(false);
-    setByocForm({ name: '', description: '' });
+    setByocForm({ name: '', description: '', amount: '', dod: '' });
+    setInviteLink(null);
+    setInviteLinkCopied(false);
     setView('scoping');
     addToast('Agreement Started', 'Define your scope below.');
   }, [byocForm, addToast]);
+
+  const handleGenerateInvite = useCallback(() => {
+    const base = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams({
+      invite: '1',
+      inviter: USER_PROFILE.name,
+      project: byocForm.description || 'Project',
+      amount: byocForm.amount || '0',
+      dod: byocForm.dod
+        ? byocForm.dod.split('\n').map(s => s.trim()).filter(Boolean).join(',')
+        : '',
+    });
+    setInviteLink(`${base}?${params.toString()}`);
+  }, [byocForm]);
 
   const triggerSmartContractUpdate = () => { const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' }; setMessages(prev => [...prev, userMsg]); setTimeout(() => { const aiProposal = { id: Date.now() + 1, sender: 'ai', type: 'contract_update', data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 }, time: 'Now' }; setMessages(prev => [...prev, aiProposal]); }, 1500); };
   const acceptContractUpdate = (updateData) => { if (selectedItem) { setSelectedItem(prev => ({ ...prev, totalPoints: updateData.newTotal, acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"] })); } setScrambleTrigger(prev => prev + 1); setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: `Contract updated. Budget increased by ${formatNumber(updateData.additionalCost)} PTS.`, time: 'Now', type: 'text' }]); addToast('Smart Contract Updated', 'New budget locked in escrow.', 'success'); };
@@ -578,16 +598,49 @@ const App = () => {
 
       {/* BYOC Form Modal */}
       {showBYOCForm && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setShowBYOCForm(false); }}>
-          <div className="bg-[#0f172a] border border-white/10 rounded-[36px] p-10 w-full max-w-md shadow-2xl space-y-6 animate-fade-in-up">
-            <div><h3 className="text-2xl font-black text-white mb-1">Work with someone you know</h3><p className="text-slate-400 text-sm">Define the agreement together — no marketplace needed.</p></div>
-            <div className="space-y-4">
-              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Their name or handle</label><input type="text" value={byocForm.name} onChange={e => setByocForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g., Alex Chen / @alexchen" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
-              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">What are you building together?</label><textarea value={byocForm.description} onChange={e => setByocForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g., Mobile app redesign — 3 screens, Figma handoff included" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[100px]" /></div>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={e => { if (e.target === e.currentTarget) { setShowBYOCForm(false); setInviteLink(null); setInviteLinkCopied(false); } }}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-[36px] w-full max-w-md shadow-2xl animate-fade-in-up flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="flex items-start justify-between px-10 pt-10 pb-2">
+              <div>
+                <h3 className="text-2xl font-black text-white mb-1">Work with someone you know</h3>
+                <p className="text-slate-400 text-sm">Invite them via link, or define the scope yourself.</p>
+              </div>
+              <button onClick={() => { setShowBYOCForm(false); setInviteLink(null); setInviteLinkCopied(false); }} className="ml-4 mt-1 text-slate-500 hover:text-white transition-colors shrink-0" aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowBYOCForm(false)} className="flex-1 py-4 rounded-2xl border border-white/10 text-slate-400 hover:text-white font-bold transition-all">Cancel</button>
-              <button onClick={handleBYOCSubmit} className="flex-[2] py-4 rounded-2xl bg-white text-[#020617] font-black hover:bg-indigo-400 hover:text-white transition-all">Define Scope →</button>
+            {/* Scrollable body */}
+            <div className="overflow-y-auto px-10 py-6 space-y-4 flex-1">
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Their name or handle</label><input type="text" value={byocForm.name} onChange={e => setByocForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g., Alex Chen / @alexchen" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">What are you building together?</label><textarea value={byocForm.description} onChange={e => { setByocForm(f => ({ ...f, description: e.target.value })); setInviteLink(null); }} placeholder="e.g., Mobile app redesign — 3 screens, Figma handoff included" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[80px]" /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Contract value (PTS)</label><input type="number" min="0" value={byocForm.amount} onChange={e => { setByocForm(f => ({ ...f, amount: e.target.value })); setInviteLink(null); }} placeholder="e.g., 300000" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Definition of Done <span className="normal-case font-normal text-slate-600">(one item per line)</span></label><textarea value={byocForm.dod} onChange={e => { setByocForm(f => ({ ...f, dod: e.target.value })); setInviteLink(null); }} placeholder={"Definitive Figma Library\nDark Mode Tokens\nAtomic Design Compliance"} className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[90px] font-mono text-sm" /></div>
+              {inviteLink && (
+                <div className="bg-slate-800/60 border border-indigo-500/30 rounded-2xl px-5 py-4 space-y-3">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Invite Link — share this</p>
+                  <p className="text-xs text-slate-400 break-all font-mono leading-relaxed">{inviteLink}</p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(inviteLink);
+                      setInviteLinkCopied(true);
+                      setTimeout(() => setInviteLinkCopied(false), 2000);
+                    }}
+                    className={`w-full py-3 rounded-2xl font-black text-sm transition-all ${
+                      inviteLinkCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                    }`}
+                  >
+                    {inviteLinkCopied ? '✓ Copied!' : 'Copy Link'}
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* Sticky footer */}
+            <div className="px-10 pb-10 pt-4 border-t border-white/5 flex gap-3">
+              <button onClick={handleGenerateInvite} disabled={!byocForm.description.trim()} className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black transition-all text-sm">
+                {inviteLink ? 'Regenerate' : 'Generate Link'}
+              </button>
+              <button onClick={handleBYOCSubmit} className="flex-1 py-4 rounded-2xl bg-white text-[#020617] font-black hover:bg-indigo-400 hover:text-white transition-all text-sm">Start Myself →</button>
             </div>
           </div>
         </div>
