@@ -71,7 +71,7 @@ import {
 
 // Centralized constants and mock data
 import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, TRANSACTIONS_DATA, STEPS_DATA } from './lib/constants';
-import { formatNumber } from './lib/utils';
+import { formatNumber, deriveLevel } from './lib/utils';
 import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
@@ -513,7 +513,7 @@ const App = () => {
         // Trust Passport: record contract completion
         setUIProfile(s => {
           const newCompleted = (s.completedContracts ?? 0) + 1;
-          const newLevel = newCompleted >= 10 ? 10 : newCompleted >= 5 ? 5 : newCompleted >= 3 ? 3 : 1;
+          const newLevel = deriveLevel(newCompleted);
           return {
             ...s,
             completedContracts: newCompleted,

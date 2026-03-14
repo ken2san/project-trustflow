@@ -54,3 +54,16 @@ export function parseDeadlineLocal(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d, 23, 59, 59);
 }
+
+/**
+ * Derive Trust Passport level from number of completed contracts.
+ * Thresholds: 1 → level 1, 3 → level 3, 5 → level 5, 10 → level 10.
+ * @param {number} completedContracts
+ * @returns {number}
+ */
+export function deriveLevel(completedContracts) {
+  if (completedContracts >= 10) return 10;
+  if (completedContracts >= 5)  return 5;
+  if (completedContracts >= 3)  return 3;
+  return 1;
+}
