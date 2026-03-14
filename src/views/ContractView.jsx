@@ -89,6 +89,18 @@ const ContractView = (props) => {
         return () => clearTimeout(t);
     }, [step, autoReleaseArmed, autoReleaseFired, contractDeadline, addToast]);
 
+    // 24h advance warning before auto-release
+    React.useEffect(() => {
+        if (!autoReleaseArmed || autoReleaseFired || step !== 2 || !contractDeadline) return;
+        const deadlineDate = parseDeadlineLocal(contractDeadline);
+        const delay = (deadlineDate - 24 * 60 * 60 * 1000) - Date.now();
+        if (delay <= 0) return;
+        const t = setTimeout(() => {
+            if (addToast) addToast('Deadline in 24h', 'Auto-release will trigger if no delivery is submitted.', 'warning');
+        }, delay);
+        return () => clearTimeout(t);
+    }, [autoReleaseArmed, autoReleaseFired, step, contractDeadline, addToast]);
+
     const mutualStakeDeductedRef = React.useRef(false);
     React.useEffect(() => {
         if (mutualStakeEnabled && step === 2 && !mutualStakeDeductedRef.current) {
