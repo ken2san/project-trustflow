@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-13 (canonical state machine, AGENTS.md intellectual honesty policy, current sprint documented)_
+_Last updated: 2026-03-14 (Phase 4 dead state removal complete)_
 ---
 
 ## 0. Mission
@@ -146,12 +146,12 @@ BYOC (bring existing relationships)
 
 ---
 
-## Current Sprint (as of 2026-03-13)
+## Current Sprint (as of 2026-03-14)
 
-### Decisions made this session (not yet reflected in code)
+### Decisions made
 
 - **Canonical state machine established** — Platform guarantees DoD quality → contract flow becomes linear (DRAFTING → LOCKED → IN_PROGRESS → DELIVERED → CONFIRMED | DISPUTED → SETTLED). Renegotiation, Pause/Resume, and unlimited rejection loops are architecturally eliminated. See Design Principles #6/#7 section above.
-- **`ContractView.jsx` has dead state** — `showRenegotiate`, `isRenegotiating`, `pendingRenegotiation`, `isPaused`, `stagedPhase`, `previewSubmitted` states exist in code but conflict with the canonical state machine. These should be removed in a future cleanup pass.
+- **Dead state removed from `ContractView.jsx`** ✅ — Removed: `showRenegotiate`, `isRenegotiating`, `pendingRenegotiation`, `isPaused`, `previewSubmitted`, `chatLocked` (local), `currentStep`, `stepFromProps`, and their associated UI (renegotiation modal, pause button, pause banner, Acceptance Protocol block). `stagedPhase` was listed in the original dead-state note but is actively used by the Staged Delivery feature (ContractStep2); it was intentionally kept.
 
 ### Next 3 tasks (priority order)
 

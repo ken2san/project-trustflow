@@ -1,6 +1,6 @@
 import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
-import { Heart, Pause, Play, ArrowRight, Hash, ShieldCheck } from "lucide-react";
+import { Heart, ArrowRight, Hash, ShieldCheck } from "lucide-react";
 import HoldButton from "../components/ui/HoldButton";
 import { parseDeadlineLocal } from "../lib/utils";
 import ContractStepTracker from "./contract/ContractStepTracker";
@@ -16,13 +16,6 @@ const ContractView = (props) => {
     const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
     const [cancelReason, setCancelReason] = React.useState("");
     const [isCancelled, setIsCancelled] = React.useState(false);
-    const [chatLocked, setChatLocked] = React.useState(false);
-    const stepFromProps = typeof props.step === 'number' ? props.step : 0;
-    const [currentStep, setCurrentStep] = React.useState(stepFromProps);
-    const [showRenegotiate, setShowRenegotiate] = React.useState(false);
-    const [renegotiationFields, setRenegotiationFields] = React.useState({ deadline: '', amount: '', scope: '' });
-    const [isRenegotiating, setIsRenegotiating] = React.useState(false);
-    const [pendingRenegotiation, setPendingRenegotiation] = React.useState(null);
     const [contractDeadline, setContractDeadline] = React.useState('');
     const [blindRatingSubmitted, setBlindRatingSubmitted] = React.useState(false);
     const [ratingsRevealed, setRatingsRevealed] = React.useState(false);
@@ -32,13 +25,11 @@ const ContractView = (props) => {
     const [hirerStakeAmount, setHirerStakeAmount] = React.useState('');
     const [autoReleaseArmed, setAutoReleaseArmed] = React.useState(false);
     const [autoReleaseFired, setAutoReleaseFired] = React.useState(false);
-    const [isPaused, setIsPaused] = React.useState(false);
     const [milestonesEnabled, setMilestonesEnabled] = React.useState(false);
     const [milestones, setMilestones] = React.useState([]);
     const [currentMilestoneIndex, setCurrentMilestoneIndex] = React.useState(0);
     const [stagedDeliveryEnabled, setStagedDeliveryEnabled] = React.useState(false);
     const [stagedPhase, setStagedPhase] = React.useState('preview');
-    const [previewSubmitted, setPreviewSubmitted] = React.useState(false); // eslint-disable-line no-unused-vars
 
     const {
         step, handleNextStep, handleReject, isUploading, uploadProgress, handleFileUpload, status,
@@ -68,7 +59,6 @@ const ContractView = (props) => {
 
     const onAdvanceToFull = React.useCallback(() => {
         setStagedPhase('full');
-        setPreviewSubmitted(false);
         if (addToast) addToast('Preview Approved', 'Earner can now submit final delivery.', 'success');
     }, [addToast]);
 
@@ -78,7 +68,6 @@ const ContractView = (props) => {
             if (h.type === 'reject') score -= 15;
             if (h.type === 're-delivery') score -= 5;
             if (h.type === 'dispute') score -= 30;
-            if (h.type === 'renegotiation-proposed') score -= 10;
         });
         if (contractDeadline) {
             const d = parseDeadlineLocal(contractDeadline);
@@ -157,8 +146,6 @@ const ContractView = (props) => {
         setIsCancelled(false);
         setShowCancelConfirm(false);
         setCancelReason("");
-        setCurrentStep(0);
-        setChatLocked(false);
         setHistory(prev => [
             { type: 'abort', message: 'Acceptance Protocol aborted. Returned to negotiation.', timestamp: Date.now(), actor: mode },
             ...prev
@@ -246,7 +233,7 @@ const ContractView = (props) => {
             <ContractStepTracker step={step} />
 
             {step >= 1 && (
-                <div className="flex items-center justify-between max-w-4xl mx-auto mb-2 px-2">
+                <div className="flex items-center max-w-4xl mx-auto mb-2 px-2">
                     <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition-colors ${
                         healthScore >= 80 ? 'bg-emerald-900/30 border-emerald-500/30 text-emerald-400'
                         : healthScore >= 50 ? 'bg-amber-900/30 border-amber-500/30 text-amber-400'
@@ -255,21 +242,10 @@ const ContractView = (props) => {
                         <Heart className="w-3.5 h-3.5" />
                         Health {healthScore}%
                     </div>
-                    <button
-                        onClick={() => {
-                            setIsPaused(p => !p);
-                            if (addToast) addToast(isPaused ? 'Contract Resumed' : 'Contract Paused', isPaused ? 'Actions unlocked.' : 'All actions suspended.', 'info');
-                        }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all ${
-                            isPaused ? 'bg-amber-600 border-amber-500 text-white' : 'border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
-                        }`}
-                    >
-                        {isPaused ? <><Play className="w-3.5 h-3.5" /> Resume</> : <><Pause className="w-3.5 h-3.5" /> Pause</>}
-                    </button>
                 </div>
             )}
 
-            {dodHash && currentStep > 0 && (
+            {dodHash && (
                 <div className="max-w-4xl mx-auto mb-2 px-2 flex justify-end">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-900/30 border border-emerald-500/20 text-emerald-400">
                         <ShieldCheck className="w-3 h-3" />
@@ -281,101 +257,13 @@ const ContractView = (props) => {
                     </div>
                 </div>
             )}
-            <div className={`max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center transition-opacity ${isPaused ? 'opacity-60 pointer-events-none' : ''}`}>
-                {isPaused && (
-                    <div className="flex items-center gap-4 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-6 py-4 text-amber-300 mb-6 text-left">
-                        <Pause className="w-5 h-5 shrink-0" />
-                        <div>
-                            <p className="font-black text-sm">Contract Paused</p>
-                            <p className="text-xs text-amber-400/70">All actions are suspended. Use the Resume button above to continue.</p>
-                        </div>
-                    </div>
-                )}
+            <div className="max-w-4xl mx-auto bg-[#0f172a]/40 rounded-[24px] sm:rounded-[56px] p-2 sm:p-12 border border-white/[0.07] min-h-[500px] shadow-2xl backdrop-blur-2xl text-center">
 
-                {((typeof currentStep !== 'number' || currentStep === 0) && !isCancelled) && (
-                    <div className="flex flex-col items-center justify-center mt-12 mb-6 gap-8">
-                        <div className="mb-4">
-                            <h2 className="text-3xl font-black text-white mb-2">Acceptance Protocol</h2>
-                            <p className="text-slate-400 text-lg">Review the Definition of Done below. Every item becomes an enforceable commitment, logged on the record. If you disagree, return to negotiation. If you agree, lock terms &#8212; and hold both sides accountable.</p>
-                            <ul className="mt-4 text-left text-slate-200 text-base font-bold bg-slate-800/60 rounded-xl p-4 max-w-md mx-auto">
-                                <li>Definitive Figma Library</li>
-                                <li>Dark Mode Tokens</li>
-                                <li>Atomic Design Compliance</li>
-                            </ul>
-                            {dodHash && (
-                                <div className="mt-4 bg-slate-900/70 border border-emerald-500/20 rounded-xl p-4 max-w-md mx-auto text-left">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Hash className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                        <span className="text-xs font-black uppercase tracking-widest text-emerald-400">Contract Fingerprint</span>
-                                    </div>
-                                    <p className="text-[10px] font-mono text-slate-300 break-all leading-relaxed">{dodHash}</p>
-                                    <p className="text-[10px] text-slate-500 mt-2">SHA-256 · Generated from DoD text · Immutable after initiation</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex justify-center gap-6">
-                            <button
-                                onClick={() => setShowCancelConfirm(true)}
-                                className="flex items-center min-w-[140px] max-w-[200px] px-6 py-3 rounded-full bg-pink-600 text-white font-black hover:bg-pink-700 shadow-xl text-base border border-pink-200"
-                                style={{ boxShadow: '0 2px 8px 0 rgba(255, 0, 90, 0.10)' }}
-                            >
-                                Decline &amp; Return
-                            </button>
-                            <HoldButton
-                                key="btn-initiate"
-                                onClick={() => { setCurrentStep(1); setChatLocked(true); handleNextStep && handleNextStep(); }}
-                                label="Initiate Contract"
-                                icon={ArrowRight}
-                                className="btn-primary-hold min-w-[140px] max-w-[200px] bg-white text-[#020617] py-3 rounded-full font-black text-base shadow-xl border border-white/20"
-                                disabled={status !== 'idle'}
-                            />
-                        </div>
-                    </div>
-                )}
 
-                {showRenegotiate && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={e => { if (e.target === e.currentTarget) setShowRenegotiate(false); }}>
-                        <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-2xl space-y-6 relative flex flex-col">
-                            <button aria-label="Close" onClick={() => setShowRenegotiate(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl font-bold focus:outline-none">&times;</button>
-                            <h3 className="text-xl font-bold text-white mb-2 text-center">Renegotiate Terms</h3>
-                            <div className="flex flex-col sm:flex-row gap-6">
-                                <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-slate-700">
-                                    <h4 className="text-sm font-bold text-slate-300 mb-2">Current Terms</h4>
-                                    <div className="text-xs text-slate-400 mb-1">Deadline: <span className="font-bold text-white">{pendingRenegotiation?.deadline || '\u2014'}</span></div>
-                                    <div className="text-xs text-slate-400 mb-1">Amount: <span className="font-bold text-white">{pendingRenegotiation?.amount || '\u2014'}</span></div>
-                                    <div className="text-xs text-slate-400">Scope: <span className="font-bold text-white">{pendingRenegotiation?.scope || '\u2014'}</span></div>
-                                </div>
-                                <div className="flex-1 bg-slate-800/60 rounded-xl p-4 border border-yellow-700">
-                                    <h4 className="text-sm font-bold text-yellow-300 mb-2">New Terms (Editable)</h4>
-                                    <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Deadline (optional)" value={renegotiationFields.deadline} onChange={e => setRenegotiationFields(f => ({ ...f, deadline: e.target.value }))} />
-                                    <input type="text" className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700 mb-2" placeholder="New Amount (optional)" value={renegotiationFields.amount} onChange={e => setRenegotiationFields(f => ({ ...f, amount: e.target.value }))} />
-                                    <textarea className="w-full rounded px-3 py-2 text-sm bg-slate-900 text-white border border-slate-700" placeholder="Scope/Terms Change (optional)" value={renegotiationFields.scope} onChange={e => setRenegotiationFields(f => ({ ...f, scope: e.target.value }))} rows={3} />
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-center mt-4">
-                                <button onClick={() => {
-                                    setIsRenegotiating(true);
-                                    setShowRenegotiate(false);
-                                    setPendingRenegotiation({ ...renegotiationFields, proposer: mode, timestamp: Date.now() });
-                                    setHistory(prev => [
-                                        { type: 'renegotiation-proposed', message: `Proposed changes: ${JSON.stringify(renegotiationFields)}`, timestamp: Date.now(), actor: mode },
-                                        ...prev
-                                    ]);
-                                    if (addToast) addToast('Renegotiation Proposed', 'Awaiting other party response.', 'info');
-                                }} className="px-6 py-3 rounded bg-yellow-600 text-white font-bold text-lg hover:bg-yellow-700 transition-all w-full max-w-xs">Send Proposal</button>
-                                <span className="text-xs text-slate-500 mt-2">Changes will not be saved unless you send.<br/>Click &times; or outside to close without saving.</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
-                {isRenegotiating && pendingRenegotiation && (
-                    <div className="mb-6 p-4 rounded-xl bg-yellow-900/80 border border-yellow-400 text-yellow-100 flex flex-col items-center">
-                        <div className="font-bold mb-2">Renegotiation in Progress</div>
-                        <div className="text-xs mb-2">Proposed by: {pendingRenegotiation.proposer} at {new Date(pendingRenegotiation.timestamp).toLocaleString()}</div>
-                        <div className="text-xs">Deadline: {pendingRenegotiation.deadline || '\u2014'} | Amount: {pendingRenegotiation.amount || '\u2014'}<br/>Scope: {pendingRenegotiation.scope || '\u2014'}</div>
-                    </div>
-                )}
+
+
+
 
                 {showCancelConfirm && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -390,9 +278,7 @@ const ContractView = (props) => {
                     </div>
                 )}
 
-                {!chatLocked && (
-                    <>
-                        {step === 1 && (
+                {step === 1 && (
                             <ContractStep1
                                 contractDeadline={contractDeadline}
                                 setContractDeadline={setContractDeadline}
@@ -440,8 +326,6 @@ const ContractView = (props) => {
                                 stagedPhase={stagedPhase}
                                 onAdvanceToFull={onAdvanceToFull}
                             />
-                        )}
-                    </>
                 )}
 
                 {step === 3 && (
