@@ -33,16 +33,16 @@ const ContractView = (props) => {
 
     const {
         step, handleNextStep, handleReject, onOpenDispute, isUploading, uploadProgress, handleFileUpload, status,
-        formatNumber, userStats, setUserStats, addToast, triggerLevelUp, triggerParamUp, mode,
+        formatNumber, userStats, setUserStats, addToast, mode,
         dodHash, contractEvents, contractAmount
     } = props;
 
     const workflow = useContractWorkflow({
-        step, setUserStats, userStats, addToast, triggerLevelUp, triggerParamUp, mode, handleNextStep, handleReject, status
+        step, mode, handleNextStep, handleReject, status
     });
 
     const {
-        rating, setRating, hasUpdatedStats, deliverables, setDeliverables,
+        rating, setRating, deliverables, setDeliverables,
         uploadMessage, setUploadMessage, uploadFile, setUploadFile,
         showRejectModal, setShowRejectModal, rejectReason, setRejectReason,
         history, setHistory,

@@ -775,7 +775,7 @@ const App = () => {
           <div className="overflow-y-auto flex-1 p-3 space-y-2">
             {activityLog.length === 0 && <p className="text-xs text-slate-600 text-center py-6 font-bold">No activity yet.</p>}
             {activityLog.map(item => (
-              <div key={item.id} className={`px-4 py-3 rounded-2xl border text-xs ${item.type === 'success' ? 'bg-emerald-900/20 border-emerald-500/20' : item.type === 'warning' ? 'bg-amber-900/20 border-amber-500/20' : 'bg-indigo-900/20 border-indigo-500/20'}`}>
+              <div key={item.id} className={`px-4 py-3 rounded-2xl border text-xs ${item.type === 'success' ? 'bg-emerald-900/20 border-emerald-500/20' : item.type === 'error' ? 'bg-rose-900/20 border-rose-500/20' : item.type === 'warning' ? 'bg-amber-900/20 border-amber-500/20' : 'bg-indigo-900/20 border-indigo-500/20'}`}>
                 <p className="font-black text-white mb-0.5">{item.title}</p>
                 <p className="text-slate-400">{item.message}</p>
                 <p className="text-slate-600 mt-1">{item.timestamp.toLocaleTimeString()}</p>
