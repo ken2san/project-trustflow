@@ -122,3 +122,60 @@ export async function logEvent(params) {
 
   return persistEvent({ ...event, event_hash: eventHash, tsa_token: tsaToken })
 }
+
+/**
+ * Read latest events for a contract.
+ * Returns [] in local/mock mode or on query failure.
+ *
+ * @param {string} contractId
+ * @returns {Promise<Array<object>>}
+ */
+export async function fetchContractEvents(contractId) {
+  if (!supabase || !contractId) return []
+
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('contract_id', contractId)
+    .order('created_at', { ascending: false })
+    .limit(200)
+
+  if (error) {
+    console.warn('[TrustFlow] contract events fetch failed:', error.message)
+    return []
+  }
+
+  return data || []
+}
+
+/**
+ * Subscribe to realtime inserts for one contract.
+ * Returns an unsubscribe function.
+ *
+ * @param {string} contractId
+ * @param {(event: object) => void} onInsert
+ * @returns {() => void}
+ */
+export function subscribeToContractEvents(contractId, onInsert) {
+  if (!supabase || !contractId) return () => {}
+
+  const channel = supabase
+    .channel(`events:${contractId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'events',
+        filter: `contract_id=eq.${contractId}`,
+      },
+      payload => {
+        if (payload?.new) onInsert(payload.new)
+      }
+    )
+    .subscribe()
+
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}

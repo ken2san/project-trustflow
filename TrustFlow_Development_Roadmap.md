@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout, runtime snapshot persistence)_
+_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout, runtime snapshot persistence, identity/realtime scaffolding)_
 ---
 
 ## 0. Mission
@@ -169,6 +169,9 @@ BYOC (bring existing relationships)
 - **Scope Builder** ✅ — `handleAIArchitectSubmit` always returned hardcoded "React Native / Stripe / Biometric" DoD regardless of prompt. Now extracts tokens from the actual user input.
 - **`totalSpent` tracking** ✅ — Hirer's `totalSpent` was not updated on escrow lock (Step 2 transition). Fixed alongside the existing points deduction.
 - **Runtime snapshot persistence (Supabase-first)** ✅ — App runtime state now auto-saves as append-only `runtime.snapshot` events and restores on reload. Falls back to local cache when Supabase is unavailable.
+- **Actor identity bootstrap (Supabase-first)** ✅ — App now attempts anonymous Supabase Auth session and uses `user.id` as `actor_id` for event writes; falls back to stable device ID if anon auth is disabled.
+- **Invite contract ID propagation** ✅ — Invite URL now carries `cid` so sender and recipient can reference the same contract record instead of generating separate local IDs.
+- **Realtime contract event sync scaffold** ✅ — Contract view now fetches historical events for `contract_id` and subscribes to Supabase `postgres_changes` inserts, merging remote events into local timeline.
 
 ### Demo: Complete Invite Round-Trip
 
@@ -222,7 +225,7 @@ http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20Sy
 
 - Persistent Notification Center (audit log replacing ephemeral toasts)
 - Social/GitHub import for Trust Score bootstrap
-- Full multi-user persistence (Auth + RLS + realtime sync still required; current runtime snapshot persistence is single-device actor based)
+- RLS policy completion and role-aware access boundaries (anonymous identity + realtime event subscription are in place; policy hardening still required)
 - Real Gemini API integration (Scope Builder currently uses token extraction)
 - Real Gemini API integration (currently mock responses)
 

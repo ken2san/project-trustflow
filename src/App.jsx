@@ -73,8 +73,9 @@ import {
 import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, TRANSACTIONS_DATA, STEPS_DATA } from './lib/constants';
 import { formatNumber } from './lib/utils';
 import { sha256, buildDodCanonical } from './lib/crypto.js';
-import { logEvent, EVENT_TYPES } from './lib/eventLog.js';
+import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
+import { ensureActorIdentity } from './lib/identity.js';
 
 
 // ...existing code...
@@ -197,6 +198,7 @@ const App = () => {
     const params = new URLSearchParams(window.location.search);
     if (!params.has('invite')) return null;
     return {
+      contractId: params.get('cid') || '',
       inviter: params.get('inviter') || 'Someone',
       project: params.get('project') || 'A Project',
       amount: parseInt(params.get('amount'), 10) || 0,
@@ -262,9 +264,11 @@ const App = () => {
   });
   const [showBYOCForm, setShowBYOCForm] = useState(false);
   const [byocForm, setByocForm] = useState({ name: '', description: '', amount: '', dod: '' });
+  const [byocContractId, setByocContractId] = useState('');
   const [inviteLink, setInviteLink] = useState(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [isRuntimeHydrated, setIsRuntimeHydrated] = useState(false);
+  const [actorId, setActorId] = useState('user');
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -282,6 +286,9 @@ const App = () => {
     let alive = true;
 
     const hydrate = async () => {
+      const identity = await ensureActorIdentity();
+      if (alive && identity?.actorId) setActorId(identity.actorId);
+
       const snapshot = await loadRuntimeSnapshot();
       if (!alive) return;
 
@@ -307,6 +314,39 @@ const App = () => {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    const contractId = String(selectedItem?.id ?? '');
+    if (!contractId || contractId === 'mock') return;
+
+    let cancelled = false;
+    const mergeEvents = incoming => {
+      setContractEvents(prev => {
+        const map = new Map(prev.map(e => [e.id, e]));
+        incoming.forEach(e => map.set(e.id, e));
+        return Array.from(map.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      });
+    };
+
+    const load = async () => {
+      const remote = await fetchContractEvents(contractId);
+      if (cancelled || remote.length === 0) return;
+      mergeEvents(remote);
+      const initiated = remote.find(e => e.type === EVENT_TYPES.CONTRACT_INITIATED);
+      if (initiated?.dod_hash) setDodHash(prev => prev || initiated.dod_hash);
+    };
+
+    load();
+    const unsubscribe = subscribeToContractEvents(contractId, ev => {
+      if (!ev?.id) return;
+      mergeEvents([ev]);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [selectedItem?.id]);
 
   useEffect(() => {
     if (!isRuntimeHydrated) return;
@@ -405,7 +445,7 @@ const App = () => {
       const event = await logEvent({
         type: EVENT_TYPES.CONTRACT_INITIATED,
         contractId: String(selectedItem.id ?? 'mock-' + Date.now()),
-        actorId: 'user',
+        actorId,
         payload: { title: selectedItem.title, budgetPoints: selectedItem.totalPoints },
         dodHash: hash,
       });
@@ -431,10 +471,10 @@ const App = () => {
       // Phase 4: log step transition events
       const contractId = String(selectedItem?.id ?? 'mock');
       if (step === 1) {
-        const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_ACCEPTED, contractId, actorId: 'user', payload: { step: 1 } });
+        const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_ACCEPTED, contractId, actorId, payload: { step: 1 } });
         setContractEvents(prev => [ev, ...prev]);
       } else if (step === 4) {
-        const ev = await logEvent({ type: EVENT_TYPES.WORK_APPROVED, contractId, actorId: 'user', payload: { step: 4 } });
+        const ev = await logEvent({ type: EVENT_TYPES.WORK_APPROVED, contractId, actorId, payload: { step: 4 } });
         setContractEvents(prev => [ev, ...prev]);
         // Trust Passport: record contract completion
         setUIProfile(s => {
@@ -456,7 +496,7 @@ const App = () => {
       // (negotiationMessages and negotiationAgreed state are now at the top level)
       if (step === 5) {
           // Log contract completion before resetting
-          const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_COMPLETED, contractId, actorId: 'user', payload: {} });
+          const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_COMPLETED, contractId, actorId, payload: {} });
           setContractEvents(prev => [ev, ...prev]);
           // Reset everything for next cycle
           setView('marketplace');
@@ -473,7 +513,7 @@ const App = () => {
       setStep(prev => prev + 1);
       setStatus('idle');
     }, 1200);
-  }, [step, mode, selectedItem, status]);
+  }, [step, mode, selectedItem, status, actorId]);
 
   const handleReject = () => { setIsDisputeOpen(true); };
   const handleRehire = React.useCallback(() => {
@@ -527,7 +567,7 @@ const App = () => {
                   const ev = await logEvent({
                     type: EVENT_TYPES.WORK_SUBMITTED,
                     contractId: String(selectedItem?.id ?? 'mock'),
-                    actorId: 'user',
+                    actorId,
                     payload: { step: 3 },
                   });
                   setContractEvents(prev => [ev, ...prev]);
@@ -546,12 +586,13 @@ const App = () => {
   }, []);
 
   const handleBYOCStart = useCallback(() => {
+    setByocContractId(crypto.randomUUID());
     setShowBYOCForm(true);
   }, []);
 
   const handleBYOCSubmit = useCallback(() => {
     const item = {
-      id: 'byoc-' + Date.now(),
+      id: byocContractId || ('byoc-' + Date.now()),
       title: byocForm.description || 'Custom Engagement',
       client: byocForm.name || 'Direct Counterparty',
       totalPoints: parseInt(byocForm.amount, 10) || 0,
@@ -562,16 +603,18 @@ const App = () => {
     setSelectedItem(item);
     setShowBYOCForm(false);
     setByocForm({ name: '', description: '', amount: '', dod: '' });
+    setByocContractId('');
     setInviteLink(null);
     setInviteLinkCopied(false);
     setView('scoping');
     addToast('Agreement Started', 'Define your scope below.');
-  }, [byocForm, addToast]);
+  }, [byocForm, addToast, byocContractId]);
 
   const handleGenerateInvite = useCallback(() => {
     const base = window.location.origin + window.location.pathname;
     const params = new URLSearchParams({
       invite: '1',
+      cid: byocContractId || crypto.randomUUID(),
       inviter: USER_PROFILE.name,
       project: byocForm.description || 'Project',
       amount: byocForm.amount || '0',
@@ -580,7 +623,7 @@ const App = () => {
         : '',
     });
     setInviteLink(`${base}?${params.toString()}`);
-  }, [byocForm]);
+  }, [byocForm, byocContractId]);
 
   const triggerSmartContractUpdate = () => { const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' }; setMessages(prev => [...prev, userMsg]); setTimeout(() => { const aiProposal = { id: Date.now() + 1, sender: 'ai', type: 'contract_update', data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 }, time: 'Now' }; setMessages(prev => [...prev, aiProposal]); }, 1500); };
   const acceptContractUpdate = (updateData) => { if (selectedItem) { setSelectedItem(prev => ({ ...prev, totalPoints: updateData.newTotal, acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"] })); } setScrambleTrigger(prev => prev + 1); setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: `Contract updated. Budget increased by ${formatNumber(updateData.additionalCost)} PTS.`, time: 'Now', type: 'text' }]); addToast('Smart Contract Updated', 'New budget locked in escrow.', 'success'); };
@@ -671,7 +714,7 @@ const App = () => {
                 <h3 className="text-2xl font-black text-white mb-1">Work with someone you know</h3>
                 <p className="text-slate-400 text-sm">Invite them via link, or define the scope yourself.</p>
               </div>
-              <button onClick={() => { setShowBYOCForm(false); setInviteLink(null); setInviteLinkCopied(false); }} className="ml-4 mt-1 text-slate-500 hover:text-white transition-colors shrink-0" aria-label="Close">
+              <button onClick={() => { setShowBYOCForm(false); setByocContractId(''); setInviteLink(null); setInviteLinkCopied(false); }} className="ml-4 mt-1 text-slate-500 hover:text-white transition-colors shrink-0" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -855,7 +898,7 @@ const App = () => {
             inviteData={inviteData}
             onAccept={() => {
               const item = {
-                id: 'invite-' + Date.now(),
+                id: inviteData.contractId || ('invite-' + Date.now()),
                 title: inviteData.project,
                 client: inviteData.inviter,
                 totalPoints: inviteData.amount,
