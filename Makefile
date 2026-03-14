@@ -3,7 +3,11 @@ IMAGE_NAME=gcr.io/$(PROJECT_ID)/trustflow-project
 REGION=us-central1
 SERVICE_NAME=trustflow-web
 
-.PHONY: build push deploy down all create-project
+.PHONY: build push deploy down all create-project check
+
+# Local sanity check — run before every commit
+check:
+	npm test && npm run build
 
 # プロジェクト作成（初回のみ手動実行）
 create-project:

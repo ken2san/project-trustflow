@@ -30,6 +30,12 @@ _Last updated: 2026-03-14_
 - Eliminate redundancy and duplication in code and documentation.
 - Optimize for clarity, maintainability, and minimalism without sacrificing intent.
 
+## Testing Gate
+
+- Run `make check` (unit tests + build) before every commit. Do not commit if either fails.
+- Unit tests live in `tests/unit/`. Pure functions only — no React, no DOM, no Supabase.
+- Before extracting logic from App.jsx into a lib file, the extracted function must have at least one test.
+
 ## Structure
 
 - Execution policy, project context, and git rules: VS Code User Settings (`github.copilot.chat.codeGeneration.instructions`)
