@@ -332,6 +332,7 @@ const ContractView = (props) => {
                                 contractAmount={contractAmount ?? 0}
                                 handleNextStep={handleNextStep}
                                 status={status}
+                                onBack={props.onBack}
                             />
                         )}
                         {step === 2 && (

@@ -1,6 +1,6 @@
 import React from "react";
 import HoldButton from "../../components/ui/HoldButton";
-import { ArrowRight, Plus, X } from "lucide-react";
+import { ArrowRight, Plus, X, ArrowLeft } from "lucide-react";
 import { TRUST_LADDER } from "../../lib/constants";
 
 const ContractStep1 = ({
@@ -14,7 +14,8 @@ const ContractStep1 = ({
     stagedDeliveryEnabled, setStagedDeliveryEnabled,
     userLevel,
     contractAmount,
-    handleNextStep, status
+    handleNextStep, status,
+    onBack
 }) => {
     const addMilestone = () =>
         setMilestones(prev => [...prev, { id: Date.now(), name: '', amount: '' }]);
@@ -182,6 +183,11 @@ const ContractStep1 = ({
                         Contract amount exceeds your <span className="text-white">{tier.label}</span> tier limit of <span className="text-white">{limitLabel}</span>.
                     </p>
                     <p className="text-xs text-slate-500 mt-1">Complete more contracts to unlock a higher limit.</p>
+                    {onBack && (
+                        <button onClick={onBack} className="mt-3 flex items-center gap-1.5 mx-auto text-xs font-black text-slate-400 hover:text-white transition-colors">
+                            <ArrowLeft className="w-3.5 h-3.5" /> Back to marketplace
+                        </button>
+                    )}
                 </div>
             )}
             <HoldButton
