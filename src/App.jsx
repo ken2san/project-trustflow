@@ -342,6 +342,36 @@ const App = () => {
     const unsubscribe = subscribeToContractEvents(contractId, ev => {
       if (!ev?.id) return;
       mergeEvents([ev]);
+
+      // Step sync: apply state changes from counterparty events.
+      // Skip own events — local state was already updated when we wrote them.
+      if (ev.actor_id === actorId) return;
+
+      const STEP_MAP = {
+        [EVENT_TYPES.CONTRACT_ACCEPTED]: 2,
+        [EVENT_TYPES.WORK_SUBMITTED]:    3,
+        [EVENT_TYPES.WORK_APPROVED]:     4,
+        [EVENT_TYPES.PAYMENT_RELEASED]:  5,
+        [EVENT_TYPES.CONTRACT_COMPLETED]: 5,
+      };
+
+      const targetStep = STEP_MAP[ev.type];
+      if (targetStep) {
+        setStep(prev => (prev < targetStep ? targetStep : prev));
+        addToast('Contract Updated', 'Your counterparty advanced the contract.', 'info');
+      }
+
+      if (ev.type === EVENT_TYPES.CONTRACT_CANCELLED) {
+        addToast('Contract Cancelled', 'Your counterparty has cancelled this contract.', 'warning');
+        setView('marketplace');
+        setSelectedItem(null);
+        setStep(1);
+        setContractEvents([]);
+      }
+
+      if (ev.type === EVENT_TYPES.DISPUTE_OPENED || ev.type === EVENT_TYPES.DISPUTE_RESOLVED) {
+        addToast('Dispute Update', `Dispute ${ev.type === EVENT_TYPES.DISPUTE_OPENED ? 'opened' : 'resolved'} by counterparty.`, 'warning');
+      }
     });
 
     return () => {
