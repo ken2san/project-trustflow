@@ -301,7 +301,24 @@ const App = () => {
     }
     setIsProfileOpen(true);
   };
-  const handleAIArchitectSubmit = () => { setStatus('processing'); setTimeout(() => { setAiSuggestions({ summary: "Based on your request, I've architected a project scope.", dod: ["React Native Codebase", "Stripe Integration", "Biometric Auth Flow"], budget: "250,000 - 300,000 PTS", candidates: TALENTS_DATA }); setStatus('idle'); }, 1500); };
+  const handleAIArchitectSubmit = () => {
+    setStatus('processing');
+    setTimeout(() => {
+      const tokens = (projectPrompt.match(/(?:[A-Z][a-zA-Z]+|[a-z]{5,})/g) || [])
+        .filter((w, i, a) => a.indexOf(w) === i)
+        .slice(0, 4);
+      const dod = tokens.length >= 2
+        ? tokens.map(t => t.charAt(0).toUpperCase() + t.slice(1) + ' — delivered and approved by both parties')
+        : ['Deliverable matches the agreed scope', 'Reviewed and signed off by both parties', 'No unresolved objections at handoff'];
+      setAiSuggestions({
+        summary: 'Criteria extracted from your description. Review each item before locking terms.',
+        dod,
+        budget: 'Confirm budget before proceeding.',
+        candidates: TALENTS_DATA,
+      });
+      setStatus('idle');
+    }, 1500);
+  };
   // BiometricModal removed: go directly to contract view
   const initiateContract = async () => {
     setView('contract');
@@ -339,7 +356,10 @@ const App = () => {
 
     setTimeout(async () => {
       // Logic execution
-      if (step === 2) { if (mode === 'hirer') setUIProfile(s => ({ ...s, points: (s.points ?? 0) - selectedItem.totalPoints })); else setUIProfile(s => ({ ...s, points: (s.points ?? 0) + selectedItem.totalPoints })); }
+      if (step === 2) {
+        if (mode === 'hirer') setUIProfile(s => ({ ...s, points: (s.points ?? 0) - selectedItem.totalPoints, totalSpent: (s.totalSpent ?? 0) + selectedItem.totalPoints }));
+        else setUIProfile(s => ({ ...s, points: (s.points ?? 0) + selectedItem.totalPoints }));
+      }
 
       // Phase 4: log step transition events
       const contractId = String(selectedItem?.id ?? 'mock');
@@ -349,6 +369,20 @@ const App = () => {
       } else if (step === 4) {
         const ev = await logEvent({ type: EVENT_TYPES.WORK_APPROVED, contractId, actorId: 'user', payload: { step: 4 } });
         setContractEvents(prev => [ev, ...prev]);
+        // Trust Passport: record contract completion
+        setUIProfile(s => {
+          const newCompleted = (s.completedContracts ?? 0) + 1;
+          const newLevel = newCompleted >= 10 ? 10 : newCompleted >= 5 ? 5 : newCompleted >= 3 ? 3 : 1;
+          return {
+            ...s,
+            completedContracts: newCompleted,
+            exp: (s.exp ?? 0) + 500,
+            trustScore: Math.min(1000, (s.trustScore ?? 0) + 5),
+            level: newLevel,
+            totalEarned: mode === 'earner' ? (s.totalEarned ?? 0) + (selectedItem?.totalPoints ?? 0) : (s.totalEarned ?? 0),
+          };
+        });
+        triggerLevelUp();
       }
 
       // Navigation

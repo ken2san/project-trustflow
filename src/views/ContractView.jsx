@@ -81,13 +81,12 @@ const ContractView = (props) => {
     React.useEffect(() => {
         if (!autoReleaseArmed || autoReleaseFired || step !== 2 || !contractDeadline) return;
         const deadlineDate = parseDeadlineLocal(contractDeadline);
-        if (new Date() >= deadlineDate) {
-            const t = setTimeout(() => {
-                setAutoReleaseFired(true);
-                if (addToast) addToast('Auto-Release Triggered', 'Deadline passed with no delivery. Funds released to earner.', 'warning');
-            }, 2000);
-            return () => clearTimeout(t);
-        }
+        const delay = Math.max(0, deadlineDate - Date.now());
+        const t = setTimeout(() => {
+            setAutoReleaseFired(true);
+            if (addToast) addToast('Auto-Release Triggered', 'Deadline reached. Funds auto-released to earner.', 'warning');
+        }, delay + 2000);
+        return () => clearTimeout(t);
     }, [step, autoReleaseArmed, autoReleaseFired, contractDeadline, addToast]);
 
     const mutualStakeDeductedRef = React.useRef(false);
@@ -137,20 +136,31 @@ const ContractView = (props) => {
         if (rating === 0) return;
         setBlindRatingSubmitted(true);
         setTimeout(() => {
-            setPartnerRating(Math.floor(Math.random() * 2) + 4);
+            const newPartnerRating = Math.floor(Math.random() * 2) + 4;
+            setPartnerRating(newPartnerRating);
             setRatingsRevealed(true);
+            if (setUserStats) {
+                setUserStats(s => {
+                    const count = s.completedContracts ?? 0;
+                    const prev = s.avgRating ?? 0;
+                    const newAvg = count === 0
+                        ? newPartnerRating
+                        : parseFloat(((prev * count + newPartnerRating) / (count + 1)).toFixed(1));
+                    return { ...s, avgRating: newAvg };
+                });
+            }
         }, 3000);
     };
 
     const handleAbortSequence = () => {
-        setIsCancelled(false);
+        setIsCancelled(true);
         setShowCancelConfirm(false);
         setCancelReason("");
         setHistory(prev => [
-            { type: 'abort', message: 'Acceptance Protocol aborted. Returned to negotiation.', timestamp: Date.now(), actor: mode },
+            { type: 'abort', message: `Contract cancelled: ${cancelReason}`, timestamp: Date.now(), actor: mode },
             ...prev
         ]);
-        if (addToast) addToast('Aborted', 'Returned to negotiation phase.', 'info');
+        if (addToast) addToast('Contract Cancelled', 'This contract has been cancelled and logged.', 'warning');
     };
 
     const handleRejectClick = () => setShowRejectConfirm(true);
