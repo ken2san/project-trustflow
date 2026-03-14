@@ -290,7 +290,7 @@ const App = () => {
       const identity = await ensureActorIdentity();
       if (alive && identity?.actorId) setActorId(identity.actorId);
 
-      const snapshot = await loadRuntimeSnapshot();
+      const snapshot = await loadRuntimeSnapshot(identity?.actorId);
       if (!alive) return;
 
       if (snapshot) {
@@ -366,7 +366,7 @@ const App = () => {
         badActorFlags,
         byocForm,
         contractHistory,
-      });
+      }, actorId);
     }, 900);
 
     return () => clearTimeout(timer);

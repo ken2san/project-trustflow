@@ -21,7 +21,13 @@ function writeLocalSnapshot(snapshot) {
   }
 }
 
-export async function saveRuntimeSnapshot(snapshot) {
+/**
+ * Save runtime snapshot to Supabase (and local cache).
+ * @param {object} snapshot - app state to persist
+ * @param {string} [actorId] - auth uid or device id; falls back to getDeviceId()
+ */
+export async function saveRuntimeSnapshot(snapshot, actorId) {
+  const resolvedActorId = actorId || getDeviceId()
   const enriched = {
     ...snapshot,
     savedAt: new Date().toISOString(),
@@ -32,11 +38,10 @@ export async function saveRuntimeSnapshot(snapshot) {
 
   if (!supabase) return { source: 'local' }
 
-  const actorId = getDeviceId()
   const { error } = await supabase.from('events').insert({
     type: 'runtime.snapshot',
     contract_id: 'runtime',
-    actor_id: actorId,
+    actor_id: resolvedActorId,
     payload: enriched,
     dod_hash: null,
   })
@@ -49,16 +54,20 @@ export async function saveRuntimeSnapshot(snapshot) {
   return { source: 'supabase' }
 }
 
-export async function loadRuntimeSnapshot() {
+/**
+ * Load latest runtime snapshot from Supabase (or local cache).
+ * @param {string} [actorId] - auth uid or device id; falls back to getDeviceId()
+ */
+export async function loadRuntimeSnapshot(actorId) {
   const local = readLocalSnapshot()
   if (!supabase) return local
 
-  const actorId = getDeviceId()
+  const resolvedActorId = actorId || getDeviceId()
   const { data, error } = await supabase
     .from('events')
     .select('payload,created_at')
     .eq('type', 'runtime.snapshot')
-    .eq('actor_id', actorId)
+    .eq('actor_id', resolvedActorId)
     .order('created_at', { ascending: false })
     .limit(1)
 
