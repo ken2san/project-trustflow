@@ -268,6 +268,7 @@ const App = () => {
   const [byocContractId, setByocContractId] = useState('');
   const [inviteLink, setInviteLink] = useState(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [guestName, setGuestName] = useState(null); // set when counterparty joins via invite link
   const [isRuntimeHydrated, setIsRuntimeHydrated] = useState(false);
   const [actorId, setActorId] = useState('user');
 
@@ -991,9 +992,10 @@ const App = () => {
                 acceptanceCriteria: inviteData.dod,
               };
               setSelectedItem(item);
+              const name = guestName || inviteData.inviter;
+              setGuestName(name);
               window.history.replaceState({}, '', window.location.pathname);
               setView('scoping');
-              const name = guestName || inviteData.inviter;
               addToast('Welcome', `Reviewing agreement with ${name}.`, 'success');
             }}
             onDecline={() => {
@@ -1003,7 +1005,7 @@ const App = () => {
           />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} onOpenDispute={handleOpenDispute} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} onBack={() => { setView('marketplace'); setSelectedItem(null); }} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} onOpenDispute={handleOpenDispute} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} onBack={() => { setView('marketplace'); setSelectedItem(null); }} guestName={guestName} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
