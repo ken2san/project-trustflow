@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-14 (bug fixes, Trust Passport, invite round-trip, BYOC layout, runtime snapshot persistence, identity/realtime scaffolding, reject loop cap, contract history, dispute resolution logic)_
+_Last updated: 2026-03-15 (staged invite participation, deposit fix, Newcomer contract, back button on tier-limit error)_
 ---
 
 ## 0. Mission
@@ -160,6 +160,11 @@ BYOC (bring existing relationships)
 3. ~~**Counterparty Invite Flow**~~ ✅ — Full round-trip implemented.
    - **Sender side (A):** BYOC modal extended with Amount + DoD fields and a "Generate Link" button. Generates a `?invite=...` URL from form content; copy-to-clipboard with ✓ feedback. Can also "Start Myself →" to skip invite and go directly to ScopingView.
    - **Recipient side (B):** `InviteView.jsx` receives URL params, shows inviter + project + amount + DoD, 3-panel "what you gain" pitch (protection, Trust Passport, DoD lock). Accept → populates `selectedItem` and navigates to ScopingView. Decline → marketplace. URL params cleared via `history.replaceState` after either action.
+   - **Staged participation redesign** ✅ (2026-03-15) — InviteView now uses a 3-stage flow to lower the counterparty's signup barrier:
+     - Stage 1 (review): read-only. CTA is "Review Agreement". "No account required to review." is explicit. No commitment, no identity ask.
+     - Stage 2 (identify): triggered only when user taps "Review Agreement". Asks for display name / handle only. "No account required yet." Back link returns to stage 1. Deferred signup hook: "You can create a full account later to save your Trust Passport."
+     - Stage 3: `onAccept(guestName)` fires → scoping view loads. Full account creation deferred to high-value moments (approval, dispute, Trust Passport export).
+   - BYOC modal subtext updated: "They can review the terms before creating an account." — removes sender-side anxiety about forcing their counterparty to register.
 
 ### Bug fixes & missing connections (2026-03-14)
 
@@ -188,6 +193,12 @@ BYOC (bring existing relationships)
 ```
 http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20System&amount=300000&dod=Definitive%20Figma%20Library,Dark%20Mode%20Tokens,Atomic%20Design%20Compliance
 ```
+
+Recipient flow (staged):
+1. Lands on Stage 1 — reads project card, DoD, "What you get" panels. No account required to view.
+2. Clicks "Review Agreement" → Stage 2 — enters display name only. Back link available.
+3. Clicks "Continue to Agreement" → ScopingView loads with pre-filled terms.
+4. Full account prompt surfaces only at high-value moments: approval, dispute, Trust Passport export.
 
 ---
 
