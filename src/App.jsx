@@ -798,7 +798,7 @@ const App = () => {
             <div className="flex items-start justify-between px-10 pt-10 pb-2">
               <div>
                 <h3 className="text-2xl font-black text-white mb-1">Work with someone you know</h3>
-                <p className="text-slate-400 text-sm">Invite them via link, or define the scope yourself.</p>
+                <p className="text-slate-400 text-sm">They can review the terms before creating an account.</p>
               </div>
               <button onClick={() => { setShowBYOCForm(false); setByocContractId(''); setInviteLink(null); setInviteLinkCopied(false); }} className="ml-4 mt-1 text-slate-500 hover:text-white transition-colors shrink-0" aria-label="Close">
                 <X className="w-5 h-5" />
@@ -982,7 +982,7 @@ const App = () => {
         {view === 'invite' && inviteData && (
           <InviteView
             inviteData={inviteData}
-            onAccept={() => {
+            onAccept={(guestName) => {
               const item = {
                 id: inviteData.contractId || ('invite-' + Date.now()),
                 title: inviteData.project,
@@ -993,7 +993,8 @@ const App = () => {
               setSelectedItem(item);
               window.history.replaceState({}, '', window.location.pathname);
               setView('scoping');
-              addToast('Invite Accepted', `Welcome to the project with ${inviteData.inviter}.`, 'success');
+              const name = guestName || inviteData.inviter;
+              addToast('Welcome', `Reviewing agreement with ${name}.`, 'success');
             }}
             onDecline={() => {
               window.history.replaceState({}, '', window.location.pathname);
