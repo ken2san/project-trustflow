@@ -1,6 +1,6 @@
 import React from "react";
 import HoldButton from "../../components/ui/HoldButton";
-import { Scan, CheckCircle2 } from "lucide-react";
+import { Scan, CheckCircle2, Timer } from "lucide-react";
 
 const ContractStep3 = ({
     mode,
@@ -21,7 +21,8 @@ const ContractStep3 = ({
     rejectReason, setRejectReason,
     status,
     milestonesEnabled, milestones, currentMilestoneIndex, onApproveMilestone,
-    rejectCount = 0, maxRejects = 3
+    rejectCount = 0, maxRejects = 3,
+    deliveredAt = null, autoConfirmFired = false, autoConfirmMs = 7 * 24 * 60 * 60 * 1000
 }) => {
     const isHirer = mode === 'hirer';
 
@@ -32,6 +33,23 @@ const ContractStep3 = ({
 
     return (
         <div className="space-y-10 animate-fade-in-up">
+            {/* H2: auto-confirm countdown (Hirer view only) */}
+            {isHirer && autoConfirmFired && (
+                <div className="flex items-center gap-3 bg-rose-900/30 border border-rose-500/30 rounded-2xl px-5 py-4 text-rose-300 text-sm font-bold max-w-md mx-auto animate-fade-in-up">
+                    <Timer className="w-5 h-5 shrink-0" />
+                    <div>Auto-confirmed. 7 days elapsed with no response. Funds have been released to Earner.</div>
+                </div>
+            )}
+            {isHirer && deliveredAt && !autoConfirmFired && (
+                <div className="flex items-center gap-3 bg-amber-900/30 border border-amber-500/30 rounded-2xl px-5 py-4 text-amber-300 text-sm font-bold max-w-md mx-auto">
+                    <Timer className="w-5 h-5 shrink-0" />
+                    <div>
+                        Auto-confirms on{' '}
+                        <span className="font-black">{new Date(deliveredAt + autoConfirmMs).toLocaleDateString()}</span>
+                        {' '}if no action is taken. Confirm or dispute before then.
+                    </div>
+                </div>
+            )}
             <div className="w-32 h-32 bg-amber-500/10 rounded-[48px] flex items-center justify-center border border-amber-500/20 mx-auto animate-pulse">
                 <Scan className="w-14 h-14 text-amber-500" />
             </div>

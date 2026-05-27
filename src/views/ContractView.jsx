@@ -10,6 +10,9 @@ import ContractStep3 from "./contract/ContractStep3";
 import ContractStep4 from "./contract/ContractStep4";
 import ContractStep5 from "./contract/ContractStep5";
 
+// H2: Hirer non-confirmation timeout — auto-release to Earner after this many ms
+const AUTO_CONFIRM_MS = 7 * 24 * 60 * 60 * 1000;
+
 const ContractView = (props) => {
     const [showPaymentDelay, setShowPaymentDelay] = React.useState(false);
     const [paymentDelayed, setPaymentDelayed] = React.useState(false);
@@ -25,6 +28,8 @@ const ContractView = (props) => {
     const [hirerStakeAmount, setHirerStakeAmount] = React.useState('');
     const [autoReleaseArmed, setAutoReleaseArmed] = React.useState(false);
     const [autoReleaseFired, setAutoReleaseFired] = React.useState(false);
+    const [deliveredAt, setDeliveredAt] = React.useState(null);   // H2: timestamp when Earner submits delivery
+    const [autoConfirmFired, setAutoConfirmFired] = React.useState(false); // H2: true when auto-release triggered
     const [milestonesEnabled, setMilestonesEnabled] = React.useState(false);
     const [milestones, setMilestones] = React.useState([]);
     const [currentMilestoneIndex, setCurrentMilestoneIndex] = React.useState(0);
@@ -100,6 +105,35 @@ const ContractView = (props) => {
         }, delay);
         return () => clearTimeout(t);
     }, [autoReleaseArmed, autoReleaseFired, step, contractDeadline, addToast]);
+
+    // H2: Record delivery timestamp the moment Earner's delivery lands in step 3
+    React.useEffect(() => {
+        if (step === 3 && deliveredAt === null) setDeliveredAt(Date.now());
+    }, [step, deliveredAt]);
+
+    // H2: Fire auto-confirm when Hirer hasn't acted within AUTO_CONFIRM_MS
+    React.useEffect(() => {
+        if (step !== 3 || !deliveredAt || autoConfirmFired) return;
+        const delay = Math.max(0, deliveredAt + AUTO_CONFIRM_MS - Date.now());
+        const t = setTimeout(() => {
+            setAutoConfirmFired(true);
+            handleNextStep();
+            if (addToast) addToast('Auto-Confirmed', 'Hirer did not respond within 7 days. Funds auto-released to Earner.', 'warning');
+        }, delay);
+        return () => clearTimeout(t);
+    }, [step, deliveredAt, autoConfirmFired, handleNextStep, addToast]);
+
+    // H2: 24h advance warning before auto-confirm fires
+    React.useEffect(() => {
+        if (step !== 3 || !deliveredAt || autoConfirmFired) return;
+        const warnAt = deliveredAt + AUTO_CONFIRM_MS - 24 * 60 * 60 * 1000;
+        const delay = warnAt - Date.now();
+        if (delay <= 0) return;
+        const t = setTimeout(() => {
+            if (addToast) addToast('Auto-confirm in 24h', 'Confirm or dispute the delivery to prevent automatic fund release.', 'warning');
+        }, delay);
+        return () => clearTimeout(t);
+    }, [step, deliveredAt, autoConfirmFired, addToast]);
 
     const mutualStakeDeductedRef = React.useRef(false);
     React.useEffect(() => {
@@ -399,6 +433,9 @@ const ContractView = (props) => {
                         onApproveMilestone={onApproveMilestone}
                         rejectCount={rejectCount}
                         maxRejects={MAX_REJECTS}
+                        deliveredAt={deliveredAt}
+                        autoConfirmFired={autoConfirmFired}
+                        autoConfirmMs={AUTO_CONFIRM_MS}
                     />
                 )}
                 {step === 4 && (
