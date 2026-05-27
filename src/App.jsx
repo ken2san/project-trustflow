@@ -197,12 +197,17 @@ const App = () => {
   const [inviteData] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     if (!params.has('invite')) return null;
+    const sanitizeText = (val, fallback, maxLen) =>
+      (typeof val === 'string' ? val.trim().slice(0, maxLen) : null) || fallback;
+    const rawAmount = parseInt(params.get('amount'), 10);
     return {
-      contractId: params.get('cid') || '',
-      inviter: params.get('inviter') || 'Someone',
-      project: params.get('project') || 'A Project',
-      amount: parseInt(params.get('amount'), 10) || 0,
-      dod: params.get('dod') ? params.get('dod').split(',').map(s => s.trim()).filter(Boolean) : [],
+      contractId: sanitizeText(params.get('cid'), '', 36),
+      inviter: sanitizeText(params.get('inviter'), 'Someone', 100),
+      project: sanitizeText(params.get('project'), 'A Project', 200),
+      amount: Number.isFinite(rawAmount) && rawAmount >= 0 ? Math.min(rawAmount, 100_000_000) : 0,
+      dod: params.get('dod')
+        ? params.get('dod').split(',').map(s => s.trim().slice(0, 300)).filter(Boolean).slice(0, 20)
+        : [],
     };
   });
   const [view, setView] = useState(() =>
@@ -249,6 +254,7 @@ const App = () => {
   const [profileData, setProfileData] = useState(null);
   const [activityLog, setActivityLog] = useState([]);
   const [showActivityLog, setShowActivityLog] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   // Phase 4: append-only contract event log (persisted to Supabase when connected)
   const [contractEvents, setContractEvents] = useState([]);
   const [dodHash, setDodHash] = useState(null);
@@ -306,6 +312,7 @@ const App = () => {
         if (Array.isArray(snapshot.badActorFlags)) setBadActorFlags(snapshot.badActorFlags);
         if (snapshot.byocForm) setByocForm(snapshot.byocForm);
         if (Array.isArray(snapshot.contractHistory)) setContractHistory(snapshot.contractHistory);
+        if (Array.isArray(snapshot.activityLog)) setActivityLog(snapshot.activityLog.map(e => ({ ...e, timestamp: new Date(e.timestamp) })));
       }
 
       setIsRuntimeHydrated(true);
@@ -397,6 +404,7 @@ const App = () => {
         badActorFlags,
         byocForm,
         contractHistory,
+        activityLog,
       }, actorId);
     }, 900);
 
@@ -414,11 +422,12 @@ const App = () => {
     badActorFlags,
     byocForm,
     contractHistory,
+    activityLog,
   ]);
 
 
 
-  const addToast = useCallback((title, message, type = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, title, message, type }]); setActivityLog(prev => [{ id, title, message, type, timestamp: new Date() }, ...prev].slice(0, 50)); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
+  const addToast = useCallback((title, message, type = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, title, message, type }]); setActivityLog(prev => [{ id, title, message, type, timestamp: new Date() }, ...prev].slice(0, 50)); setUnreadCount(prev => prev + 1); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
 
   const toggleMode = () => {
     if (status !== 'idle') return;
@@ -599,6 +608,7 @@ const App = () => {
       addToast('Arbitration Submitted', `${arbiter === 'human' ? 'Human arbiter' : 'Peer panel'} assigned — ruling expected within ${arbiter === 'human' ? '24–48h' : '48–72h'}.`, 'info');
     } else if (currentUserWins) {
       addToast('Dispute Won', 'Arbitration ruled in your favor. Proceeding to settlement.', 'success');
+      setUIProfile(s => ({ ...s, trustScore: Math.min(1000, (s.trustScore ?? 0) + 5) }));
     } else {
       addToast('Dispute Lost', 'Arbitration ruled against you. Stake partially forfeited.', 'error');
       setUIProfile(s => ({ ...s, trustScore: Math.max(0, (s.trustScore ?? 0) - 10) }));
@@ -779,7 +789,7 @@ const App = () => {
               <div key={item.id} className={`px-4 py-3 rounded-2xl border text-xs ${item.type === 'success' ? 'bg-emerald-900/20 border-emerald-500/20' : item.type === 'error' ? 'bg-rose-900/20 border-rose-500/20' : item.type === 'warning' ? 'bg-amber-900/20 border-amber-500/20' : 'bg-indigo-900/20 border-indigo-500/20'}`}>
                 <p className="font-black text-white mb-0.5">{item.title}</p>
                 <p className="text-slate-400">{item.message}</p>
-                <p className="text-slate-600 mt-1">{item.timestamp.toLocaleTimeString()}</p>
+                <p className="text-slate-600 mt-1">{item.timestamp.toLocaleDateString()} {item.timestamp.toLocaleTimeString()}</p>
               </div>
             ))}
           </div>
@@ -885,10 +895,10 @@ const App = () => {
           <button
             className={`hidden sm:inline-flex p-2 ml-1 rounded-full border border-white/10 transition-colors relative ${showActivityLog ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-indigo-300 hover:bg-white/10'}`}
             title="Activity Log"
-            onClick={() => setShowActivityLog(prev => !prev)}
+            onClick={() => { setShowActivityLog(prev => !prev); setUnreadCount(0); }}
           >
             <Activity className="w-5 h-5" />
-            {activityLog.length > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full" />}
+            {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-indigo-500 rounded-full text-[9px] font-black text-white flex items-center justify-center leading-none">{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>
           <div className="flex items-center gap-3 pl-2 border-l border-white/10">
             {/* Chat button: only enabled if unlocked */}
