@@ -64,7 +64,7 @@ serve(async (req: Request) => {
     // Verify the calling user owns this contract
     const { data: contract, error: contractError } = await supabase
       .from('contracts')
-      .select('id, created_by, state')
+      .select('id, created_by, state, hirer_email')
       .eq('id', contractId)
       .single()
 
@@ -92,6 +92,8 @@ serve(async (req: Request) => {
       amount: amountJpy,        // Stripe uses smallest currency unit (JPY is already integer)
       currency: 'jpy',
       description: description ?? `TrustFlow contract ${contractId}`,
+      // Stripe sends its own payment receipt to the Hirer automatically
+      ...(contract.hirer_email ? { receipt_email: contract.hirer_email } : {}),
       metadata: {
         contract_id: contractId,
         hirer_id: user.id,
