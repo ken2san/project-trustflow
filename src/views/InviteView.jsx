@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ShieldCheck, ArrowRight, X, Star, Lock, CheckCircle2, User } from "lucide-react";
+import { ShieldCheck, ArrowRight, X, Star, Lock, CheckCircle2, User, AlertTriangle, Clock } from "lucide-react";
 
 const GAINS = [
   {
@@ -20,12 +20,41 @@ const GAINS = [
 ];
 
 // Stage 1: read-only review. Stage 2: lightweight identity (display name only). Stage 3 = onAccept fires.
-const InviteView = ({ inviteData, onAccept, onDecline }) => {
-  const { inviter, project, amount, dod } = inviteData;
-  const amountLabel = amount > 0 ? `¥${amount.toLocaleString()}` : "TBD";
+const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
+  // Hooks must be declared before any conditional return
   const [stage, setStage] = useState('review'); // 'review' | 'identify'
   const [displayName, setDisplayName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
+
+  // Token error states (expired, tampered, malformed)
+  if (tokenError || !inviteData) {
+    const isExpired = tokenError === 'expired';
+    const Icon = isExpired ? Clock : AlertTriangle;
+    const title = isExpired ? 'This invite has expired.' : 'Invalid invite link.';
+    const body = isExpired
+      ? 'Invite links are valid for 72 hours. Ask the sender to generate a new one.'
+      : 'This link may have been modified or is malformed. Please request a fresh invite link.';
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 max-w-md mx-auto text-center animate-fade-in-up">
+        <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 rounded-[20px] flex items-center justify-center">
+          <Icon className="w-8 h-8 text-amber-400" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black tracking-tighter text-white">{title}</h2>
+          <p className="text-slate-400 text-sm leading-relaxed">{body}</p>
+        </div>
+        <button
+          onClick={onDecline}
+          className="px-8 py-3 border border-white/10 rounded-2xl font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all text-sm"
+        >
+          Back to Marketplace
+        </button>
+      </div>
+    );
+  }
+
+  const { inviter, project, amount, dod } = inviteData;
+  const amountLabel = amount > 0 ? `¥${amount.toLocaleString()}` : "TBD";
 
   if (stage === 'identify') {
     return (
