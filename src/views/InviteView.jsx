@@ -19,12 +19,13 @@ const GAINS = [
   },
 ];
 
-// Stage 1: read-only review. Stage 2: lightweight identity (display name only). Stage 3 = onAccept fires.
+// Stage 1: read-only review. Stage 2: identity + explicit consent. onAccept fires after consent.
 const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
   // Hooks must be declared before any conditional return
   const [stage, setStage] = useState('review'); // 'review' | 'identify'
   const [displayName, setDisplayName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // Token error states (expired, tampered, malformed)
   if (tokenError || !inviteData) {
@@ -75,7 +76,6 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
             type="text"
             value={displayName}
             onChange={e => setDisplayName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && displayName.trim()) onAccept(displayName.trim(), guestEmail.trim() || null); }}
             placeholder="Your name or handle"
             autoFocus
             className="w-full bg-[#0f172a] border border-white/10 focus:border-indigo-500/50 rounded-2xl px-6 py-5 text-white text-lg font-bold outline-none transition-all placeholder:text-slate-600"
@@ -85,16 +85,28 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
               type="email"
               value={guestEmail}
               onChange={e => setGuestEmail(e.target.value)}
-              placeholder="Email address (optional)"
+              placeholder="Email address (required for contract record)"
               className="w-full bg-[#0f172a] border border-white/10 focus:border-indigo-500/50 rounded-2xl px-6 py-4 text-white font-medium outline-none transition-all placeholder:text-slate-600"
             />
-            <p className="text-xs text-slate-600 px-2">We'll send you a copy of the agreement for your records.</p>
+            <p className="text-xs text-slate-600 px-2">Your email is attached to this agreement as your identifier. A copy will be sent to you.</p>
           </div>
+          <label className="flex items-start gap-3 p-4 bg-white/[0.03] border border-white/5 rounded-2xl cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={consentChecked}
+              onChange={e => setConsentChecked(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded accent-indigo-500 shrink-0"
+            />
+            <span className="text-xs text-slate-400 leading-relaxed">
+              I have reviewed the Definition of Done above and agree to these terms. I understand that my acceptance will be timestamped and recorded as a binding agreement.
+            </span>
+          </label>
           <button
-            onClick={() => onAccept(displayName.trim() || 'Guest', guestEmail.trim() || null)}
-            className="w-full py-5 bg-white text-[#020617] rounded-[24px] font-black text-lg flex items-center justify-center gap-3 hover:bg-indigo-400 hover:text-white transition-all shadow-2xl"
+            onClick={() => onAccept(displayName.trim() || 'Guest', guestEmail.trim())}
+            disabled={!displayName.trim() || !guestEmail.trim() || !consentChecked}
+            className="w-full py-5 bg-white text-[#020617] rounded-[24px] font-black text-lg flex items-center justify-center gap-3 hover:bg-indigo-400 hover:text-white transition-all shadow-2xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#020617]"
           >
-            Continue to Agreement
+            I Agree — Join This Contract
             <ArrowRight className="w-5 h-5" />
           </button>
           <button

@@ -44,6 +44,9 @@ export const EVENT_TYPES = {
   // TrustPoints events
   TRUSTPOINTS_EARNED:     'trustpoints.earned',       // points awarded for good behavior
   TRUSTPOINTS_SPENT:      'trustpoints.spent',        // points spent on platform benefit
+
+  // Legal consent events
+  DOD_CONSENT_RECORDED:   'dod.consent_recorded',     // counterparty explicitly accepted DoD terms via invite link
 }
 
 // ── Event builder ────────────────────────────────────────────────────────────

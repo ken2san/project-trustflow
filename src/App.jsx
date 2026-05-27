@@ -1048,8 +1048,9 @@ const App = () => {
             inviteData={inviteData}
             tokenError={inviteTokenError}
             onAccept={(guestName, email) => {
+              const contractId = inviteData.contractId || ('invite-' + Date.now());
               const item = {
-                id: inviteData.contractId || ('invite-' + Date.now()),
+                id: contractId,
                 title: inviteData.project,
                 client: inviteData.inviter,
                 totalPoints: inviteData.amount,
@@ -1060,6 +1061,18 @@ const App = () => {
               setGuestName(name);
               if (email) setGuestEmail(email);
               window.history.replaceState({}, '', window.location.pathname);
+              // Log explicit DoD consent — timestamped legal record of acceptance
+              logEvent({
+                type: EVENT_TYPES.DOD_CONSENT_RECORDED,
+                contractId,
+                actorId: email || name,
+                payload: {
+                  counterparty_name: name,
+                  counterparty_email: email || null,
+                  dod_items: inviteData.dod,
+                  user_agent: navigator.userAgent,
+                },
+              }).catch(err => console.warn('[TrustFlow] consent log failed:', err));
               setView('scoping');
               addToast('Welcome', `Reviewing agreement with ${name}.`, 'success');
             }}

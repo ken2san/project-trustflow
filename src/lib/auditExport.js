@@ -57,15 +57,29 @@ export async function downloadAuditTrail({ contractId, dodHash, events, meta = {
     ev => ev._export_verification.hash_match !== false
   )
 
+  // Extract consent record from events — surfaces prominently for legal review
+  const consentEvent = verifiedEvents.find(ev => ev.type === 'dod.consent_recorded')
+  const counterpartyConsent = consentEvent
+    ? {
+        counterparty_name:  consentEvent.payload?.counterparty_name ?? null,
+        counterparty_email: consentEvent.payload?.counterparty_email ?? consentEvent.actor_id,
+        dod_items_agreed:   consentEvent.payload?.dod_items ?? [],
+        consented_at:       consentEvent.created_at,
+        event_id:           consentEvent.id,
+        tsa_verified:       Boolean(consentEvent.tsa_token),
+      }
+    : null
+
   const auditDoc = {
     trustflow_audit_trail: {
-      version:         EXPORT_VERSION,
-      generated_at:    new Date().toISOString(),
-      contract_id:     contractId,
-      dod_hash:        dodHash ?? null,
-      integrity_status: allHashesMatch ? 'VERIFIED' : 'HASH_MISMATCH_DETECTED',
+      version:              EXPORT_VERSION,
+      generated_at:         new Date().toISOString(),
+      contract_id:          contractId,
+      dod_hash:             dodHash ?? null,
+      integrity_status:     allHashesMatch ? 'VERIFIED' : 'HASH_MISMATCH_DETECTED',
+      counterparty_consent: counterpartyConsent,
       meta,
-      events:          verifiedEvents,
+      events:               verifiedEvents,
       verification_instructions: [
         '1. For each event, recompute SHA-256 of: {id, type, contract_id, actor_id, dod_hash, created_at}',
         '2. Compare with event.event_hash — any mismatch indicates tampering',
