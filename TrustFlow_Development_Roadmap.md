@@ -75,7 +75,7 @@ Most contract disputes do not start from bad intent. They start from ambiguity �
 5. **Trust as a portable asset** — Every completed contract builds a verifiable record that belongs to the user, not the platform. This is the answer to "why should I join?" — participation compounds in the user's favor, permanently
 6. **Agreement quality is the platform's responsibility** — Users are not contract lawyers. TrustFlow's AI must ensure the DoD is unambiguous, complete, and dispute-resistant before either party signs. Asking users to "read carefully" is a failure of design.
 7. **Invisible enforcement** — The protection mechanisms must work without the user understanding them. A surgeon does not explain anesthesia to the patient before operating. TrustFlow's mutual stakes, append-only logs, blind ratings, and DoD hashes operate silently in the background. The user's only awareness should be: "if I act in good faith, I am protected; if I don't, I will pay for it." The system is the expert — not the user.
-8. **Market self-cleansing** — TrustFlow is not a neutral venue. The Japanese freelance market is structurally broken by 中抜き (intermediary margin extraction) and chronic payment failures — non-payment, deliberate delay, and scope manipulation at the expense of the worker at the end of the chain. These behaviors are not edge cases; they are the norm the platform exists to eliminate. Bad-faith Hirers accumulate negative trust signals with every dispute loss, payment delay, and DoD rejection. Those signals progressively reduce their visibility in Earner recommendations and cap their contract limits. This is not punitive enforcement — it is structural consequence. A Hirer who cannot find willing Earners either reforms their behavior or exits the platform. The marketplace curates itself.
+8. **Market self-cleansing through information symmetry** — TrustFlow is not a neutral venue. The root cause of most freelance market dysfunction is information asymmetry: Hirers cannot verify whether an Earner will deliver; Earners cannot verify whether a Hirer will pay. Both sides exploit that opacity — Hirers through 中抜き (intermediary margin extraction), non-payment, and deliberate delay; Earners through inflated quotes, low-quality delivery, and overpromising. These are not edge cases; they are the structural norm TrustFlow exists to dismantle. Every completed contract, every dispute outcome, and every DoD acceptance reduces that opacity permanently. Bad-faith actors on either side accumulate negative trust signals that progressively restrict their access — reduced Earner visibility for Hirers, reduced recommendation ranking for Earners. This is not punitive enforcement; it is structural consequence. A Hirer who cannot find willing Earners, and an Earner who cannot win good projects, both face the same choice: reform or exit. The marketplace curates itself by making the cost of information asymmetry exploitation accumulate faster than its benefit.
 
 ### Canonical Contract State Machine
 
@@ -132,18 +132,25 @@ BYOC (bring existing relationships)
   → more contracts → more data
 ```
 
-**The counter-flywheel (market self-cleansing):**
+**The counter-flywheel (bilateral market self-cleansing):**
 
 ```
-Bad-faith behavior (non-payment, delay, dispute loss, DoD abuse)
+Hirer bad-faith (non-payment, delay, dispute loss, 中抜き)
   → TrustPoints penalty → Trust Ladder demotion
-  → contract limits reduced, Earner recommendation visibility suppressed
-  → bad-faith Hirers cannot find willing Earners
-  → they reform or exit
-  → platform quality floor rises over time
+  → contract limits reduced, visibility in Earner recommendations suppressed
+  → cannot find willing Earners → reforms or exits
+
+Earner bad-faith (poor quality, price gouging, overdelivery promises)
+  → dispute loss, low DoD acceptance rate → TrustPoints penalty
+  → recommendation rank drops, Hirers no longer matched to them
+  → cannot win quality projects → reforms or exits
+
+Both sides:
+  → information asymmetry shrinks with each completed contract
+  → platform quality floor rises without active policing
 ```
 
-These two flywheels are the same mechanism viewed from opposite directions. The platform does not need to police behavior — it only needs to make the cost of bad behavior accumulate faster than the benefit.
+These two flywheels are the same mechanism viewed from opposite directions. The platform does not police behavior — it makes opacity itself the liability. Bad actors depend on information asymmetry to exploit others; TrustFlow systematically eliminates that asymmetry, removing the structural condition that makes exploitation possible.
 
 **Implication for the product:**
 
@@ -209,6 +216,7 @@ http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20Sy
 ```
 
 Recipient flow (staged):
+
 1. Lands on Stage 1 — reads project card, DoD, "What you get" panels. No account required to view.
 2. Clicks "Review Agreement" → Stage 2 — enters display name only. Back link available.
 3. Clicks "Continue to Agreement" → ScopingView loads with pre-filled terms.
