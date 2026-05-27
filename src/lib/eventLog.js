@@ -35,6 +35,15 @@ export const EVENT_TYPES = {
   DISPUTE_WON:           'dispute.won',            // arbiter / resolution ruled in this actor's favor
   FORCED_CANCELLATION:   'contract.forced_cancellation', // contract cancelled by the other party's action
   GHOSTING_FLAG:         'actor.ghosting_flag',    // unresponsive; auto-release timer triggered
+
+  // Stripe payment events — tied to contract state transitions
+  PAYMENT_INTENT_CREATED: 'payment.intent_created',  // Stripe PaymentIntent created (funds authorized)
+  PAYMENT_CAPTURED:       'payment.captured',         // funds released to Earner via Stripe Transfer
+  PAYMENT_REFUNDED:       'payment.refunded',         // funds returned to Hirer (cancellation/dispute)
+
+  // TrustPoints events
+  TRUSTPOINTS_EARNED:     'trustpoints.earned',       // points awarded for good behavior
+  TRUSTPOINTS_SPENT:      'trustpoints.spent',        // points spent on platform benefit
 }
 
 // ── Event builder ────────────────────────────────────────────────────────────
