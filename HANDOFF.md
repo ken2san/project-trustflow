@@ -21,6 +21,7 @@ Phase 2 (UX Flow) + feat/stripe-hybrid-payment branch— see `TrustFlow_Developm
 **Architecture pivot: Stripe Connect escrow + TrustPoints reputation system**
 
 Key decisions made:
+
 - Payment rail: **Stripe Connect** (Stripe holds funds; TrustFlow sends release/refund signal)
   - No 資金移動業 registration needed (Stripe is the licensed entity)
   - Immediate capture model — funds sit in platform Stripe balance until DoD confirmed
@@ -28,6 +29,7 @@ Key decisions made:
   - Equivalent to airline miles; earned by good behavior, spent on platform benefits
 
 New files committed (607f279 on feat/stripe-hybrid-payment):
+
 - `supabase/migrations/20260527000000_contracts_table.sql` — contract persistence
 - `supabase/migrations/20260527000001_trustpoints_ledger.sql` — append-only ledger
 - `supabase/functions/create-payment-intent/index.ts` — Stripe PaymentIntent creation
@@ -37,6 +39,7 @@ New files committed (607f279 on feat/stripe-hybrid-payment):
 - `src/lib/trustpoints.js` — earn/spend rules, badge logic, computeBalance
 
 Updated:
+
 - `src/views/WalletView.jsx` → **Trust Passport** (TrustPoints balance, progress bar, badge gallery, ledger)
 - `src/components/modals/PaymentModal.jsx` → Stripe Elements escrow UI + Test Mode fallback
 - `src/views/contract/ContractStep1.jsx` → stake fields renamed to “Reputation Stake (pts)”, milestone amounts labeled ¥
