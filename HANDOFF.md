@@ -1,6 +1,6 @@
 # TrustFlow — AI Session Handoff
 
-_Last updated: 2026-05-26_
+_Last updated: 2026-05-27 (session 2)_
 
 > Use this file to brief a new AI session on the current project state.
 > Update before ending a session. Paste the contents as your first message.
@@ -14,39 +14,46 @@ Stack: React 18, Vite, TailwindCSS. Live: not yet deployed
 
 ## Current Phase
 
-Phase 2 (UX Flow) — see `TrustFlow_Development_Roadmap.md` for full scope and open items.
+Phase 2 (UX Flow) — merged to `main` as of 2026-05-27.
 
-## What Was Done Last Session
+## What Was Done This Session (2026-05-27)
 
-- Resumed Supabase project (had been paused — auth, realtime, Edge Function `timestamp-event` now active again)
-- Committed project-template v1.0.0 changes:
-  - `AGENTS.md` updated with TL;DR, Self-Healing Loop, Verification, Git, Code Quality policies
-  - Added `.github/instructions/` (5 role-specific instruction files) and `.github/prompts/init.prompt.md`
-  - Added `.template-version` (1.0.0), `Decisions.md` (ADRs), `HANDOFF.md`
-  - Moved Testing Gate rules to `global.custom.instructions.md`
-  - Removed obsolete `agents/AGENTS.md` and `agents/global.md`
-  - Updated `package-lock.json` (dependency upgrades)
+**Session 1 — Architecture pivot: Stripe Connect escrow + TrustPoints**
+
+- Payment rail: Stripe Connect (immediate capture, Transfer on DoD confirm). No 資金移動業 needed.
+- Reputation: TrustPoints (non-redeemable, airline miles model, no expiry). Outside 前払式支払手段 scope.
+- New: DB migrations, 3 Edge Functions, `src/lib/stripe.js`, `src/lib/trustpoints.js`
+- Updated: WalletView → Trust Passport, PaymentModal → Stripe escrow, ContractStep1, constants.js, eventLog.js
+- Tests: 69/69 passing (trustpoints + stripe unit tests added)
+- ADRs: Stripe Connect, TrustPoints, guest Hirer model, threat model — all in `Decisions.md`
+
+**Session 2 — Threat modeling + guest Hirer path wiring**
+
+- Threat model completed (10 threats, H1/H2/T1 are MVP-required) — see `Decisions.md`
+- `App.jsx`: WalletView wired to `trustPointsLedger`/`trustScore`/`contractsCompleted`; PaymentModal wired to `contractId`/`amountJpy`/`projectName`/`onSuccess`; removed `isFlipped`/`handleDeposit`; added `guestEmail` state
+- `InviteView.jsx`: amount `PTS` → `¥JPY`; Stage 2 collects optional email (Type 2 guest path)
+- `ContractStep1.jsx`: "Project Deadline (optional)" → "Delivery Deadline *" with auto-refund hint
 
 ## Current State
 
-- Prototype functional — Supabase integration active (auth, realtime, Edge Function: `timestamp-event`)
-- Agent config at template v1.0.0 — all `.github/instructions/` files in place
-- All Phase 2 sprint tasks completed (see `TrustFlow_Development_Roadmap.md` Current Sprint)
-- Known Gaps remaining: Notification Center, Social/GitHub Trust Score import, RLS hardening, Gemini API integration
+- Branch: **`main`** (feat/stripe-hybrid-payment merged)
+- Build: ✓ 1553 modules, 0 errors
+- Tests: 69/69 passing
+- Stripe key: **not set in .env** — PaymentModal runs in Test Mode until `VITE_STRIPE_PUBLISHABLE_KEY` is added
+- Supabase Edge Functions: created locally, **not yet deployed**
+- DB migrations: created locally, **not yet applied**
 
 ## Active Constraints
 
 - Do not implement Phase 3 or later without explicit instruction.
-- Do not modify `supabase/migrations` or the Edge Function schema without explicit instruction.
+- Do not add npm packages without explicit user approval.
+- Do not deploy Supabase Edge Functions or DB migrations without explicit instruction.
 
-## Next Priority
+## Next Priority (in order)
 
-Select next task from Known Gaps in `TrustFlow_Development_Roadmap.md`:
-
-1. Persistent Notification Center (audit log replacing ephemeral toasts)
-2. RLS policy hardening (anonymous identity + realtime in place; access boundaries needed)
-3. Real Gemini API integration (Scope Builder currently uses token extraction)
-4. Social/GitHub import for Trust Score bootstrap
+1. **T1: Invite token hardening** — add `invite_token` (one-time, 72h expiry) + `hirer_email` + `deadline` to contracts migration; Edge Function to validate on accept
+2. **H1: DoD acceptance email** — requires email provider choice (Resend recommended). Send on payment confirmation with DoD hash + amount as chargeback evidence
+3. **Production setup** (explicit instruction required): `.env` Stripe key → `supabase functions deploy` → `supabase db push`
 
 ## Key Files to Read First
 
@@ -54,3 +61,5 @@ Select next task from Known Gaps in `TrustFlow_Development_Roadmap.md`:
 - `TrustFlow_Development_Roadmap.md` — current phase and open items
 - `TrustFlow_Protocol.md` — system protocol rules
 - `Decisions.md` — architectural decisions (do not reverse without instruction)
+- `src/lib/trustpoints.js` — TrustPoints earn/spend rules
+- `src/lib/stripe.js` — Stripe client helpers

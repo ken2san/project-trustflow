@@ -70,10 +70,18 @@ export const STEPS_DATA = [
   { id: 4, label: 'RATING' }
 ];
 
-// Feature #7: Progressive Trust Ladder — contract limits by user level
+// Feature #7: Progressive Trust Ladder — contract limits by TrustPoints level (amounts in JPY)
 export const TRUST_LADDER = [
-  { level: 1,  label: 'Newcomer',   contractLimit: 50000 },
-  { level: 3,  label: 'Established', contractLimit: 200000 },
-  { level: 5,  label: 'Trusted',    contractLimit: 500000 },
-  { level: 10, label: 'Elite Node', contractLimit: null },
+  { level: 1,  label: 'Newcomer',    contractLimit: 100_000 },   // ¥100k
+  { level: 3,  label: 'Established', contractLimit: 500_000 },   // ¥500k
+  { level: 5,  label: 'Trusted',     contractLimit: 2_000_000 }, // ¥2M
+  { level: 10, label: 'Elite Node',  contractLimit: null },      // unlimited
+];
+
+// TrustPoints earn thresholds for Trust Ladder level advancement
+export const TRUST_LADDER_THRESHOLDS = [
+  { level: 1,  minPoints: 0 },
+  { level: 3,  minPoints: 150 },
+  { level: 5,  minPoints: 400 },
+  { level: 10, minPoints: 1000 },
 ];

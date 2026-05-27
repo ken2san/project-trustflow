@@ -25,7 +25,7 @@ const ContractStep1 = ({
         setMilestones(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
 
     const tier = [...TRUST_LADDER].reverse().find(t => (userLevel ?? 1) >= t.level) || TRUST_LADDER[0];
-    const limitLabel = tier.contractLimit ? `${tier.contractLimit.toLocaleString()} PTS` : 'Unlimited';
+    const limitLabel = tier.contractLimit ? `¥${tier.contractLimit.toLocaleString()}` : 'Unlimited';
     const isOverLimit = tier.contractLimit !== null && (contractAmount ?? 0) > tier.contractLimit;
 
     return (
@@ -42,7 +42,7 @@ const ContractStep1 = ({
 
             <div className="max-w-md mx-auto text-left space-y-4">
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Project Deadline <span className="text-slate-700">(optional)</span></label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Delivery Deadline <span className="text-amber-600">*</span></label>
                     <input
                         type="date"
                         value={contractDeadline}
@@ -50,7 +50,7 @@ const ContractStep1 = ({
                         min={new Date().toISOString().split('T')[0]}
                         className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500/50 transition-all"
                     />
-                    <p className="text-xs text-slate-600">If set, you'll be alerted if no delivery arrives by this date.</p>
+                    <p className="text-xs text-slate-600">Required. If the counterparty does not confirm delivery by this date, escrow is automatically released to you.</p>
                 </div>
 
                 <div className="pt-3 border-t border-white/5 space-y-3">
@@ -71,29 +71,29 @@ const ContractStep1 = ({
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Earner stakes (PTS)</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Earner reputation stake (pts)</label>
                                     <input
                                         type="number"
                                         value={mutualStakeAmount}
                                         onChange={e => setMutualStakeAmount(e.target.value)}
-                                        placeholder="e.g. 50000"
+                                        placeholder="e.g. 500"
                                         min={0}
                                         className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500/50 transition-all"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Hirer stakes (PTS)</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Hirer reputation stake (pts)</label>
                                     <input
                                         type="number"
                                         value={hirerStakeAmount}
                                         onChange={e => setHirerStakeAmount(e.target.value)}
-                                        placeholder="e.g. 50000"
+                                        placeholder="e.g. 500"
                                         min={0}
                                         className="w-full bg-slate-800/60 border border-white/10 rounded-2xl px-4 py-3 text-white font-bold outline-none focus:border-indigo-500/50 transition-all"
                                     />
                                 </div>
                             </div>
-                            <p className="text-xs text-slate-600">Both stakes are returned when the contract completes successfully. Abandonment costs both sides.</p>
+                            <p className="text-xs text-slate-600">Reputation stakes (TrustPoints) are returned when the contract completes successfully. Abandonment deducts points from both sides. Payment is handled separately via Stripe.</p>
                         </div>
                     )}
                     {contractDeadline && (
@@ -139,7 +139,7 @@ const ContractStep1 = ({
                                         />
                                         <input
                                             type="number"
-                                            placeholder="PTS"
+                                            placeholder="¥"
                                             value={m.amount}
                                             onChange={e => updateMilestone(m.id, 'amount', e.target.value)}
                                             min={0}
