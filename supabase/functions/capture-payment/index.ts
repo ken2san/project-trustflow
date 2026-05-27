@@ -154,6 +154,28 @@ serve(async (req: Request) => {
       contract_id: contractId,
     })
 
+    // H1: Send DoD acceptance email to the Hirer — fire-and-forget.
+    // Email failure must never block fund release.
+    if (contract.hirer_email) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+      fetch(`${supabaseUrl}/functions/v1/send-acceptance-email`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hirer_email: contract.hirer_email,
+          project_name: contract.project_name,
+          dod: contract.dod ?? [],
+          dod_hash: contract.dod_hash ?? '',
+          amount_jpy: contract.amount_jpy,
+          contract_id: contractId,
+          settled_at: new Date().toISOString(),
+        }),
+      }).catch((err) => console.error('[capture-payment] email dispatch failed', err))
+    }
+
     return new Response(
       JSON.stringify({ success: true, transferId, earnedPoints }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
