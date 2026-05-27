@@ -56,4 +56,41 @@ _Last updated: 2026-05-22_
 
 ---
 
+---
+
+### [2026-05-27] — Payment rail: Stripe Connect (no internal payment token)
+
+**Decision**: All contract payments flow through Stripe Connect. TrustFlow never holds funds. The platform account holds payments and transfers to Earner's Connected Account on DoD confirmation.
+
+**Context**: Internal payment token ("deposit PTS and exchange for cash") would require 資金移動業 or 前払式支払手段 registration under Japanese payment law. Stripe is already a licensed 資金移動業 operator.
+
+**Alternatives considered**:
+- Stripe manual capture — rejected: 7-day auth hold limit makes it unsuitable for long contracts
+- Immediate capture + platform balance — selected: funds sit in Stripe platform account; Transfer issued at completion. No hold expiry.
+- Internal escrow token — rejected: regulatory registration required
+
+**Consequences**:
+- `supabase/functions/create-payment-intent` must be deployed before payment flows work
+- `VITE_STRIPE_PUBLISHABLE_KEY` must be set in `.env`
+- Contract amounts are in JPY integers (Stripe uses smallest currency unit = 円 = no subunit)
+
+---
+
+### [2026-05-27] — Reputation layer: TrustPoints (non-redeemable)
+
+**Decision**: TrustPoints are a non-redeemable reputation score. They cannot be converted to cash or fiat equivalents. Earned through good behavior; spent on platform benefits (fee discounts, priority arbitration).
+
+**Context**: Redeemable points would trigger 前払式支払手段 registration. Non-redeemable system (like airline miles) has no such requirement as long as points cannot be exchanged for legal tender.
+
+**Alternatives considered**:
+- Redeemable PTS — rejected: regulatory overhead
+- Pure Trust Score (no spend mechanic) — deferred; spend mechanic adds a loop that makes score meaningful
+
+**Consequences**:
+- TrustPoints logic in `src/lib/trustpoints.js`
+- Ledger persisted in Supabase `trustpoints_ledger` table (append-only)
+- WalletView now shows Trust Passport (TrustPoints + Trust Score + badges) instead of fiat wallet
+
+---
+
 _Add new decisions above this line, newest first._
