@@ -131,18 +131,18 @@ _Last updated: 2026-05-22_
 
 **Threats and mitigations:**
 
-| ID | Threat | Actor | Severity | Mitigation | Status |
-|----|--------|-------|----------|-----------|--------|
-| H1 | Chargeback after delivery | Hirer | 🔴 High | DoD acceptance email (timestamped + DoD hash) sent on payment; used as Stripe Dispute evidence | ❌ MVP required |
-| H2 | Deliberate DoD non-confirmation | Hirer | 🔴 High | Timeout auto-capture: N days after Earner's delivery declaration → auto-release to Earner | ❌ MVP required |
-| H3 | Retroactive scope expansion | Hirer | 🟡 Medium | DoD hash is immutable; additional scope = new contract | ✅ Design |
-| H4 | Disposable email + chargeback | Hirer | 🟡 Medium | Stripe card data is real identity; disposable domain blocklist as secondary filter | ⚠️ Partial |
-| T1 | Invite URL reuse / interception | 3rd party | 🔴 High | Invite token is one-time + 72h expiry; used_at recorded in DB | ❌ MVP required |
-| T2 | Edge Function called directly | 3rd party | 🟡 Medium | All Edge Functions require Supabase Auth; unauthenticated requests → 401 | ❓ Verify |
-| T3 | URL parameter tampering | 3rd party | 🟢 Low | Amount/DoD sanitized in App.jsx BYOC parsing | ✅ Implemented |
-| E1 | Earner ghost after payment | Earner | 🟢 Low | Escrow: Earner cannot receive funds until DoD confirmed or timeout | ✅ Design |
-| E2 | Fraudulent quality claim | Earner | 🟡 Medium | DoD granularity guidance in UI (acceptance criteria templates) | ⚠️ UX task |
-| E3 | TrustPoints self-dealing | Earner | 🟢 Low | Real Stripe payment required (fee cost) makes self-dealing economically irrational | ✅ Design |
+| ID  | Threat                          | Actor     | Severity  | Mitigation                                                                                     | Status          |
+| --- | ------------------------------- | --------- | --------- | ---------------------------------------------------------------------------------------------- | --------------- |
+| H1  | Chargeback after delivery       | Hirer     | 🔴 High   | DoD acceptance email (timestamped + DoD hash) sent on payment; used as Stripe Dispute evidence | ❌ MVP required |
+| H2  | Deliberate DoD non-confirmation | Hirer     | 🔴 High   | Timeout auto-capture: N days after Earner's delivery declaration → auto-release to Earner      | ❌ MVP required |
+| H3  | Retroactive scope expansion     | Hirer     | 🟡 Medium | DoD hash is immutable; additional scope = new contract                                         | ✅ Design       |
+| H4  | Disposable email + chargeback   | Hirer     | 🟡 Medium | Stripe card data is real identity; disposable domain blocklist as secondary filter             | ⚠️ Partial      |
+| T1  | Invite URL reuse / interception | 3rd party | 🔴 High   | Invite token is one-time + 72h expiry; used_at recorded in DB                                  | ❌ MVP required |
+| T2  | Edge Function called directly   | 3rd party | 🟡 Medium | All Edge Functions require Supabase Auth; unauthenticated requests → 401                       | ❓ Verify       |
+| T3  | URL parameter tampering         | 3rd party | 🟢 Low    | Amount/DoD sanitized in App.jsx BYOC parsing                                                   | ✅ Implemented  |
+| E1  | Earner ghost after payment      | Earner    | 🟢 Low    | Escrow: Earner cannot receive funds until DoD confirmed or timeout                             | ✅ Design       |
+| E2  | Fraudulent quality claim        | Earner    | 🟡 Medium | DoD granularity guidance in UI (acceptance criteria templates)                                 | ⚠️ UX task      |
+| E3  | TrustPoints self-dealing        | Earner    | 🟢 Low    | Real Stripe payment required (fee cost) makes self-dealing economically irrational             | ✅ Design       |
 
 **DoD scope change policy (MVP)**: Changes handled as cancel + new contract. Amendment flow deferred to Phase 4.
 
