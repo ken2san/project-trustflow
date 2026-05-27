@@ -70,7 +70,7 @@ import {
 // (moved below imports)
 
 // Centralized constants and mock data
-import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, TRANSACTIONS_DATA, STEPS_DATA } from './lib/constants';
+import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, STEPS_DATA } from './lib/constants';
 import { formatNumber, deriveLevel } from './lib/utils';
 import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
@@ -275,12 +275,14 @@ const App = () => {
   const [inviteLink, setInviteLink] = useState(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [guestName, setGuestName] = useState(null); // set when counterparty joins via invite link
+  const [guestEmail, setGuestEmail] = useState(null); // optional email from invite Stage 2
   const [isRuntimeHydrated, setIsRuntimeHydrated] = useState(false);
   const [actorId, setActorId] = useState('user');
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [trustPointsLedger, setTrustPointsLedger] = useState([]);
+  const [activePaymentIntentId, setActivePaymentIntentId] = useState(null);
 
   const [messages, setMessages] = useState([{ id: 1, sender: 'ai', text: 'Protocol initialized. DoD generated based on risk profile.', time: '10:00', type: 'text' }, { id: 2, sender: 'client', text: 'Looking forward to the design system!', time: '10:05', type: 'text' }]);
   const [inputText, setInputText] = useState('');
@@ -660,7 +662,11 @@ const App = () => {
           }
       }, 80);
   };
-  const handleDeposit = (pts) => { setIsPaymentModalOpen(false); setStatus('processing'); setTimeout(() => { setUIProfile(s => ({ ...s, points: (s.points ?? 0) + pts })); setStatus('idle'); addToast('Deposit Successful', `${pts.toLocaleString()} PTS added to Vault.`, 'success'); }, 1000); };
+  const handlePaymentSuccess = (paymentIntentId) => {
+    setActivePaymentIntentId(paymentIntentId);
+    setIsPaymentModalOpen(false);
+    addToast('Escrow Secured', 'Payment held. Work can begin.', 'success');
+  };
 
   const handleOnboardingComplete = useCallback(() => {
     localStorage.setItem('tf_onboarded', '1');
@@ -760,7 +766,14 @@ const App = () => {
       {!hasOnboarded && <OnboardingView onComplete={handleOnboardingComplete} />}
 
       <ToastContainer toasts={toasts} removeToast={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
-      <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onConfirm={handleDeposit} />
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onSuccess={handlePaymentSuccess}
+        contractId={selectedItem ? String(selectedItem.id ?? '') : ''}
+        amountJpy={selectedItem?.totalPoints ?? 0}
+        projectName={selectedItem?.title ?? 'Contract'}
+      />
       {/* BiometricModal removed for MVP slimdown */}
       <DisputeModal isOpen={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} onResolve={handleDisputeResolve} auditData={selectedItem ? { contractId: String(selectedItem.id ?? ''), dodHash, events: contractEvents, meta: { title: selectedItem.title ?? '' } } : null} />
       {isCommandOpen && (
@@ -993,7 +1006,7 @@ const App = () => {
         {view === 'invite' && inviteData && (
           <InviteView
             inviteData={inviteData}
-            onAccept={(guestName) => {
+            onAccept={(guestName, email) => {
               const item = {
                 id: inviteData.contractId || ('invite-' + Date.now()),
                 title: inviteData.project,
@@ -1004,6 +1017,7 @@ const App = () => {
               setSelectedItem(item);
               const name = guestName || inviteData.inviter;
               setGuestName(name);
+              if (email) setGuestEmail(email);
               window.history.replaceState({}, '', window.location.pathname);
               setView('scoping');
               addToast('Welcome', `Reviewing agreement with ${name}.`, 'success');
@@ -1034,7 +1048,7 @@ const App = () => {
                   <div className="text-3xl font-black text-indigo-300 drop-shadow animate-pop-fade">+1 PARAMETER</div>
                 </div>
               )}
-        {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} isFlipped={isFlipped} setIsFlipped={setIsFlipped} userPoints={uiProfile.points ?? 0} transactions={TRANSACTIONS_DATA} onDeposit={handleDeposit} setIsPaymentModalOpen={setIsPaymentModalOpen} formatNumber={formatNumber} />}
+        {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} trustPointsLedger={trustPointsLedger} trustScore={uiProfile.trustScore ?? 0} contractsCompleted={uiProfile.completedContracts ?? 0} formatNumber={formatNumber} />}
         {view === 'command-center' && (
           <CommandCenterView
             activeOperations={activeOperations}

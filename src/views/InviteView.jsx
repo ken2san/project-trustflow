@@ -22,9 +22,10 @@ const GAINS = [
 // Stage 1: read-only review. Stage 2: lightweight identity (display name only). Stage 3 = onAccept fires.
 const InviteView = ({ inviteData, onAccept, onDecline }) => {
   const { inviter, project, amount, dod } = inviteData;
-  const amountLabel = amount > 0 ? `${amount.toLocaleString()} PTS` : "TBD";
+  const amountLabel = amount > 0 ? `¥${amount.toLocaleString()}` : "TBD";
   const [stage, setStage] = useState('review'); // 'review' | 'identify'
   const [displayName, setDisplayName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
 
   if (stage === 'identify') {
     return (
@@ -45,13 +46,23 @@ const InviteView = ({ inviteData, onAccept, onDecline }) => {
             type="text"
             value={displayName}
             onChange={e => setDisplayName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && displayName.trim()) onAccept(displayName.trim()); }}
+            onKeyDown={e => { if (e.key === 'Enter' && displayName.trim()) onAccept(displayName.trim(), guestEmail.trim() || null); }}
             placeholder="Your name or handle"
             autoFocus
             className="w-full bg-[#0f172a] border border-white/10 focus:border-indigo-500/50 rounded-2xl px-6 py-5 text-white text-lg font-bold outline-none transition-all placeholder:text-slate-600"
           />
+          <div className="space-y-1">
+            <input
+              type="email"
+              value={guestEmail}
+              onChange={e => setGuestEmail(e.target.value)}
+              placeholder="Email address (optional)"
+              className="w-full bg-[#0f172a] border border-white/10 focus:border-indigo-500/50 rounded-2xl px-6 py-4 text-white font-medium outline-none transition-all placeholder:text-slate-600"
+            />
+            <p className="text-xs text-slate-600 px-2">We'll send you a copy of the agreement for your records.</p>
+          </div>
           <button
-            onClick={() => onAccept(displayName.trim() || 'Guest')}
+            onClick={() => onAccept(displayName.trim() || 'Guest', guestEmail.trim() || null)}
             className="w-full py-5 bg-white text-[#020617] rounded-[24px] font-black text-lg flex items-center justify-center gap-3 hover:bg-indigo-400 hover:text-white transition-all shadow-2xl"
           >
             Continue to Agreement
