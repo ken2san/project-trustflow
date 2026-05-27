@@ -75,6 +75,7 @@ Most contract disputes do not start from bad intent. They start from ambiguity �
 5. **Trust as a portable asset** — Every completed contract builds a verifiable record that belongs to the user, not the platform. This is the answer to "why should I join?" — participation compounds in the user's favor, permanently
 6. **Agreement quality is the platform's responsibility** — Users are not contract lawyers. TrustFlow's AI must ensure the DoD is unambiguous, complete, and dispute-resistant before either party signs. Asking users to "read carefully" is a failure of design.
 7. **Invisible enforcement** — The protection mechanisms must work without the user understanding them. A surgeon does not explain anesthesia to the patient before operating. TrustFlow's mutual stakes, append-only logs, blind ratings, and DoD hashes operate silently in the background. The user's only awareness should be: "if I act in good faith, I am protected; if I don't, I will pay for it." The system is the expert — not the user.
+8. **Market self-cleansing** — TrustFlow is not a neutral venue. The Japanese freelance market is structurally broken by 中抜き (intermediary margin extraction) and chronic payment failures — non-payment, deliberate delay, and scope manipulation at the expense of the worker at the end of the chain. These behaviors are not edge cases; they are the norm the platform exists to eliminate. Bad-faith Hirers accumulate negative trust signals with every dispute loss, payment delay, and DoD rejection. Those signals progressively reduce their visibility in Earner recommendations and cap their contract limits. This is not punitive enforcement — it is structural consequence. A Hirer who cannot find willing Earners either reforms their behavior or exits the platform. The marketplace curates itself.
 
 ### Canonical Contract State Machine
 
@@ -120,7 +121,7 @@ One branch. One direction. No loops.
 
 TrustFlow's matching engine is only as good as the trust data behind it. That data comes from completed contracts — which means matching must come _after_ the data flywheel has started turning.
 
-**The flywheel:**
+**The flywheel (trust accumulation):**
 
 ```
 BYOC (bring existing relationships)
@@ -130,6 +131,19 @@ BYOC (bring existing relationships)
   → new relationships form via matching
   → more contracts → more data
 ```
+
+**The counter-flywheel (market self-cleansing):**
+
+```
+Bad-faith behavior (non-payment, delay, dispute loss, DoD abuse)
+  → TrustPoints penalty → Trust Ladder demotion
+  → contract limits reduced, Earner recommendation visibility suppressed
+  → bad-faith Hirers cannot find willing Earners
+  → they reform or exit
+  → platform quality floor rises over time
+```
+
+These two flywheels are the same mechanism viewed from opposite directions. The platform does not need to police behavior — it only needs to make the cost of bad behavior accumulate faster than the benefit.
 
 **Implication for the product:**
 
