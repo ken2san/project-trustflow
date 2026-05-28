@@ -4,10 +4,13 @@
 // Sends a SHA-256 hash to a public TSA (FreeTSA.org) and returns a
 // base64-encoded DER timestamp response token.
 //
-// IMPORTANT: Direct browser → TSA calls are blocked by CORS in most environments.
-// The token will be null in that case — non-fatal, event is still recorded.
-// For production, use the Supabase Edge Function:
-//   supabase/functions/timestamp-event/index.ts
+// Production path: calls the `timestamp-event` Supabase Edge Function, which
+// proxies the request server-side (avoids browser CORS block).
+// Dev/fallback path: calls freetsa.org directly (works in Node/Vite dev server).
+//
+// The token will be null on failure — non-fatal, event is still recorded.
+
+import { supabase, isSupabaseEnabled } from './supabase.js'
 
 // ── DER encoding helpers ────────────────────────────────────────────────────
 
@@ -92,6 +95,20 @@ const TSA_TIMEOUT_MS = 6000
  * @returns {Promise<string|null>} base64-encoded DER token, or null
  */
 export async function requestTimestamp(hashHex) {
+  // Production path: proxy via Supabase Edge Function (no CORS issues)
+  if (isSupabaseEnabled) {
+    try {
+      const { data, error } = await supabase.functions.invoke('timestamp-event', {
+        body: { hashHex },
+      })
+      if (error || !data?.token) return null
+      return data.token
+    } catch {
+      return null
+    }
+  }
+
+  // Dev/fallback path: call freetsa.org directly
   try {
     const controller = new AbortController()
     const tid = setTimeout(() => controller.abort(), TSA_TIMEOUT_MS)
