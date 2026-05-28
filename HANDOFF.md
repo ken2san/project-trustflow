@@ -40,7 +40,8 @@ Phase 2 (UX Flow + Backend) — `main` deployed to Supabase as of 2026-05-27.
 - **InviteView bug fixed ✅** — `runtimeState` hydration was overwriting `view='invite'` (set from URL `?token=`) with persisted `view='marketplace'`. Fixed: skip `setView(snapshot.view)` when invite URL params are present
 - **Supabase secrets updated ✅** — `RESEND_API_KEY`, `EMAIL_FROM=TrustFlow <noreply@kenji.com.hk>`, `INVITE_SECRET`, `STRIPE_SECRET_KEY` all set via `supabase secrets set`
 - **Anonymous auth enabled ✅** — Supabase dashboard → Authentication → anonymous sign-ins ON
-- **Cloud Run deployed ✅** — revision `trustflow-web-00051-vw6`; GCP project `trustflow-project`, region `us-central1`
+- **TSA CORS fix ✅** — `src/lib/tsa.js` routes RFC 3161 requests via `timestamp-event` Edge Function (server-side). No more CORS block in production. Dev mode falls back to direct freetsa.org.
+- **Cloud Run deployed ✅** — revision `trustflow-web-00052-9wf`; tsa.js fix is now live in production
 - **Resend domain** — verified domain: `kenji.com.hk` (DNS records on `send.kenji.com.hk` subdomain; FROM must be `@kenji.com.hk`, not `@send.kenji.com.hk`)
 - Tests: **87/87 passing** (no regression)
 
@@ -64,7 +65,7 @@ Phase 2 (UX Flow + Backend) — `main` deployed to Supabase as of 2026-05-27.
 - Supabase: **deployed** — project `trustflow` (ref: `fqgpzhwvvfsxswlnbbgg`, Mumbai)
 - DB: **4 migrations applied** in production
 - Edge Functions: **6 functions live** in production
-- Cloud Run: **`https://trustflow-web-526623258424.us-central1.run.app`** (revision `trustflow-web-00051-vw6`)
+- Cloud Run: **`https://trustflow-web-526623258424.us-central1.run.app`** (revision `trustflow-web-00052-9wf`)
 - Email: **✅ working end-to-end** — Resend delivering from `noreply@kenji.com.hk`
 - Anonymous auth: **✅ enabled** in Supabase
 - Supabase secrets: **✅ all set** (`RESEND_API_KEY`, `EMAIL_FROM`, `INVITE_SECRET`, `STRIPE_SECRET_KEY`)
@@ -80,10 +81,10 @@ Phase 2 (UX Flow + Backend) — `main` deployed to Supabase as of 2026-05-27.
 
 ## Next Priority (in order)
 
-1. **TSA CORS (secondary)** — `freetsa.org` blocks browser CORS in production. Move TSA call from `src/lib/tsa.js` (frontend) to a Supabase Edge Function (e.g. `timestamp-event` already exists — route TSA through it). Non-blocking: app continues if TSA fails.
-2. **Stripe live keys** — set `VITE_STRIPE_PUBLISHABLE_KEY` in `.env` + `STRIPE_SECRET_KEY` in Supabase secrets to enable real payments
-3. **eKYC** — Phase 4 prerequisite for Sybil resistance
-4. **Gemini API** — DoD AI generation + AI dispute arbitration (Phase 4)
+1. **Stripe live keys** — set `VITE_STRIPE_PUBLISHABLE_KEY` in `.env` + `make all` to enable real JPY payments
+2. **RLS policy hardening** — anonymous identity + realtime event subscription in place; role-aware access boundaries needed before real-user data
+3. **Gemini API** — DoD AI generation + AI dispute arbitration (Design Principle #6 enforcement)
+4. **eKYC** — Phase 4 prerequisite for Sybil resistance
 
 ## Key Files to Read First
 

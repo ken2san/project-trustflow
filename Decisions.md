@@ -42,17 +42,22 @@ _Last updated: 2026-05-22_
 
 ### [2026-03-14] — Timestamp integrity: Supabase Edge Function + RFC 3161 TSA
 
-**Decision**: Contract lifecycle events timestamped via the `timestamp-event` Supabase Edge Function, which calls an RFC 3161-compliant TSA. Clients must never write timestamps directly.
+**Decision**: Contract lifecycle events timestamped via the `timestamp-event` Supabase Edge Function, which calls an RFC 3161-compliant TSA (FreeTSA.org) server-side. Clients must never call the TSA directly.
 
-**Context**: Core protocol requirement — the event log must be tamper-evident and verifiable by third parties without trusting TrustFlow servers.
+**Context**: Core protocol requirement — the event log must be tamper-evident and verifiable by third parties without trusting TrustFlow servers. Direct browser → TSA calls are blocked by CORS in production environments. The Edge Function acts as a transparent proxy: it receives `{ hashHex }` from the client, forwards the DER-encoded TimeStampReq to FreeTSA, and returns the base64 token.
+
+**Implementation (2026-05-28)**:
+- `supabase/functions/timestamp-event/index.ts` — proxy function deployed to Supabase (Mumbai)
+- `src/lib/tsa.js` — `requestTimestamp()` now calls Edge Function first (`isSupabaseEnabled`); falls back to direct freetsa.org call in dev mode (Node/Vite dev server, where CORS is not enforced)
 
 **Alternatives considered**:
 
 - Client-side timestamps — rejected; trivially forgeable
 - DB `created_at` only — rejected; mutable by DB admin, not independently verifiable
+- Direct browser → freetsa.org — rejected; CORS-blocked in production browsers
 - On-chain timestamping — deferred to Phase 4+ (cost and complexity unjustified at prototype stage)
 
-**Consequences**: All contract events must go through the Edge Function. `src/lib/tsa.js` handles client-side TSA interaction.
+**Consequences**: All contract events must go through the Edge Function. `src/lib/tsa.js` handles client-side TSA interaction and selects the correct path automatically.
 
 ---
 

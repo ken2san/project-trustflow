@@ -1,7 +1,7 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-03-15 (staged invite participation, deposit fix, Newcomer contract, back button on tier-limit error)_
+_Last updated: 2026-05-28 (TSA CORS fix, email delivery confirmed, Cloud Run deploy)_
 ---
 
 ## 0. Mission
@@ -167,7 +167,34 @@ These two flywheels are the same mechanism viewed from opposite directions. The 
 
 ---
 
-## Current Sprint (as of 2026-03-14)
+## Current Sprint (as of 2026-05-28)
+
+### Completed this session
+
+- **TSA CORS fix ✅** — `src/lib/tsa.js` now routes RFC 3161 requests through `timestamp-event` Supabase Edge Function (server-side) instead of calling freetsa.org directly from the browser. CORS block in production is eliminated. Dev mode falls back to direct call.
+- **Email delivery confirmed ✅** — Full BYOC flow tested end-to-end. Acceptance email delivered to `ken2san@gmail.com` via Resend. FROM: `noreply@kenji.com.hk`.
+- **InviteView runtimeState bug fixed ✅** — Persisted snapshot was overwriting `view='invite'` set from URL params at init. Fixed by skipping view restoration when invite URL params are present.
+- **Supabase anonymous auth enabled ✅** — Actor IDs now come from Supabase anon session in production.
+- **Cloud Run deployed ✅** — revision `trustflow-web-00052-xxx` (post-TSA-fix build)
+
+### Completed prior sprint (2026-03-06 → 2026-03-15)
+
+- **Canonical state machine established** — DoD quality guaranteed → contract flow becomes linear. Renegotiation, Pause/Resume, and unlimited rejection loops architecturally eliminated.
+- **Dead state removed from `ContractView.jsx`** ✅
+- **Trust Ladder upper limit enforcement** ✅
+- **Re-hire data carry-over** ✅
+- **Counterparty Invite Flow** ✅ — Full round-trip with staged participation (3 stages)
+
+### Next tasks (priority order)
+
+1. **Stripe live keys** — set `VITE_STRIPE_PUBLISHABLE_KEY` in `.env` + rebuild Cloud Run. Enables real JPY payments.
+2. **RLS policy hardening** — anonymous identity + realtime event subscription in place; role-aware access boundaries needed before any real-user data.
+3. **Gemini API integration** — Scope Builder uses token extraction today; wire real Gemini for DoD quality enforcement (Design Principle #6).
+4. **eKYC** — Phase 4 prerequisite for Sybil resistance.
+
+---
+
+## Previous Sprint (as of 2026-03-14)
 
 ### Decisions made
 
