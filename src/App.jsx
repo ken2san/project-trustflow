@@ -77,6 +77,7 @@ import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents }
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 import { ensureActorIdentity } from './lib/identity.js';
 import { generateInviteToken, decodeInviteTokenUnsafe, validateInviteToken } from './lib/invite.js';
+import { supabase, isSupabaseEnabled } from './lib/supabase.js';
 
 
 // ...existing code...
@@ -346,7 +347,10 @@ const App = () => {
       if (snapshot) {
         if (typeof snapshot.hasOnboarded === 'boolean') setHasOnboarded(snapshot.hasOnboarded);
         if (typeof snapshot.mode === 'string') setMode(snapshot.mode);
-        if (typeof snapshot.view === 'string') setView(snapshot.view);
+        // Don't restore view when an invite token is present in the URL
+        const hasInviteParams = new URLSearchParams(window.location.search).has('token')
+          || new URLSearchParams(window.location.search).has('invite');
+        if (typeof snapshot.view === 'string' && !hasInviteParams) setView(snapshot.view);
         if (typeof snapshot.step === 'number') setStep(snapshot.step);
         if (snapshot.selectedItem) setSelectedItem(snapshot.selectedItem);
         if (snapshot.uiProfile) setUIProfile(snapshot.uiProfile);
@@ -563,6 +567,23 @@ const App = () => {
       } else if (step === 4) {
         const ev = await logEvent({ type: EVENT_TYPES.WORK_APPROVED, contractId, actorId, payload: { step: 4 } });
         setContractEvents(prev => [ev, ...prev]);
+        // Fire acceptance email if hirer email is known (BYOC flow)
+        if (isSupabaseEnabled && guestEmail) {
+          supabase.functions.invoke('send-acceptance-email', {
+            body: {
+              hirer_email: guestEmail,
+              project_name: selectedItem?.title ?? 'Contract',
+              dod: selectedItem?.acceptanceCriteria ?? [],
+              dod_hash: dodHash ?? '',
+              amount_jpy: selectedItem?.totalPoints ?? 0,
+              contract_id: contractId,
+              settled_at: new Date().toISOString(),
+            },
+          }).then(({ error }) => {
+            if (error) addToast('Email not sent', 'Acceptance email failed to send.', 'warning');
+            else addToast('Confirmation sent', 'DoD acceptance email sent to hirer.', 'success');
+          });
+        }
         // Trust Passport: record contract completion
         setUIProfile(s => {
           const newCompleted = (s.completedContracts ?? 0) + 1;
@@ -608,7 +629,7 @@ const App = () => {
       setStep(prev => prev + 1);
       setStatus('idle');
     }, 1200);
-  }, [step, mode, selectedItem, status, actorId]);
+  }, [step, mode, selectedItem, status, actorId, guestEmail, dodHash]);
 
   const handleReject = () => {
     setStep(2);

@@ -1,6 +1,6 @@
 # TrustFlow — AI Session Handoff
 
-_Last updated: 2026-05-27 (session 3)_
+_Last updated: 2026-05-28 (session 4)_
 
 > Use this file to brief a new AI session on the current project state.
 > Update before ending a session. Paste the contents as your first message.
@@ -33,6 +33,17 @@ Phase 2 (UX Flow + Backend) — `main` deployed to Supabase as of 2026-05-27.
 - `App.jsx` wiring: WalletView, PaymentModal, guestEmail state
 - `InviteView.jsx`: JPY amounts, optional email Stage 2
 
+**Session 4 — End-to-end email confirmed + InviteView fix + Cloud Run deploy**
+
+- **Email delivery ✅** — Full BYOC flow tested: acceptance email delivered to `ken2san@gmail.com` via Resend (`noreply@kenji.com.hk`). Confirmed in Resend dashboard log.
+- **`send-acceptance-email` wired ✅** — `handleNextStep` step 4 fires Edge Function with `hirer_email`, `project_name`, DoD, amount, contract ID
+- **InviteView bug fixed ✅** — `runtimeState` hydration was overwriting `view='invite'` (set from URL `?token=`) with persisted `view='marketplace'`. Fixed: skip `setView(snapshot.view)` when invite URL params are present
+- **Supabase secrets updated ✅** — `RESEND_API_KEY`, `EMAIL_FROM=TrustFlow <noreply@kenji.com.hk>`, `INVITE_SECRET`, `STRIPE_SECRET_KEY` all set via `supabase secrets set`
+- **Anonymous auth enabled ✅** — Supabase dashboard → Authentication → anonymous sign-ins ON
+- **Cloud Run deployed ✅** — revision `trustflow-web-00051-vw6`; GCP project `trustflow-project`, region `us-central1`
+- **Resend domain** — verified domain: `kenji.com.hk` (DNS records on `send.kenji.com.hk` subdomain; FROM must be `@kenji.com.hk`, not `@send.kenji.com.hk`)
+- Tests: **87/87 passing** (no regression)
+
 **Session 3 — MVP threat closure + court-admissible consent + Supabase deploy**
 
 - **T1 ✅** — HMAC-SHA256 invite tokens, 72h expiry, tamper-detection, error UI, 18 unit tests
@@ -47,19 +58,19 @@ Phase 2 (UX Flow + Backend) — `main` deployed to Supabase as of 2026-05-27.
 
 ## Current State
 
-- Branch: **`main`** — latest commit `4c58896`
+- Branch: **`main`** — latest commit (session 4)
 - Build: ✓ 1554 modules, 0 errors
 - Tests: 87/87 passing
 - Supabase: **deployed** — project `trustflow` (ref: `fqgpzhwvvfsxswlnbbgg`, Mumbai)
 - DB: **4 migrations applied** in production
 - Edge Functions: **6 functions live** in production
-- Stripe key: **not set in .env** — PaymentModal runs in Test Mode until `VITE_STRIPE_PUBLISHABLE_KEY` is set
-- **Env vars required on Supabase dashboard** (not yet set):
-  - `STRIPE_SECRET_KEY` — Stripe secret key
-  - `STRIPE_WEBHOOK_SECRET` — for `capture-payment` webhook verification
-  - `RESEND_API_KEY` — for `send-acceptance-email`
-  - `EMAIL_FROM` — optional (default: `TrustFlow <noreply@trustflow.app>`)
-  - `INVITE_SECRET` — for HMAC invite token signing (must match `src/lib/invite.js` default `tf-dev-secret-v1` in dev; use a strong random value in prod)
+- Cloud Run: **`https://trustflow-web-526623258424.us-central1.run.app`** (revision `trustflow-web-00051-vw6`)
+- Email: **✅ working end-to-end** — Resend delivering from `noreply@kenji.com.hk`
+- Anonymous auth: **✅ enabled** in Supabase
+- Supabase secrets: **✅ all set** (`RESEND_API_KEY`, `EMAIL_FROM`, `INVITE_SECRET`, `STRIPE_SECRET_KEY`)
+- Stripe key: **not set in `.env`** — PaymentModal runs in Test Mode until `VITE_STRIPE_PUBLISHABLE_KEY` is set
+  - `EMAIL_FROM` — set to `TrustFlow <noreply@kenji.com.hk>` ✅
+  - `INVITE_SECRET` — set ✅
 
 ## Active Constraints
 
@@ -69,14 +80,10 @@ Phase 2 (UX Flow + Backend) — `main` deployed to Supabase as of 2026-05-27.
 
 ## Next Priority (in order)
 
-1. **Get API keys** (user action required):
-   - Stripe: [dashboard.stripe.com/test/apikeys](https://dashboard.stripe.com/test/apikeys) → Publishable key (`pk_test_...`) + Secret key (`sk_test_...`)
-   - Resend: [resend.com](https://resend.com) → sign up (free tier: 3,000/month) → API Keys → `re_...`
-2. **Set `VITE_STRIPE_PUBLISHABLE_KEY` in `.env`** — enables live Stripe Elements
-3. **Set Supabase secrets** — `supabase secrets set STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_... RESEND_API_KEY=re_... INVITE_SECRET=<random>`
-3. **Frontend hosting** — deploy Vite build (Vercel/Netlify/Cloudflare Pages) so real users can access via URL
-4. **eKYC** — Phase 4 prerequisite for Sybil resistance (bilateral self-cleansing only works reliably post-eKYC)
-5. **Gemini API** — DoD AI generation + AI dispute arbitration (Phase 4)
+1. **TSA CORS (secondary)** — `freetsa.org` blocks browser CORS in production. Move TSA call from `src/lib/tsa.js` (frontend) to a Supabase Edge Function (e.g. `timestamp-event` already exists — route TSA through it). Non-blocking: app continues if TSA fails.
+2. **Stripe live keys** — set `VITE_STRIPE_PUBLISHABLE_KEY` in `.env` + `STRIPE_SECRET_KEY` in Supabase secrets to enable real payments
+3. **eKYC** — Phase 4 prerequisite for Sybil resistance
+4. **Gemini API** — DoD AI generation + AI dispute arbitration (Phase 4)
 
 ## Key Files to Read First
 
