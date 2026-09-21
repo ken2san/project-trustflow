@@ -4,7 +4,11 @@
 // Funds are captured immediately and held in the platform's Stripe Connect
 // balance until `capture-payment` releases them to the Earner.
 //
-// Called by the frontend when both parties have confirmed the contract (LOCKED state).
+// Called by the frontend once the Hirer has accepted terms (TERMS_ACCEPTED state).
+// The Hirer is authorized either as a guest (X-Guest-Access-Token, issued by
+// validate-invite-token's accept step) or, if they later register, via Supabase
+// Auth matching hirer_user_id — see _shared/partyAuth.ts. The amount is always
+// the contract's own DB-owned amount_jpy; a client-supplied amount is never trusted.
 //
 // Environment variables required (set in Supabase dashboard → Edge Functions):
 //   STRIPE_SECRET_KEY      — Stripe secret key (sk_live_... or sk_test_...)
@@ -16,6 +20,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import Stripe from 'npm:stripe@^14'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { authorizeParty } from '../_shared/partyAuth.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2024-06-20',
@@ -28,7 +33,7 @@ const supabase = createClient(
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-guest-access-token',
 }
 
 serve(async (req: Request) => {
@@ -37,34 +42,17 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Verify caller is authenticated
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const { contractId, description } = await req.json()
 
-    const jwt = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const { contractId, amountJpy, description, earnerEmail } = await req.json()
-
-    if (!contractId || !amountJpy || amountJpy < 50 || amountJpy > 10_000_000) {
-      return new Response(JSON.stringify({ error: 'Invalid parameters' }), {
+    if (!contractId) {
+      return new Response(JSON.stringify({ error: 'contractId required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Verify the calling user owns this contract
     const { data: contract, error: contractError } = await supabase
       .from('contracts')
-      .select('id, created_by, state, hirer_email')
+      .select('*')
       .eq('id', contractId)
       .single()
 
@@ -74,14 +62,31 @@ serve(async (req: Request) => {
       })
     }
 
-    if (contract.created_by !== user.id) {
+    // Only the Hirer (guest or registered) may fund the contract.
+    const party = await authorizeParty(req, supabase, contract)
+    if (!party || party.role !== 'hirer') {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    if (contract.state !== 'LOCKED') {
+    if (contract.state !== 'TERMS_ACCEPTED') {
       return new Response(JSON.stringify({ error: `Cannot charge in state: ${contract.state}` }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Amount is always the contract's own DB-owned value — a client-supplied
+    // amount is never trusted, regardless of what the frontend displays.
+    const amountJpy = contract.amount_jpy
+    if (!Number.isInteger(amountJpy) || amountJpy < 50 || amountJpy > 10_000_000) {
+      return new Response(JSON.stringify({ error: 'Contract has no valid amount' }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (contract.stripe_payment_intent_id) {
+      return new Response(JSON.stringify({ error: 'Payment already created for this contract' }), {
         status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -96,18 +101,29 @@ serve(async (req: Request) => {
       ...(contract.hirer_email ? { receipt_email: contract.hirer_email } : {}),
       metadata: {
         contract_id: contractId,
-        hirer_id: user.id,
-        earner_email: earnerEmail ?? '',
+        earner_user_id: contract.earner_user_id,
+        hirer_email: contract.hirer_email ?? '',
       },
       // Platform holds funds until explicit transfer to earner
       transfer_group: contractId,
     })
 
-    // Store the PaymentIntent ID on the contract
-    await supabase
+    // Store the PaymentIntent ID on the contract. Guard against a concurrent
+    // duplicate create winning the race (idempotency).
+    const { data: updated, error: updateError } = await supabase
       .from('contracts')
       .update({ stripe_payment_intent_id: paymentIntent.id, state: 'IN_PROGRESS' })
       .eq('id', contractId)
+      .is('stripe_payment_intent_id', null)
+      .select('id')
+
+    if (updateError || !updated || updated.length === 0) {
+      // Lost the race — cancel the PaymentIntent we just created so it's not orphaned.
+      await stripe.paymentIntents.cancel(paymentIntent.id).catch(() => {})
+      return new Response(JSON.stringify({ error: 'Payment already created for this contract' }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     return new Response(
       JSON.stringify({

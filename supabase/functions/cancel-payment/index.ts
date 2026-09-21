@@ -1,7 +1,15 @@
 // supabase/functions/cancel-payment/index.ts
 //
 // Refunds the Hirer if a contract is cancelled before the Earner is paid.
-// Called when both parties mutually cancel, or when a dispute is resolved in the Hirer's favor.
+// Called when both parties mutually cancel, or when a dispute is resolved in
+// the Hirer's favor. Either party may call this — guest Hirer via
+// X-Guest-Access-Token, or Earner/registered Hirer via Supabase Auth.
+// See _shared/partyAuth.ts.
+//
+// NOTE: cancellation penalty is still a flat, unconditional TrustPoints
+// deduction to both parties (fault-based attribution is a separate later
+// phase — see Roadmap.md). This function only fixes the role-field
+// references, adds guest auth, and adds idempotency against double-refund.
 //
 // Deploy:
 //   npx supabase functions deploy cancel-payment
@@ -9,6 +17,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import Stripe from 'npm:stripe@^14'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { authorizeParty } from '../_shared/partyAuth.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2024-06-20',
@@ -21,11 +30,13 @@ const supabase = createClient(
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-guest-access-token',
 }
 
 // TrustPoints penalty for cancellation
 const TP_CANCELLATION_PENALTY = -30
+
+const CANCELLABLE_STATES = ['TERMS_ACCEPTED', 'IN_PROGRESS', 'DELIVERED']
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -33,22 +44,13 @@ serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const jwt = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const { contractId, reason = 'mutual_cancellation' } = await req.json()
+
+    if (!contractId) {
+      return new Response(JSON.stringify({ error: 'contractId required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: contract, error: contractError } = await supabase
       .from('contracts')
@@ -62,16 +64,31 @@ serve(async (req: Request) => {
       })
     }
 
-    // Must be a party to the contract
-    if (contract.created_by !== user.id && contract.counterparty_id !== user.id) {
+    // Must be a party to the contract — Earner or Hirer (guest included).
+    const party = await authorizeParty(req, supabase, contract)
+    if (!party) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const cancellableStates = ['LOCKED', 'IN_PROGRESS', 'DELIVERED']
-    if (!cancellableStates.includes(contract.state)) {
+    if (!CANCELLABLE_STATES.includes(contract.state)) {
       return new Response(JSON.stringify({ error: `Cannot cancel in state: ${contract.state}` }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Idempotency: claim the cancellation before touching Stripe, so a
+    // concurrent duplicate call can't double-refund.
+    const { data: claimed, error: claimError } = await supabase
+      .from('contracts')
+      .update({ state: 'CANCELLED' })
+      .eq('id', contractId)
+      .in('state', CANCELLABLE_STATES)
+      .select('id')
+
+    if (claimError || !claimed || claimed.length === 0) {
+      return new Response(JSON.stringify({ error: 'Cancellation already in progress or completed' }), {
         status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -80,21 +97,27 @@ serve(async (req: Request) => {
 
     // Refund if payment was already collected
     if (contract.stripe_payment_intent_id) {
-      const refund = await stripe.refunds.create({
-        payment_intent: contract.stripe_payment_intent_id,
-        metadata: { contract_id: contractId, reason },
-      })
-      refundId = refund.id
+      try {
+        const refund = await stripe.refunds.create({
+          payment_intent: contract.stripe_payment_intent_id,
+          metadata: { contract_id: contractId, reason },
+        })
+        refundId = refund.id
+      } catch (refundErr) {
+        // Roll back the claim so a retry is possible.
+        await supabase.from('contracts').update({ state: contract.state }).eq('id', contractId)
+        throw refundErr
+      }
     }
 
-    // Update contract
     await supabase
       .from('contracts')
-      .update({ state: 'CANCELLED', stripe_refund_id: refundId })
+      .update({ stripe_refund_id: refundId })
       .eq('id', contractId)
 
-    // TrustPoints penalty to both parties for cancellation (mutual deterrent)
-    const penaltyTargets = [contract.created_by, contract.counterparty_id].filter(Boolean)
+    // TrustPoints penalty to both parties for cancellation (mutual deterrent —
+    // fault attribution not yet implemented, see note above).
+    const penaltyTargets = [contract.earner_user_id, contract.hirer_user_id].filter(Boolean)
     for (const uid of penaltyTargets) {
       await supabase.from('trustpoints_ledger').insert({
         user_id: uid,
