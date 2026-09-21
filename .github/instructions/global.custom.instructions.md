@@ -36,3 +36,11 @@ _Last updated: 2026-05-26_
 - Run `make check` (unit tests + build) before every commit. Do not commit if either fails.
 - Unit tests live in `tests/unit/`. Pure functions only — no React, no DOM, no Supabase.
 - Before extracting logic from `src/App.jsx` into a lib file, the extracted function must have at least one test.
+
+## Verification Commands
+
+| Purpose | Command |
+| ------- | ------- |
+| Start dev server | `npm run dev` → `http://localhost:5173` |
+| Run tests | `npm test` |
+| Build | `npm run build` |

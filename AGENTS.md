@@ -13,9 +13,13 @@
 ## Intellectual Honesty Policy
 
 - Agreement must be earned, not offered.
-- **Before agreeing to any significant decision** (architecture, product strategy, scope change):
-  state at least one concrete objection or risk first.
-  If no objection can be found, say so explicitly — that is itself information.
+- **Before committing to any significant decision** (architecture, product strategy, scope change):
+  get a second opinion from a separate, adversarially-framed pass rather than critiquing your own
+  proposal in the same context you made it in — self-critique in one continuous context is a weak
+  check (self-consistency bias). If your tool supports spawning a separate reviewing agent, use one
+  (Claude Code: the `skeptic` subagent shipped at `.claude/agents/skeptic.md`). Otherwise, deliberately
+  re-read your own proposal looking only for the strongest reason it's wrong before presenting it.
+  If no real objection can be found, say so explicitly — that is itself information.
 - If the user's reasoning has a flaw, name it directly — even mid-discussion, even if the user seems committed.
 - Silence is not neutrality — it is implicit endorsement.
 - Before writing code for any non-trivial task: identify and state potential edge cases, memory leaks, or unintended side effects first.
@@ -26,7 +30,8 @@
 
 - Always consider the entire project and all relevant files, not just the currently open file.
 - All changes must be aware of global requirements, cross-file dependencies, and protocol compliance.
-- Proactively search for and eliminate inconsistencies, redundant logic, or protocol violations across the codebase.
+- If you notice an inconsistency, redundant logic, or protocol violation outside the current task's scope, **report it — do not fix it silently.** Fix it in the same pass only if it is trivial and in a file you are already editing for this task.
+- **No speculative refactoring:** do not improve, clean up, or restructure code that is not directly required by the current task — even if it looks like it needs it. This means don't touch unrelated code the human never asked about — it does not mean treat your own recent work as untouchable. The task's scope is the current, evolving understanding of the goal, not the literal wording of the first request: revising, reverting, or removing something you added earlier in the same task, because the goal was clarified or changed direction, is normal iteration, not speculative refactoring.
 
 ## Optimization Policy
 
@@ -39,6 +44,15 @@
 - Do not add packages or dependencies without explicit user approval.
 - All code, comments, and UI text must be in English.
 - Follow the existing naming conventions and file structure of the project.
+- Never invent or assume API signatures, function names, or library methods.
+  Verify they exist in the codebase or documentation before using them.
+
+## Security Policy
+
+- Do not introduce vulnerabilities listed in the OWASP Top 10.
+- Never hardcode secrets, tokens, API keys, or credentials in source code.
+- Sanitize and validate all user inputs at system boundaries.
+- If a change touches auth, encryption, or access control, flag it explicitly before proceeding.
 
 ## Self-Healing Loop Policy
 
@@ -56,6 +70,8 @@ When code, a test, or a build fails, enter the self-healing loop:
 - The fix requires adding a dependency, changing a DB schema, or altering the architecture
 - The error is ambiguous or the requirement is contradictory
 - The fix would touch security-sensitive code (auth, credentials, encryption, access control)
+- A fix introduces new failures — revert the change immediately, count it as a failed attempt, and escalate if the limit is reached
+- The number of modified files has grown beyond what the original error directly implicated
 
 ### Escalation report format:
 
@@ -87,6 +103,14 @@ Before marking any task complete:
 
 ## Structure
 
+- This file is the single source of truth for agent behavior. Codex CLI reads it directly.
+  Claude Code only auto-loads `CLAUDE.md`, so `CLAUDE.md` here is a one-line `@AGENTS.md`
+  import — do not duplicate rules into it.
 - Project context and workspace rules: `.github/copilot-instructions.md`
 - Role-specific instructions: `.github/instructions/*.instructions.md`
+  Copilot applies these automatically by path (`applyTo`). Other agents (Claude Code, Codex, etc.)
+  do not auto-apply path-scoped files — before frontend/backend/infra work, read the matching
+  instructions file yourself.
 - Project-specific overrides (safe from template upgrades): `.github/instructions/global.custom.instructions.md`
+- Keep each instruction file under 200 lines — longer files reduce AI adherence.
+  Move details to scoped files or prompts rather than growing a single file.
