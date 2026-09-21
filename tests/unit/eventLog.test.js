@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createEvent, EVENT_TYPES } from '../../src/lib/eventLog.js'
+import { createEvent, logEvent, GENESIS_HASH, EVENT_TYPES } from '../../src/lib/eventLog.js'
 
 // Mock supabase so eventLog.js can be imported without a live client.
-// persistEvent is NOT tested here — that belongs in integration tests
-// that run against a real (or local) Supabase instance.
+// persistEvent's Supabase-connected path is NOT tested here — that belongs
+// in integration tests that run against a real (or local) Supabase instance.
+// With supabase === null, getChainTip() always falls back to GENESIS_HASH,
+// so the chain-linkage tests below only exercise the "first event" case.
 vi.mock('../../src/lib/supabase.js', () => ({ supabase: null }))
 vi.mock('../../src/lib/tsa.js', () => ({ requestTimestamp: vi.fn().mockResolvedValue(null) }))
 vi.mock('../../src/lib/crypto.js', () => ({
@@ -109,5 +111,40 @@ describe('createEvent', () => {
     const a = createEvent(baseParams)
     const b = createEvent(baseParams)
     expect(a.id).not.toBe(b.id)
+  })
+})
+
+// ── logEvent chain linkage ──────────────────────────────────────────────────
+// Guard: prev_event_hash is what turns independently-hashed rows into an
+// actual verifiable chain (see auditExport.js). Regressing this silently
+// reintroduces the "deletion/reorder/forged-insert goes undetected" bug.
+
+describe('logEvent chain linkage', () => {
+  const baseParams = {
+    type: EVENT_TYPES.CONTRACT_INITIATED,
+    contractId: 'contract-uuid-001',
+    actorId: 'actor-uuid-999',
+  }
+
+  it('sets prev_event_hash to GENESIS_HASH when there is no persisted history (mock mode)', async () => {
+    const persisted = await logEvent(baseParams)
+    expect(persisted.prev_event_hash).toBe(GENESIS_HASH)
+  })
+
+  it('includes prev_hash in the hashed canonical payload, not just the stored row', async () => {
+    const { sha256 } = await import('../../src/lib/crypto.js')
+    sha256.mockClear()
+    await logEvent(baseParams)
+    const canonicalArg = sha256.mock.calls[0][0]
+    expect(JSON.parse(canonicalArg)).toHaveProperty('prev_hash', GENESIS_HASH)
+  })
+
+  it('sets event_hash on the persisted event', async () => {
+    const persisted = await logEvent(baseParams)
+    expect(persisted.event_hash).toBe('mock-hash-abc123')
+  })
+
+  it('GENESIS_HASH is a stable, non-empty sentinel distinguishable from a real hash', () => {
+    expect(GENESIS_HASH).toBe('GENESIS')
   })
 })

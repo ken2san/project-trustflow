@@ -3,11 +3,26 @@
 // Provides event creation and persistence (Supabase when connected, in-memory fallback).
 // All writes are INSERT-only — no UPDATE or DELETE ever happens here.
 //
-// Phase 4 integrity chain per event:
+// Integrity chain per event:
 //   1. createEvent() — assigns UUID + ISO timestamp
-//   2. sha256(canonical event string) → event_hash
-//   3. requestTimestamp(event_hash) → RFC 3161 TSA token (null if CORS blocks — non-fatal)
-//   4. persistEvent() — single INSERT with hash + token already set
+//   2. look up this contract's current chain tip (latest event_hash), or the
+//      GENESIS_HASH sentinel if this is the first event for the contract
+//   3. sha256(canonical event string, including prev_hash) → event_hash
+//   4. requestTimestamp(event_hash) → RFC 3161 TSA token (null if CORS blocks — non-fatal)
+//   5. persistEvent() — single INSERT with hash + prev_hash + token already set
+//
+// Including prev_hash in the hashed payload is what makes this an actual
+// chain rather than a set of independently-hashed rows: deleting, reordering,
+// or forging an event breaks the prev_hash linkage to its neighbor, which
+// auditExport.js's chain verification checks for (not just "does this event's
+// own hash match itself", which a lone forged/deleted row can't detect).
+//
+// Best-effort, not DB-enforced: the chain tip lookup and the write are not
+// atomic (no DB trigger rejects a write with a stale prev_hash), so two
+// events for the same contract logged truly concurrently could each read the
+// same tip and both claim it as their prev_hash. In practice events for one
+// contract are logged sequentially by user action, so this is an accepted
+// gap, not a claimed guarantee — see the note in auditExport.js.
 
 import { supabase } from './supabase.js'
 import { sha256 } from './crypto.js'
@@ -108,8 +123,35 @@ export async function persistEvent(event) {
   return data
 }
 
+// Sentinel prev_hash for the first event in a contract's chain — distinguishes
+// "genuinely the first event" from "prev_hash lookup failed/was skipped".
+export const GENESIS_HASH = 'GENESIS'
+
 /**
- * Convenience: create → hash → TSA stamp → persist in one call.
+ * Look up the current chain tip (most recent event_hash) for a contract.
+ * Returns GENESIS_HASH if this is the first event or the lookup can't run
+ * (mock mode — no persisted history to chain against).
+ *
+ * @param {string} contractId
+ * @returns {Promise<string>}
+ */
+async function getChainTip(contractId) {
+  if (!supabase || !contractId) return GENESIS_HASH
+
+  const { data, error } = await supabase
+    .from('events')
+    .select('event_hash')
+    .eq('contract_id', contractId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data?.event_hash) return GENESIS_HASH
+  return data.event_hash
+}
+
+/**
+ * Convenience: create → chain → hash → TSA stamp → persist in one call.
  * The TSA token is obtained BEFORE insert so the record is complete and immutable on write.
  * TSA failure is non-fatal: token will be null, event is still recorded.
  *
@@ -118,8 +160,11 @@ export async function persistEvent(event) {
  */
 export async function logEvent(params) {
   const event = createEvent(params)
+  const prevHash = await getChainTip(event.contract_id)
 
-  // Build a canonical string of the event's identifying fields for hashing
+  // Build a canonical string of the event's identifying fields for hashing.
+  // prev_hash is included so this event's hash depends on the entire prior
+  // chain, not just its own fields — see file header.
   const canonical = JSON.stringify({
     id:          event.id,
     type:        event.type,
@@ -127,13 +172,19 @@ export async function logEvent(params) {
     actor_id:    event.actor_id,
     dod_hash:    event.dod_hash,
     created_at:  event.created_at,
+    prev_hash:   prevHash,
   })
   const eventHash = await sha256(canonical)
 
   // Request RFC 3161 timestamp — best-effort, null if CORS/network blocks
   const tsaToken = await requestTimestamp(eventHash)
 
-  return persistEvent({ ...event, event_hash: eventHash, tsa_token: tsaToken })
+  return persistEvent({
+    ...event,
+    event_hash: eventHash,
+    prev_event_hash: prevHash,
+    tsa_token: tsaToken,
+  })
 }
 
 /**
