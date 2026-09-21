@@ -187,7 +187,9 @@ serve(async (req: Request) => {
     }
 
     // H1: Send DoD acceptance email to the Hirer — fire-and-forget.
-    // Email failure must never block fund release.
+    // Email failure must never block fund release. send-acceptance-email now
+    // loads everything it needs (recipient, amount, DoD) from the contract
+    // record itself once it sees state === SETTLED, so only the id is passed.
     if (contract.hirer_email) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
       fetch(`${supabaseUrl}/functions/v1/send-acceptance-email`, {
@@ -196,15 +198,7 @@ serve(async (req: Request) => {
           'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          hirer_email: contract.hirer_email,
-          project_name: contract.project_name,
-          dod: contract.dod ?? [],
-          dod_hash: contract.dod_hash ?? '',
-          amount_jpy: contract.amount_jpy,
-          contract_id: contractId,
-          settled_at: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ contract_id: contractId }),
       }).catch((err) => console.error('[capture-payment] email dispatch failed', err))
     }
 

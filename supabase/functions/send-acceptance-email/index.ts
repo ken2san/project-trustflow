@@ -4,21 +4,33 @@
 // The email captures: project name, DoD items, DoD hash, amount, timestamp, and
 // contract ID — serving as chargeback/dispute evidence in Stripe.
 //
+// The caller supplies only contract_id. Every other field (recipient, amount,
+// DoD, hash) is loaded from the contract record itself — a caller cannot make
+// this function send arbitrary attacker-chosen content to an arbitrary
+// address, and it only fires for contracts that are actually SETTLED.
+//
 // Gracefully skips (logs warning, returns 200) if RESEND_API_KEY is not set.
 //
 // Environment variables required:
 //   RESEND_API_KEY        — Resend API key (https://resend.com)
 //   EMAIL_FROM            — optional sender override (default: TrustFlow <noreply@trustflow.app>)
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //
 // Deploy:
 //   npx supabase functions deploy send-acceptance-email
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+)
 
 interface EmailPayload {
   hirer_email: string
@@ -123,17 +135,52 @@ serve(async (req: Request) => {
   }
 
   try {
-    const payload: EmailPayload = await req.json()
-    const { hirer_email, project_name, dod, dod_hash, amount_jpy, contract_id, settled_at } = payload
-
-    if (!hirer_email || !project_name || !dod_hash || !contract_id) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    const { contract_id } = await req.json()
+    if (!contract_id) {
+      return new Response(JSON.stringify({ error: 'contract_id required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
+    // Everything the email says comes from the contract record itself —
+    // a caller cannot inject arbitrary recipient/amount/DoD content, and
+    // this only ever fires for a contract that is actually SETTLED.
+    const { data: contract, error } = await supabase
+      .from('contracts')
+      .select('id, project_name, dod, dod_hash, amount_jpy, hirer_email, state, updated_at')
+      .eq('id', contract_id)
+      .single()
+
+    if (error || !contract) {
+      return new Response(JSON.stringify({ error: 'Contract not found' }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (contract.state !== 'SETTLED') {
+      return new Response(JSON.stringify({ error: `Contract is not settled (state: ${contract.state})` }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!contract.hirer_email) {
+      return new Response(JSON.stringify({ error: 'Contract has no hirer_email on file' }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const payload: EmailPayload = {
+      hirer_email: contract.hirer_email,
+      project_name: contract.project_name,
+      dod: Array.isArray(contract.dod) ? contract.dod : [],
+      dod_hash: contract.dod_hash ?? '',
+      amount_jpy: contract.amount_jpy,
+      contract_id: contract.id,
+      settled_at: contract.updated_at,
+    }
+
     const from = Deno.env.get('EMAIL_FROM') ?? 'TrustFlow <noreply@trustflow.app>'
-    const subject = `Agreement Confirmed: ${project_name}`
+    const subject = `Agreement Confirmed: ${payload.project_name}`
     const html = buildHtml(payload)
 
     const res = await fetch('https://api.resend.com/emails', {
@@ -142,7 +189,7 @@ serve(async (req: Request) => {
         'Authorization': `Bearer ${resendKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from, to: [hirer_email], subject, html }),
+      body: JSON.stringify({ from, to: [payload.hirer_email], subject, html }),
     })
 
     if (!res.ok) {
@@ -154,7 +201,7 @@ serve(async (req: Request) => {
     }
 
     const { id: emailId } = await res.json()
-    console.log('[send-acceptance-email] sent', emailId, 'to', hirer_email)
+    console.log('[send-acceptance-email] sent', emailId, 'to', payload.hirer_email)
 
     return new Response(JSON.stringify({ sent: true, emailId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

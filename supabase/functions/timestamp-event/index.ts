@@ -16,9 +16,10 @@
 //   })
 //   const tsaToken = data?.token ?? null
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
 const TSA_URL = 'https://freetsa.org/tsr'
+const HASH_HEX_RE = /^[0-9a-f]{64}$/i
 
 // ── DER encoding (Deno — same logic as src/lib/tsa.js) ──────────────────────
 
@@ -68,8 +69,8 @@ serve(async (req: Request) => {
 
   try {
     const { hashHex } = await req.json()
-    if (!hashHex || hashHex.length !== 64) {
-      return new Response(JSON.stringify({ error: 'hashHex must be a 64-char SHA-256 hex string' }), { status: 400 })
+    if (!hashHex || !HASH_HEX_RE.test(hashHex)) {
+      return new Response(JSON.stringify({ error: 'hashHex must be a 64-char hex-encoded SHA-256 digest' }), { status: 400 })
     }
 
     const tsaResp = await fetch(TSA_URL, {
