@@ -15,4 +15,4 @@ _Last updated: 2026-05-22_
 
 - Do not modify infrastructure configuration without explicit instruction.
 - The prototype is served via `npm run dev` (Vite dev server); Docker is for production builds only.
-- Infrastructure changes are Phase 4 scope — see `TrustFlow_Development_Roadmap.md`.
+- Infrastructure changes are Phase 4 scope — see `Roadmap.md`.

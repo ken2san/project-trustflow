@@ -510,7 +510,7 @@ Three tiers, in order of individual sovereignty:
 
 - Edit Terms and Cancel are only available between DoD presentation and Commitment Locked.
 - Once Commitment Locked, contract terms are irreversibly finalized; modifications and cancellations are not permitted in principle.
-- See TrustFlow_Protocol.md for detailed rules and rationale.
+- See Protocol.md for detailed rules and rationale.
 
 ---
 

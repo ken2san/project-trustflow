@@ -11,7 +11,7 @@ Stack: React 18, Vite, TailwindCSS. Entry: `src/main.jsx`. State: centralized in
 
 ## Before Any Task
 
-- Read `TrustFlow_Development_Roadmap.md` to understand current phase, target user, and scope boundaries.
+- Read `Roadmap.md` to understand current phase, target user, and scope boundaries.
 - Do not implement Phase 3 or Phase 4 features without explicit user instruction.
 
 ## Project-Specific Code Rules

@@ -54,7 +54,7 @@ This section outlines the implementation plan for adding edge case and exception
 - The ideal UX is "zero ambiguity, full confidence." All adjustments and cancellations must be completed before locking; after locking, both parties focus solely on execution.
 - This rule is consistent with global contract protocols across finance, law, and Web3.
 
-For implementation details and UI/UX guidelines, see TrustFlow_Development_Roadmap.md.
+For implementation details and UI/UX guidelines, see Roadmap.md.
 
 ---
 

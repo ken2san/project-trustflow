@@ -89,7 +89,7 @@ Phase 2 (UX Flow + Backend) — `main` deployed to Supabase as of 2026-05-27.
 ## Key Files to Read First
 
 - `AGENTS.md` — agent behavior rules
-- `TrustFlow_Development_Roadmap.md` — design principles (incl. Principle #8), flywheel model
+- `Roadmap.md` — design principles (incl. Principle #8), flywheel model
 - `Decisions.md` — architectural decisions (do not reverse without instruction)
 - `src/lib/trustpoints.js` — TrustPoints earn/spend rules
 - `src/lib/invite.js` — HMAC invite token utilities

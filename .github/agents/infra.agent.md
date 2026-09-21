@@ -14,5 +14,5 @@ _Last updated: 2026-03-06_
 ## Rules
 
 - Do not modify `Dockerfile` or `nginx/default.conf` without explicit user instruction.
-- Infrastructure changes are Phase 4 scope — see `TrustFlow_Development_Roadmap.md`.
+- Infrastructure changes are Phase 4 scope — see `Roadmap.md`.
 - The prototype is served via `npm run dev` (Vite dev server); Docker is for production builds only.
