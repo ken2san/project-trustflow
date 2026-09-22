@@ -28,6 +28,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import Stripe from 'npm:stripe@^14'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { authorizeParty } from '../_shared/partyAuth.ts'
+import { TP_CONTRACT_COMPLETED, TP_ON_TIME_BONUS, TP_CONTRACT_COMPLETED_HIRER } from '../_shared/trustpointsRules.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2024-06-20',
@@ -42,10 +43,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-guest-access-token',
 }
-
-// TrustPoints awarded on successful completion
-const TP_CONTRACT_COMPLETED = 50
-const TP_ON_TIME_BONUS = 20
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -179,7 +176,7 @@ serve(async (req: Request) => {
     if (contract.hirer_user_id) {
       await supabase.from('trustpoints_ledger').insert({
         user_id: contract.hirer_user_id,
-        delta: Math.round(TP_CONTRACT_COMPLETED * 0.4),
+        delta: TP_CONTRACT_COMPLETED_HIRER,
         reason: 'Contract completed as Hirer',
         reason_code: 'CONTRACT_COMPLETED_HIRER',
         contract_id: contractId,

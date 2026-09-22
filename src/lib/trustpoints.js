@@ -5,7 +5,12 @@
 // platform benefits (fee discounts, priority arbitration, badge unlocks).
 // They cannot be converted to cash. Think: airline miles, not money.
 //
-// Server-side awards happen in Supabase Edge Functions.
+// Server-side awards happen in Supabase Edge Functions, which import the
+// same TP_* constants below from supabase/functions/_shared/trustpointsRules.ts
+// — that file is the single source of truth for the contract-completion and
+// cancellation deltas; this module re-exports them as part of the fuller
+// TRUSTPOINTS_RULES config so a value can't drift between what the server
+// actually awards and what the UI displays as the rule.
 // This file provides:
 //   - TRUSTPOINTS_RULES: earn/spend configuration
 //   - BADGES: badge definitions and unlock thresholds
@@ -13,13 +18,20 @@
 //   - getUnlockedBadges(): which badges a user has earned
 //   - getNextBadge(): the next badge to earn
 
+import {
+  TP_CONTRACT_COMPLETED,
+  TP_ON_TIME_BONUS,
+  TP_CONTRACT_COMPLETED_HIRER,
+  TP_CANCELLATION_PENALTY,
+} from '../../supabase/functions/_shared/trustpointsRules.ts'
+
 // ── Earn / Spend rules ──────────────────────────────────────────────────────
 
 export const TRUSTPOINTS_RULES = {
   // Earning
-  CONTRACT_COMPLETED:           { delta: +50,  label: 'Contract completed' },
-  CONTRACT_COMPLETED_ON_TIME:   { delta: +70,  label: 'Contract completed on time (+20 bonus)' },
-  CONTRACT_COMPLETED_HIRER:     { delta: +20,  label: 'Contract completed as Hirer' },
+  CONTRACT_COMPLETED:           { delta: TP_CONTRACT_COMPLETED,                    label: 'Contract completed' },
+  CONTRACT_COMPLETED_ON_TIME:   { delta: TP_CONTRACT_COMPLETED + TP_ON_TIME_BONUS, label: 'Contract completed on time (+20 bonus)' },
+  CONTRACT_COMPLETED_HIRER:     { delta: TP_CONTRACT_COMPLETED_HIRER,              label: 'Contract completed as Hirer' },
   DISPUTE_WON:                  { delta: +30,  label: 'Dispute resolved in your favor' },
   HIGH_RATING_RECEIVED:         { delta: +10,  label: 'Received 5-star rating' },
   FIRST_CONTRACT:               { delta: +100, label: 'First contract completed (one-time bonus)' },
@@ -31,7 +43,7 @@ export const TRUSTPOINTS_RULES = {
   TRUST_PASSPORT_FEATURED:      { delta: -200, label: 'Featured badge on Trust Passport (30 days)' },
 
   // Penalties (negative delta, applied automatically)
-  CONTRACT_CANCELLED:           { delta: -30,  label: 'Contract cancelled' },
+  CONTRACT_CANCELLED:           { delta: TP_CANCELLATION_PENALTY, label: 'Contract cancelled' },
   DISPUTE_LOST:                 { delta: -50,  label: 'Dispute resolved against you' },
   GHOSTING_FLAG:                { delta: -80,  label: 'Flagged for ghosting' },
 }

@@ -18,6 +18,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import Stripe from 'npm:stripe@^14'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { authorizeParty } from '../_shared/partyAuth.ts'
+import { TP_CANCELLATION_PENALTY } from '../_shared/trustpointsRules.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2024-06-20',
@@ -32,9 +33,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-guest-access-token',
 }
-
-// TrustPoints penalty for cancellation
-const TP_CANCELLATION_PENALTY = -30
 
 const CANCELLABLE_STATES = ['TERMS_ACCEPTED', 'IN_PROGRESS', 'DELIVERED']
 
