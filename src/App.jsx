@@ -518,30 +518,41 @@ const App = () => {
     }, 1500);
   };
   // BiometricModal removed: go directly to contract view
-  const initiateContract = async () => {
+  //
+  // Shared by every "start a contract" entry point (ScopingView's AI-architect
+  // flow, direct Hire from the marketplace, and agreeing terms in the
+  // negotiation chat) so the DoD hash + CONTRACT_INITIATED audit event are
+  // always recorded — previously onHire and the negotiation-chat onAgreement
+  // path each had their own inline state-setting that skipped both, leaving
+  // contracts started that way with no evidence-trail entry for how they began.
+  const beginContract = useCallback(async (item) => {
+    setSelectedItem(item);
     setView('contract');
     setStep(1);
+    if (!item) return;
+    const dodText = item.acceptanceCriteria?.join('\n') ?? item.title ?? '';
+    const canonical = buildDodCanonical({
+      dodText,
+      hirerId: mode === 'hirer' ? 'user' : String(item.id),
+      earnerId: mode === 'earner' ? 'user' : String(item.id),
+      budgetPoints: String(item.totalPoints ?? 0),
+      deadline: item.deadline ?? 'TBD',
+    });
+    const hash = await sha256(canonical);
+    setDodHash(hash);
+    const event = await logEvent({
+      type: EVENT_TYPES.CONTRACT_INITIATED,
+      contractId: String(item.id ?? 'mock-' + Date.now()),
+      actorId,
+      payload: { title: item.title, budgetPoints: item.totalPoints },
+      dodHash: hash,
+    });
+    setContractEvents(prev => [event, ...prev]);
+  }, [mode, actorId]);
+
+  const initiateContract = () => {
     addToast('Contract Initiated', 'Contract flow started.');
-    if (selectedItem) {
-      const dodText = selectedItem.acceptanceCriteria?.join('\n') ?? selectedItem.title ?? '';
-      const canonical = buildDodCanonical({
-        dodText,
-        hirerId: mode === 'hirer' ? 'user' : String(selectedItem.id),
-        earnerId: mode === 'earner' ? 'user' : String(selectedItem.id),
-        budgetPoints: String(selectedItem.totalPoints ?? 0),
-        deadline: selectedItem.deadline ?? 'TBD',
-      });
-      const hash = await sha256(canonical);
-      setDodHash(hash);
-      const event = await logEvent({
-        type: EVENT_TYPES.CONTRACT_INITIATED,
-        contractId: String(selectedItem.id ?? 'mock-' + Date.now()),
-        actorId,
-        payload: { title: selectedItem.title, budgetPoints: selectedItem.totalPoints },
-        dodHash: hash,
-      });
-      setContractEvents(prev => [event, ...prev]);
-    }
+    return beginContract(selectedItem);
   };
 
   const handleNextStep = useCallback(() => {
@@ -567,18 +578,19 @@ const App = () => {
       } else if (step === 4) {
         const ev = await logEvent({ type: EVENT_TYPES.WORK_APPROVED, contractId, actorId, payload: { step: 4 } });
         setContractEvents(prev => [ev, ...prev]);
-        // Fire acceptance email if hirer email is known (BYOC flow)
+        // Fire acceptance email if hirer email is known (BYOC flow).
+        // send-acceptance-email now loads recipient/amount/DoD from the
+        // contracts DB row for contract_id itself (closes a hole where the
+        // old payload-trusting version let a caller send arbitrary content
+        // to an arbitrary address) — it only succeeds for a contract that
+        // actually exists in that table with state SETTLED. This local/demo
+        // flow's `contractId` is not a real row there yet (this whole flow
+        // isn't wired to the DB-backed contracts table — see HANDOFF.md), so
+        // this call will 404 until that wiring lands. Left in place rather
+        // than removed so it starts working the moment that wiring exists.
         if (isSupabaseEnabled && guestEmail) {
           supabase.functions.invoke('send-acceptance-email', {
-            body: {
-              hirer_email: guestEmail,
-              project_name: selectedItem?.title ?? 'Contract',
-              dod: selectedItem?.acceptanceCriteria ?? [],
-              dod_hash: dodHash ?? '',
-              amount_jpy: selectedItem?.totalPoints ?? 0,
-              contract_id: contractId,
-              settled_at: new Date().toISOString(),
-            },
+            body: { contract_id: contractId },
           }).then(({ error }) => {
             if (error) addToast('Email not sent', 'Acceptance email failed to send.', 'warning');
             else addToast('Confirmation sent', 'DoD acceptance email sent to hirer.', 'success');
@@ -631,9 +643,12 @@ const App = () => {
     }, 1200);
   }, [step, mode, selectedItem, status, actorId, guestEmail, dodHash]);
 
-  const handleReject = () => {
+  const handleReject = async () => {
     setStep(2);
     addToast('Re-delivery Requested', 'The hirer has requested a revised submission.', 'warning');
+    const contractId = String(selectedItem?.id ?? 'mock');
+    const ev = await logEvent({ type: EVENT_TYPES.WORK_REJECTED, contractId, actorId, payload: { step: 2 } });
+    setContractEvents(prev => [ev, ...prev]);
   };
   const handleOpenDispute = () => { setIsDisputeOpen(true); };
   const handleRehire = React.useCallback(() => {
@@ -1017,16 +1032,14 @@ const App = () => {
       </nav>
 
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
-        {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} onBYOC={handleBYOCStart} onHire={talent => { setSelectedItem(talent); setView('contract'); setStep(1); addToast('Contract Initiated', 'Contract flow started.'); }} />}
+        {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} onBYOC={handleBYOCStart} onHire={talent => { addToast('Contract Initiated', 'Contract flow started.'); beginContract(talent); }} />}
         {/* Shared chat state for negotiation stream */}
         {view === 'project-detail' && projectDetail && (
           <ProjectDetailView
             project={projectDetail}
             negotiationHistory={[]}
             onAgreement={() => {
-              setSelectedItem(projectDetail);
-              setView('contract'); // Jump directly to Commitment Locked (ContractView)
-              setStep(1);
+              beginContract(projectDetail); // also sets view='contract', step=1 (Commitment Locked)
               setChatLocked(true); // Lock chat after contract initiation
               addToast('Commitment Locked', 'Contract flow started.');
             }}
