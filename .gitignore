@@ -89,3 +89,5 @@ coverage/
 
 # Ignore test snapshots
 __snapshots__/
+.vercel
+.env*
