@@ -258,11 +258,6 @@ const App = () => {
     .filter(fu => fu.level > userLevel)
     .flatMap(fu => fu.features.map(f => ({ ...f, level: fu.level })));
 
-  // Returns a minimal AI-ready user profile payload
-  // Returns only internal profile data for AI extraction
-  const getAIProfilePayload = useCallback(() => {
-    return { ...internalProfile };
-  }, [internalProfile]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [status, setStatus] = useState('idle');
   // Add projectDetail state for Project Detail & Negotiation flow
@@ -474,7 +469,11 @@ const App = () => {
 
 
 
-  const addToast = useCallback((title, message, type = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, title, message, type }]); setActivityLog(prev => [{ id, title, message, type, timestamp: new Date() }, ...prev].slice(0, 50)); setUnreadCount(prev => prev + 1); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
+  // id uses crypto.randomUUID(), not Date.now() — two toasts fired within the
+  // same millisecond used to share an id, so the first one's removal timeout
+  // (filter(t => t.id !== id)) removed both, and duplicate React keys showed
+  // up in ToastContainer/activity-log lists.
+  const addToast = useCallback((title, message, type = 'info') => { const id = crypto.randomUUID(); setToasts(prev => [...prev, { id, title, message, type }]); setActivityLog(prev => [{ id, title, message, type, timestamp: new Date() }, ...prev].slice(0, 50)); setUnreadCount(prev => prev + 1); setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000); }, []);
 
   const toggleMode = () => {
     if (status !== 'idle') return;
@@ -823,17 +822,17 @@ const App = () => {
 
 
 
-  // Returns a unified profile object merging static and dynamic user data
-  const getUnifiedProfile = useCallback(() => {
-    return {
-      ...USER_PROFILE,
-      ...uiProfile,
-      badActorFlags,
-    };
-  }, [uiProfile, badActorFlags]);
-
-  // Always use unifiedProfile for profile data
-  const unifiedProfile = getUnifiedProfile();
+  // Unified profile object merging static and dynamic user data.
+  // useMemo (not useCallback wrapping a call) — the previous version called
+  // the useCallback-memoized function on every render regardless of whether
+  // its deps changed, so it produced a fresh object reference every render
+  // anyway, defeating referential-equality memoization in consumers like
+  // CommandCenterView.
+  const unifiedProfile = useMemo(() => ({
+    ...USER_PROFILE,
+    ...uiProfile,
+    badActorFlags,
+  }), [uiProfile, badActorFlags]);
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">

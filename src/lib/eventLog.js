@@ -40,8 +40,6 @@ export const EVENT_TYPES = {
   PAYMENT_RELEASED:     'payment.released',      // full payment released
   DISPUTE_OPENED:       'dispute.opened',        // dispute raised by either party
   DISPUTE_RESOLVED:     'dispute.resolved',      // arbiter or system resolved dispute
-  CONTRACT_PAUSED:      'contract.paused',
-  CONTRACT_RESUMED:     'contract.resumed',
   CONTRACT_CANCELLED:   'contract.cancelled',
   CONTRACT_COMPLETED:   'contract.completed',    // step 5 reached
   RATING_SUBMITTED:     'rating.submitted',      // blind rating submitted
