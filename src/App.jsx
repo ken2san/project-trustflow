@@ -299,6 +299,15 @@ const App = () => {
   const [guestEmail, setGuestEmail] = useState(null); // optional email from invite Stage 2
   const [isRuntimeHydrated, setIsRuntimeHydrated] = useState(false);
   const [actorId, setActorId] = useState('user');
+  // Mirrors actorId for the contract-events subscription below, whose effect
+  // deps are [selectedItem?.id] only (re-subscribing on every actorId change
+  // would be wasteful). Without this, the subscription callback's closure
+  // could capture the default 'user' actorId if a contract gets selected
+  // before ensureActorIdentity() resolves — every self-emitted event would
+  // then fail the `ev.actor_id === actorId` self-check and get misread as a
+  // counterparty event (bogus "counterparty advanced" toast + step re-sync).
+  const actorIdRef = useRef(actorId);
+  useEffect(() => { actorIdRef.current = actorId; }, [actorId]);
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -395,7 +404,9 @@ const App = () => {
 
       // Step sync: apply state changes from counterparty events.
       // Skip own events — local state was already updated when we wrote them.
-      if (ev.actor_id === actorId) return;
+      // Reads actorIdRef (always current), not the actorId closed over when
+      // this effect last ran — see actorIdRef's declaration for why.
+      if (ev.actor_id === actorIdRef.current) return;
 
       const STEP_MAP = {
         [EVENT_TYPES.CONTRACT_ACCEPTED]: 2,
@@ -665,7 +676,7 @@ const App = () => {
     addToast('Re-hire Template Ready', 'DoD and amount pre-filled from your last contract.', 'info');
   }, [acceptanceProtocol, addToast]);
 
-  const handleContractCancel = React.useCallback(({ reason }) => {
+  const handleContractCancel = React.useCallback(async ({ reason }) => {
     setContractHistory(prev => [{
       id: 'cancelled-' + Date.now(),
       title: selectedItem?.title ?? 'Contract',
@@ -674,7 +685,23 @@ const App = () => {
       earned: 0,
       rating: '—',
     }, ...prev]);
-  }, [selectedItem]);
+
+    // ContractView's own toast ("cancelled and logged") already claims this
+    // is recorded — it previously wasn't. Mirrors the counterparty-initiated
+    // cancel path below (CONTRACT_CANCELLED branch of the events subscription).
+    const contractId = String(selectedItem?.id ?? 'mock');
+    await logEvent({ type: EVENT_TYPES.CONTRACT_CANCELLED, contractId, actorId, payload: { reason } });
+
+    // Leaving this contract's view — same reset the counterparty-initiated
+    // cancel path does (events subscription's CONTRACT_CANCELLED branch
+    // above), including clearing contractEvents rather than keeping the
+    // event just logged: it's already persisted, and a stale local list
+    // shouldn't bleed into whatever contract is viewed next.
+    setView('marketplace');
+    setSelectedItem(null);
+    setStep(1);
+    setContractEvents([]);
+  }, [selectedItem, actorId]);
 
   const handleDisputeResolve = async ({ winner, arbiter, reason } = {}) => {
     setIsDisputeOpen(false);
@@ -720,7 +747,16 @@ const App = () => {
               clearInterval(interval);
               setIsUploading(false);
               setUploadProgress(0);
-              // Directly call handleNextStep logic here to avoid race conditions with button state
+              // Directly call handleNextStep logic here to avoid race conditions with button state.
+              // Guards against the same double-fire handleNextStep guards against
+              // (lastActionTime.current) — this path used to skip that check
+              // entirely: isUploading resets to false above, before this delayed
+              // step-advance actually runs, leaving a window where a second
+              // upload could be started and its own delayed callback would also
+              // log WORK_SUBMITTED and advance step.
+              const uploadNow = Date.now();
+              if (uploadNow - lastActionTime.current < 1500) return;
+              lastActionTime.current = uploadNow;
               setStatus('processing');
               setTimeout(async () => {
                   // Phase 4: log work submitted event
