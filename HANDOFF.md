@@ -1,6 +1,6 @@
 # TrustFlow — AI Session Handoff
 
-_Last updated: 2026-09-21 (session 5, part 2 — quality/optimization pass)_
+_Last updated: 2026-09-22 (session 5, part 3 — Vercel migration)_
 
 > Use this file to brief a new AI session on the current project state.
 > Update before ending a session. Paste the contents as your first message.
@@ -105,7 +105,8 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 - Supabase: project `trustflow` (ref: `fqgpzhwvvfsxswlnbbgg`, Mumbai) — was **paused** (inactivity) at the start of session 5, restored mid-session. Check dashboard if it silently pauses again.
 - DB: **9 migrations applied** to Supabase (4 from session 3 + 4 from session 5's first half). **1 migration NOT yet applied**: `20260921000004_events_prev_hash.sql` (committed to git, part of the quality pass — see above). Run `supabase db push` to catch it up when doing the next batched deploy.
 - Edge Functions: **6 functions live**, but only 4 reflect session 5's changes (`create-payment-intent`, `capture-payment`, `cancel-payment`, `validate-invite-token` — deployed during session 5's first half). **`send-acceptance-email` and `timestamp-event` are NOT deployed with their session-5 fixes** (unauthenticated-relay fix, hex validation) — committed to git only. `capture-payment`/`cancel-payment` also have a second round of un-deployed changes (trustpoints-constants import, email payload shape) on top of what's live. Run `supabase functions deploy` for all 6 when doing the next batched deploy — the currently-live versions of 2 of them still have the open-relay hole.
-- Cloud Run: **`https://trustflow-web-526623258424.us-central1.run.app`** (revision `trustflow-web-00052-9wf`) — **stale**, predates all of session 5's changes; irrelevant either way since the frontend it serves never called this backend (see warning above)
+- **Frontend hosting migrated to Vercel** (session 5, same day as the quality pass) — live at **`https://project-trustflow.vercel.app`**, git-push-to-deploy from `main`, project `team-kenji/project-trustflow`. `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` set on both Production and Preview. Verified live, no console errors. Rationale: pure static Vite SPA with zero server-side compute — Cloud Run's Dockerfile/nginx container was pure overhead for this project (unlike a service that actually needs GCP compute).
+  - Old Cloud Run deploy (`https://trustflow-web-526623258424.us-central1.run.app`, revision `trustflow-web-00052-9wf`) is **not decommissioned yet** — still exists in GCP, was already stale/unused before the migration (predated session 5, and the frontend it served never called the DB backend anyway). Ask the user before tearing it down (cost/deletion decision, not made this session).
 - Email: reported working end-to-end as of session 4 (Resend, `noreply@kenji.com.hk`) — not re-verified in session 5
 - Anonymous auth: **✅ enabled** in Supabase
 - Supabase secrets: **✅ all set** (`RESEND_API_KEY`, `EMAIL_FROM`, `INVITE_SECRET`, `STRIPE_SECRET_KEY`)
