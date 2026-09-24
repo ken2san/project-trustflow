@@ -59,11 +59,18 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
   const {
     project_name: project,
     amount_jpy: amount,
+    currency,
     deadline,
     earner_display_name: inviter,
     invited_hirer_email: invitedEmail,
+    performed_by: performedBy,
     dod,
   } = inviteData;
+  // Which side does the work. It is bound into the agreement snapshot the
+  // moment this invitation is accepted, so it has to be on screen first —
+  // attesting consent to a term nobody was shown would be dishonest. Older
+  // invites predate the column; 'creator' is what those agreements meant.
+  const guestPerforms = (performedBy ?? 'creator') === 'counterparty';
   // The address this acceptance will be recorded under.
   //
   // The email field is prefilled with the address the invite was sent to, and
@@ -81,7 +88,11 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
   // when they type a different address — both remain separately recorded.
   const acceptingEmail = (guestEmail || invitedEmail || '').trim();
 
-  const amountLabel = amount > 0 ? `¥${amount.toLocaleString()}` : "TBD";
+  const amountLabel = amount > 0
+    ? new Intl.NumberFormat(undefined, {
+        style: 'currency', currency: currency ?? 'JPY', maximumFractionDigits: 0,
+      }).format(amount)
+    : "TBD";
   const deadlineLabel = deadline
     ? new Date(`${deadline}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : 'Not set';
@@ -183,6 +194,14 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Deadline</p>
             <p className="text-lg font-black text-white pt-2">{deadlineLabel}</p>
           </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Who does the work</p>
+          <p className="text-sm font-bold text-white">
+            {guestPerforms
+              ? <>You do the work · {inviter} pays</>
+              : <>{inviter} does the work · you pay</>}
+          </p>
         </div>
         {dod.length > 0 && (
           <div>

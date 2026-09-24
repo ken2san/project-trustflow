@@ -29,6 +29,60 @@ const TYPE_LABELS = {
   'rating.submitted':     'Rating submitted',
 };
 
+// Human names for the agreed terms. The snapshot's own key names are a wire
+// format; a reader should not have to learn them.
+const TERM_LABELS = {
+  project_name: 'what is being done',
+  dod:          'what counts as finished',
+  amount:       'the amount',
+  currency:     'the currency',
+  deadline:     'the deadline',
+  performed_by: 'which side does the work',
+  offered_by:   'who offered it',
+};
+
+function formatAmount(amount, currency) {
+  if (amount === null || amount === undefined) return null;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency', currency: currency ?? 'JPY', maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${amount} ${currency ?? ''}`.trim();
+  }
+}
+
+/**
+ * Turn an accepted agreement snapshot into label/value rows.
+ *
+ * Deliberately no hashes and no version numbers: this is the record a person
+ * reads to know what they agreed to, not a verification report.
+ */
+function describeAgreement(agreement) {
+  const rows = [];
+  if (agreement.project_name) rows.push(['What', agreement.project_name]);
+  const dod = Array.isArray(agreement.dod) ? agreement.dod : [];
+  if (dod.length > 0) {
+    rows.push(['Done when', (
+      <ul className="space-y-0.5">
+        {dod.map((item, i) => (
+          <li key={i}>· {typeof item === 'string' ? item : (item?.text ?? JSON.stringify(item))}</li>
+        ))}
+      </ul>
+    )]);
+  }
+  const amount = formatAmount(agreement.amount, agreement.currency);
+  if (amount) rows.push(['Amount', amount]);
+  if (agreement.deadline) rows.push(['By', agreement.deadline]);
+  // Stated in plain terms rather than echoing the stored value: the snapshot
+  // says "counterparty", which means the person reading this page.
+  if (agreement.performed_by) {
+    rows.push(['Performed by',
+      agreement.performed_by === 'counterparty' ? 'You' : (agreement.offered_by ?? 'The other party')]);
+  }
+  return rows;
+}
+
 function formatWhen(iso) {
   try {
     return new Date(iso).toLocaleString(undefined, {
@@ -120,7 +174,15 @@ export default function GuestEvidenceView({ evidence, reason, onBack }) {
     );
   }
 
-  const { contract, events, chain } = evidence;
+  const {
+    contract, events, chain,
+    accepted_agreement: accepted,
+    acceptance_identity: identity,
+    terms_changed_since_acceptance: changed,
+  } = evidence;
+
+  const changedTerms = (changed ?? []).map(key => TERM_LABELS[key] ?? key);
+  const acceptedTerms = accepted ? describeAgreement(accepted) : [];
 
   return (
     <div className="max-w-2xl mx-auto py-12 space-y-8 animate-fade-in-up">
@@ -129,10 +191,57 @@ export default function GuestEvidenceView({ evidence, reason, onBack }) {
         <p className="text-slate-400 text-sm">
           {contract.project_name} — with {contract.earner_display_name ?? 'your counterparty'}
         </p>
-        <p className="text-xs text-slate-600">
-          Accepted as {contract.hirer_email}
-        </p>
+        {/* Two separate facts, kept separate. The invitation was addressed to
+            one person; whoever held it gave a name when accepting. TrustFlow
+            never checked that the two are the same person, so it does not say
+            "accepted as", which reads as an established identity. */}
+        {identity ? (
+          <dl className="text-xs text-slate-600 space-y-0.5 pt-1">
+            {identity.invited_recipient && (
+              <div className="flex gap-2">
+                <dt className="text-slate-700">Invitation sent to</dt>
+                <dd className="text-slate-500">{identity.invited_recipient}</dd>
+              </div>
+            )}
+            {identity.claimed_identity && (
+              <div className="flex gap-2">
+                <dt className="text-slate-700">Accepted using that invitation, giving</dt>
+                <dd className="text-slate-500">{identity.claimed_identity}</dd>
+              </div>
+            )}
+          </dl>
+        ) : (
+          contract.hirer_email && (
+            <p className="text-xs text-slate-600">
+              Accepted using the invitation, giving {contract.hirer_email}
+            </p>
+          )
+        )}
       </header>
+
+      {/* The terms as recorded at acceptance — read from the acceptance event,
+          never from the contract row, which may since have moved on. */}
+      {accepted && (
+        <section className="rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4 space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+            What was accepted
+          </h3>
+          <dl className="text-sm space-y-1.5">
+            {acceptedTerms.map(([label, value]) => (
+              <div key={label} className="flex flex-wrap gap-x-3">
+                <dt className="text-slate-500 text-xs w-32 shrink-0 pt-0.5">{label}</dt>
+                <dd className="text-slate-300 flex-1">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {changedTerms.length > 0 && (
+            <p className="text-[11px] text-amber-400/80 border-t border-white/5 pt-3 leading-relaxed">
+              The live record of this agreement no longer matches what was accepted
+              ({changedTerms.join(', ')}). The terms above are the ones the evidence proves.
+            </p>
+          )}
+        </section>
+      )}
 
       <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4 text-xs space-y-1">
         <p className="text-slate-400">

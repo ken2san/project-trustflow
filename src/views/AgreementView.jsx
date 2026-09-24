@@ -160,8 +160,12 @@ export default function AgreementView({
               {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Recording…</> : <><Send className="w-4 h-4" /> Mark as delivered</>}
             </button>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              This records that you stated the work was delivered, with the time and your identity.
-              It does not state that the work is correct — that is for the other party to answer.
+              {/* "your identity" claimed more than the record holds: what is bound
+                  is the credential that acted, which TrustFlow has never tied to a
+                  legal person. */}
+              This records that you stated the work was delivered, with the server's time
+              and the credential you acted with. It does not state that the work is
+              correct — that is for the other party to answer.
             </p>
           </>
         )}
