@@ -19,7 +19,7 @@ describe('EVENT_TYPES', () => {
   it('contains all required contract lifecycle events', () => {
     const required = [
       'CONTRACT_INITIATED', 'CONTRACT_ACCEPTED',
-      'WORK_SUBMITTED', 'WORK_APPROVED', 'WORK_REJECTED',
+      'PERFORMANCE_ASSERTED', 'PERFORMANCE_ACCEPTED', 'PERFORMANCE_REJECTED',
       'PAYMENT_RELEASED', 'CONTRACT_COMPLETED', 'CONTRACT_CANCELLED',
     ]
     for (const key of required) {
@@ -153,11 +153,29 @@ describe('logEvent request contract', () => {
 
   it('sends only the fields the server accepts', async () => {
     invoke.mockResolvedValueOnce(okResponse)
-    await logEvent({ ...baseParams, payload: { step: 2 }, dodHash: 'sha-1', idempotencyKey: 'k1' })
+    await logEvent({ ...baseParams, payload: { step: 2 }, idempotencyKey: 'k1' })
     const { body } = invoke.mock.calls.at(-1)[1]
     expect(Object.keys(body).sort()).toEqual(
-      ['contract_id', 'dod_hash', 'idempotency_key', 'payload', 'type']
+      ['contract_id', 'idempotency_key', 'payload', 'type']
     )
+  })
+
+  it('never sends dod_hash — the server decides which terms an assertion cites', async () => {
+    // A party that could choose this could pin their assertion to a version of
+    // the agreement the other side never accepted.
+    invoke.mockResolvedValueOnce(okResponse)
+    await logEvent({ ...baseParams, dodHash: 'attacker-chosen-terms' })
+    const { body } = invoke.mock.calls.at(-1)[1]
+    expect(body).not.toHaveProperty('dod_hash')
+    expect(JSON.stringify(body)).not.toContain('attacker-chosen-terms')
+  })
+
+  it('uses assertion-shaped names, not names that claim a world fact', async () => {
+    // "work.submitted" could be read as "the work arrived". TrustFlow cannot
+    // observe that; it can only attest that a party said so.
+    expect(EVENT_TYPES.PERFORMANCE_ASSERTED).toBe('performance.asserted')
+    expect(Object.values(EVENT_TYPES)).not.toContain('work.submitted')
+    expect(Object.values(EVENT_TYPES)).not.toContain('work.approved')
   })
 
   it('returns the server-written event, not the locally built one', async () => {

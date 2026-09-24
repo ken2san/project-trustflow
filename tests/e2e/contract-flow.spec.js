@@ -184,7 +184,7 @@ test('step 2 as Hirer: debits points and adds to totalSpent, advances to step 3'
 
 // ── Step 4 ───────────────────────────────────────────────────────────────────
 
-test('step 4 as Earner: logs work.approved, awards completion stats, credits totalEarned, advances to step 5', async ({ page }) => {
+test('step 4 as Earner: logs performance.accepted, awards completion stats, credits totalEarned, advances to step 5', async ({ page }) => {
   const loggedTypes = captureLoggedEventTypes(page);
   await seedAt(page, {
     step: 4,
@@ -202,7 +202,7 @@ test('step 4 as Earner: logs work.approved, awards completion stats, credits tot
   // deriveLevel(1) === 1 — level only moves at 3 / 5 / 10 completed contracts.
   expect(snapshot.uiProfile.level).toBe(1);
   expect(snapshot.uiProfile.totalEarned).toBe(JOB.totalPoints);
-  await expect.poll(() => loggedTypes, { timeout: 10_000 }).toContain('work.approved');
+  await expect.poll(() => loggedTypes, { timeout: 10_000 }).toContain('performance.accepted');
 });
 
 test('step 4 as Hirer: awards the same completion stats but leaves totalEarned alone', async ({ page }) => {

@@ -442,8 +442,8 @@ const App = () => {
 
       const STEP_MAP = {
         [EVENT_TYPES.CONTRACT_ACCEPTED]: 2,
-        [EVENT_TYPES.WORK_SUBMITTED]:    3,
-        [EVENT_TYPES.WORK_APPROVED]:     4,
+        [EVENT_TYPES.PERFORMANCE_ASSERTED]:    3,
+        [EVENT_TYPES.PERFORMANCE_ACCEPTED]:     4,
         [EVENT_TYPES.PAYMENT_RELEASED]:  5,
         [EVENT_TYPES.CONTRACT_COMPLETED]: 5,
       };
@@ -587,7 +587,6 @@ const App = () => {
       contractId: String(item.id ?? 'mock-' + Date.now()),
       actorId,
       payload: { title: item.title, budgetPoints: item.totalPoints },
-      dodHash: hash,
     });
     setContractEvents(prev => [event, ...prev]);
   }, [mode, actorId]);
@@ -618,7 +617,7 @@ const App = () => {
         const ev = await logEvent({ type: EVENT_TYPES.CONTRACT_ACCEPTED, contractId, actorId, payload: { step: 1 } });
         setContractEvents(prev => [ev, ...prev]);
       } else if (step === 4) {
-        const ev = await logEvent({ type: EVENT_TYPES.WORK_APPROVED, contractId, actorId, payload: { step: 4 } });
+        const ev = await logEvent({ type: EVENT_TYPES.PERFORMANCE_ACCEPTED, contractId, actorId, payload: { step: 4 } });
         setContractEvents(prev => [ev, ...prev]);
         // Fire acceptance email if hirer email is known (BYOC flow).
         // send-acceptance-email now loads recipient/amount/DoD from the
@@ -689,7 +688,7 @@ const App = () => {
     setStep(2);
     addToast('Re-delivery Requested', 'The hirer has requested a revised submission.', 'warning');
     const contractId = String(selectedItem?.id ?? 'mock');
-    const ev = await logEvent({ type: EVENT_TYPES.WORK_REJECTED, contractId, actorId, payload: { step: 2 } });
+    const ev = await logEvent({ type: EVENT_TYPES.PERFORMANCE_REJECTED, contractId, actorId, payload: { step: 2 } });
     setContractEvents(prev => [ev, ...prev]);
   };
   const handleOpenDispute = () => { setIsDisputeOpen(true); };
@@ -793,7 +792,7 @@ const App = () => {
               setTimeout(async () => {
                   // Phase 4: log work submitted event
                   const ev = await logEvent({
-                    type: EVENT_TYPES.WORK_SUBMITTED,
+                    type: EVENT_TYPES.PERFORMANCE_ASSERTED,
                     contractId: String(selectedItem?.id ?? 'mock'),
                     actorId,
                     payload: { step: 3 },

@@ -29,9 +29,13 @@ import { getGuestAccessToken } from './guestSession.js'
 export const EVENT_TYPES = {
   CONTRACT_INITIATED:   'contract.initiated',    // DoD agreed, hash created
   CONTRACT_ACCEPTED:    'contract.accepted',     // both parties confirmed
-  WORK_SUBMITTED:       'work.submitted',        // earner submitted deliverable
-  WORK_APPROVED:        'work.approved',         // hirer approved submission
-  WORK_REJECTED:        'work.rejected',         // hirer rejected submission
+  // What a party SAYS about performance, never what is objectively so.
+  // TrustFlow can attest that the Earner asserted delivery; it cannot observe
+  // whether anything was delivered. The old work.* names blurred that and are
+  // no longer accepted by the server (they remain in historical rows).
+  PERFORMANCE_ASSERTED: 'performance.asserted',  // earner asserts they performed
+  PERFORMANCE_ACCEPTED: 'performance.accepted',  // hirer confirms that assertion
+  PERFORMANCE_REJECTED: 'performance.rejected',  // hirer disputes that assertion
   MILESTONE_APPROVED:   'milestone.approved',    // milestone payment released
   PAYMENT_RELEASED:     'payment.released',      // full payment released
   DISPUTE_OPENED:       'dispute.opened',        // dispute raised by either party
@@ -97,7 +101,7 @@ export const GENESIS_HASH = 'GENESIS'
 /**
  * Record an event on a contract.
  *
- * Only type, contractId, payload, dodHash and idempotencyKey reach the server.
+ * Only type, contractId, payload and idempotencyKey reach the server.
  * actorId is accepted for the returned local object (App.jsx compares it
  * against the current actor to ignore its own realtime echo) but is NOT sent:
  * the server derives the recorded actor_id from the caller's credentials.
@@ -119,14 +123,17 @@ export const GENESIS_HASH = 'GENESIS'
  * @param {string} params.contractId
  * @param {string} [params.actorId]
  * @param {object} [params.payload]
- * @param {string} [params.dodHash]
  * @param {string} [params.idempotencyKey] - retrying with the same key returns
  *                                           the event already recorded
  * @returns {Promise<object>} the persisted event, or the local object with
  *                            persisted:false and persist_error set
  */
-export async function logEvent({ type, contractId, actorId, payload = {}, dodHash, idempotencyKey }) {
-  const local = createEvent({ type, contractId, actorId, payload, dodHash })
+export async function logEvent({ type, contractId, actorId, payload = {}, idempotencyKey }) {
+  // dod_hash is deliberately absent. The server derives which version of the
+  // agreement an assertion refers to from the contract itself — a party that
+  // could choose it could pin their assertion to terms nobody agreed to. The
+  // server rejects the field outright rather than ignoring it.
+  const local = createEvent({ type, contractId, actorId, payload })
 
   if (!supabase) return local
 
@@ -137,7 +144,6 @@ export async function logEvent({ type, contractId, actorId, payload = {}, dodHas
       type,
       contract_id: contractId,
       payload,
-      dod_hash: dodHash ?? null,
       idempotency_key: idempotencyKey ?? null,
     },
     ...(guestToken ? { headers: { 'x-guest-access-token': guestToken } } : {}),

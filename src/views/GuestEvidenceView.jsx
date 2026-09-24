@@ -13,6 +13,12 @@ import { ShieldCheck, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 const TYPE_LABELS = {
   'contract.initiated':   'Agreement created',
   'contract.accepted':    'Agreement accepted',
+  // Phrased as what a party said, not as what happened: TrustFlow attests the
+  // statement, not the delivery.
+  'performance.asserted': 'Delivery reported by the other party',
+  'performance.accepted': 'You confirmed the delivery',
+  'performance.rejected': 'You reported the delivery as incomplete',
+  // Retired names, still present on older records.
   'work.submitted':       'Work submitted',
   'work.approved':        'Work approved',
   'work.rejected':        'Work rejected',
@@ -154,8 +160,14 @@ export default function GuestEvidenceView({ evidence, reason, onBack }) {
 
       <p className="text-[11px] text-slate-600 leading-relaxed border-t border-white/5 pt-4">
         Each event's hash covers its type, timing, actor and the agreement it belongs to, and links
-        to the event before it. It does <span className="text-slate-500">not</span> cover the detail
-        fields shown under each entry, so those are recorded but not tamper-evident.
+        to the event before it.{' '}
+        {/* Stated from what the server reported, not assumed: a record containing
+            entries written before payloads were attested cannot claim otherwise. */}
+        {chain.payload_covered_by_hash
+          ? <>It also covers the detail fields shown under each entry, so those are tamper-evident too.</>
+          : <>It does <span className="text-slate-500">not</span> cover the detail fields shown under
+             each entry, so those are recorded but not tamper-evident.</>}
+        {' '}TrustFlow records what each party stated; it does not establish that a statement is true.
         {chain.truncated && ' Only the earliest events are shown.'}
       </p>
 
