@@ -10,6 +10,107 @@ _Last updated: 2026-09-26_
 
 ## Open Questions — recorded, deliberately not acted on
 
+### [2026-09-26] — What TrustFlow actually knows about the guest, and what it does not
+
+**Status**: Facts about the current implementation, plus unresolved identity
+questions. **No recovery mechanism has been chosen, and none is implemented.**
+Nothing below approves a design.
+
+#### 1. `hirer_email` is self-asserted
+
+At invite acceptance, `validate-invite-token` format-validates the submitted
+`hirer_email` and stores it. **Nothing proves the accepting party controls that
+address.** The invitation was *sent* to `invited_hirer_email`, but the guest may
+type any address when accepting — the two are recorded separately precisely
+because they can differ.
+
+The strongest accurate statement the current system supports is therefore:
+
+> Someone possessing the invitation capability claimed email X and accepted
+> agreement H at time T.
+
+Do **not** describe this, in code, comments, UI copy or exported evidence, as:
+
+> X accepted the agreement.
+
+The evidence chain reflects this already: the guest actor is recorded as
+`guest:<claimed email>`.
+
+#### 2. Evidence viewing and protocol action are distinct authorities
+
+These are two different capabilities and must stay separable:
+
+| | Evidence viewing | Protocol action |
+|---|---|---|
+| Effect | Read-only, idempotent | Alters protocol position, appends attested evidence |
+| Nature | Retrieval of an existing record | Creation of new record with legal weight |
+
+**Recovering one must never automatically confer the other.** A mechanism that
+restores the ability to read a historical record is not thereby a mechanism to
+emit new assertions, acceptances or rejections on a live agreement.
+
+#### 3. Later email verification must not rewrite the meaning of the acceptance
+
+This is the subtlest point here and the easiest to lose.
+
+If at some later time T2 a person proves control of `X@example.com` via OTP, the
+system then knows one additional fact:
+
+> At T2, an authenticated actor demonstrated control of X@example.com.
+
+That is **not** proof that the same person possessed the invitation and accepted
+the agreement at T1. Email control at T2 says nothing about who held a link at
+T1. The two remain separate facts and must be recorded, displayed and reasoned
+about separately.
+
+Specifically, do not allow this reinterpretation to happen silently:
+
+> *"the invite holder claimed X at T1"* → *"the verified owner of X performed the
+> T1 acceptance"*
+
+A future verification step may legitimately add a new attested fact. It may not
+retroactively strengthen an existing one.
+
+#### 4. Architectural facts discovered in the code
+
+Observed while reviewing, recorded because they are currently implicit:
+
+- The **event** read policy (`party_read_contract_events`) already recognises a
+  JWT whose email matches `contracts.hirer_email`.
+- The **contract** read policy (`parties_read_own_contracts`) relies on
+  `hirer_user_id`, not on email.
+- `contracts.hirer_user_id` exists and is referenced by that policy and by
+  `_shared/partyAuth.ts`, but **nothing populates it**. It was renamed from
+  `counterparty_id` in `20260921000000`.
+- `log-event` resolves a JWT only against `earner_user_id`, so an authenticated
+  user who merely matches `hirer_email` is **not** granted guest protocol-action
+  authority.
+
+Taken together, the architecture already contains a **partial separation between
+durable identity binding, evidence reading, and protocol action authority**.
+That separation is currently incidental rather than designed, which is why it is
+written down here — a future change could erase it without anyone noticing.
+
+`hirer_user_id` is an existing architectural affordance found in the code. It is
+**not** an approved recovery mechanism.
+
+#### 5. Unresolved product and security questions
+
+- Whether later verified control of a self-asserted email is sufficient to grant
+  durable read-only access to historical records associated with that claimed
+  email.
+- Whether guest recovery should notify the agreement owner.
+- Whether future invite acceptance should verify email ownership at acceptance
+  time. This would materially strengthen actor attribution, at the cost of
+  adding a step to the acceptance screen, and is a larger question than recovery
+  itself.
+- Whether losing access to the original email address should have any fallback.
+- Custom SMTP remains a prerequisite for dependable OTP-based recovery; the
+  built-in mailer caps sends at a few per hour.
+
+---
+
+
 ### [2026-09-26] — Performance that unfolds across several real-world steps
 
 **Status**: Recorded for later inspection. **No implementation. No schema,
