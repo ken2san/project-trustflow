@@ -1,6 +1,6 @@
 # TrustFlow — Architecture Decisions
 
-_Last updated: 2026-09-26_
+_Last updated: 2026-09-27_
 
 > This file records significant design decisions and the reasoning behind them.
 > AI agents must read this before proposing changes to established patterns.
@@ -327,6 +327,78 @@ delivery.
 - Earner Stripe Connect KYC state check before contract creation
 - Multi-milestone guest payment flows
 - Guest Hirer in-app chat (replaced by email notifications for MVP)
+
+---
+
+### [2026-09-27] — Three things an agreement record holds, kept apart
+
+**Decision**: An acceptance binds a deterministic **agreement snapshot**, not
+just the completion criteria. The snapshot, the **acceptance evidence** and the
+**mutable protocol state** are three separate things and must not be merged.
+
+**Context**: Until canonical v3, `dod_hash` was the only agreement reference an
+event carried. It covers `dod` and nothing else, so TrustFlow could prove which
+completion criteria an acceptance referred to while being unable to detect a
+later change to the price, the deadline or which side performs. For a product
+whose whole claim is transaction evidence, that is a defect in the core, not a
+missing feature.
+
+**The distinction**, now authoritative in code:
+
+1. **Agreement snapshot** — *what was agreed*. Built by
+   `buildAgreementSnapshot()` in `supabase/functions/_shared/eventCanonical.ts`
+   from server-trusted contract data: `project_name`, `dod`, `amount`,
+   `currency`, `deadline`, `performed_by`, `offered_by`, plus its own
+   `snapshot_version`. The test for membership is semantic, not structural:
+   *would a reasonable participant say they agreed to a different deal if this
+   field differed?* Database ids, protocol `state`, tokens, internal timestamps
+   and Stripe columns all fail that test and are excluded — binding them would
+   make an ordinary state transition look like a changed agreement.
+2. **Acceptance evidence** — *who accepted, with what authority, and what they
+   claimed*. Recorded in the acceptance event's payload as `_invited_recipient`
+   (who the invitation was addressed to), `_claimed_identity` (the address the
+   accepting party gave), `_claimed_identity_verified` (always `false` today)
+   and `_auth_method` (`invite_capability` for a guest). These are deliberately
+   separate fields: an invitation can legitimately be forwarded, the divergence
+   is itself evidence, and neither address has ever been verified.
+3. **Mutable protocol state** — *where the transaction currently is*. Lives on
+   the `contracts` row and must keep changing. It is not evidence of anything
+   that was agreed.
+
+**Canonical v4** adds `agreement_hash` to the hashed event. Versions are
+permanent: a v1, v2 or v3 row is verified forever under the rules that created
+it, and the arrival of v4 does not reinterpret it. `bindsWholeAgreement()` and
+the `binds_whole_agreement` flag in the guest trail and the audit export say
+which rows bind the whole deal and which bind only the criteria, so a reader is
+never left assuming the newer rule applied throughout.
+
+**The snapshot is embedded as well as hashed.** A hash proves that content
+matches; it cannot reproduce content that has since changed. The acceptance
+event therefore carries the snapshot itself, which is what lets TrustFlow *show*
+the accepted terms years later without consulting the contract row.
+
+**Two independent protections, not one.** The evidence stands on its own. The
+`contracts_freeze_accepted_terms` trigger, added alongside it, refuses a change
+to an agreed term once the contract is past `DRAFTING`/`AWAITING_ACCEPTANCE`,
+including from a privileged role. It is defence in depth, deliberately
+term-specific so that protocol state can still move. **Do not let a future
+change make the evidence depend on that trigger** — a mutation that somehow
+occurs must leave the historical record intact and detectable, which is why
+`guest-contract-events` reports `terms_changed_since_acceptance` by re-deriving
+the snapshot from the current row rather than by trusting it.
+
+**The server owns its own namespace.** `log-event` strips underscore-prefixed
+keys from any client-supplied payload. Everything under one is a fact TrustFlow
+derived; a caller could never forge `agreement_hash`, but without this it could
+leave a reader looking at terms nobody agreed to.
+
+**Known gap, not fixed here**: the acceptance *evidence* is a second write. The
+browser calls `validate-invite-token` (which consumes the invitation and moves
+the contract to `TERMS_ACCEPTED`) and then calls `log-event` to record
+`dod.consent_recorded`. If the second call fails, the contract is accepted with
+no acceptance event, and therefore no agreement snapshot — the UI warns the
+user, but the evidence is simply absent. Making acceptance and its record a
+single server-side act is the obvious repair and has not been done.
 
 ---
 
