@@ -136,7 +136,7 @@ serve(async (req: Request) => {
     // The token IS the contract identity. Nothing in the request selects it.
     const { data: contract, error: contractError } = await admin
       .from('contracts')
-      .select('id, project_name, dod, amount_jpy, currency, deadline, state, '
+      .select('id, project_name, dod, amount_jpy, currency, deadline, state, performed_by, '
         + 'earner_user_id, earner_display_name, hirer_email, guest_access_token_expires_at')
       .eq('guest_access_token', guestToken)
       .maybeSingle()
@@ -230,6 +230,13 @@ serve(async (req: Request) => {
         currency:            contract.currency,
         deadline:            contract.deadline,
         state:               contract.state,
+        // Which side does the work. The guest needs it to know whether the
+        // next action is theirs, and it is a term of the deal rather than
+        // anything internal.
+        performed_by:        contract.performed_by,
+        // The guest is always the counterparty; saying so plainly saves the
+        // client from re-deriving it.
+        viewer_role:         contract.performed_by === 'counterparty' ? 'performer' : 'receiver',
         earner_display_name: contract.earner_display_name,
         // The address that accepted — this guest's own, echoed back so the
         // trail is self-describing in an export.

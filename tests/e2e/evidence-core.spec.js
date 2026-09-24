@@ -286,3 +286,93 @@ test('a client still cannot write state directly', async ({ request }) => {
   expect(direct.status).toBeGreaterThanOrEqual(401);
   expect(await stateOf(request, contract, earnerToken)).toBe('TERMS_ACCEPTED');
 });
+
+// ── Who does the work, and what that changes ────────────────────────────────
+//
+// The model used to assume the account holder always performs. That made an
+// ordinary transaction backwards: someone hiring a translator is the receiver,
+// and the translator would have had to open an account to send the link.
+//
+// performed_by fixes the direction. What must NOT change with it is the
+// authority rule — in either direction, the performer asserts and the receiver
+// answers, and neither can do both.
+
+async function agreementWhere(request, performedBy) {
+  const { token, userId } = await getEarnerSession(request);
+  const created = await api(request, '/rest/v1/contracts', {
+    token,
+    prefer: 'return=representation',
+    body: {
+      earner_user_id: userId,
+      earner_display_name: 'Creator',
+      project_name: 'Direction Probe',
+      dod: ['translate the document'],
+      amount_jpy: 20000,
+      currency: 'JPY',
+      invited_hirer_email: 'invited@example.test',
+      performed_by: performedBy,
+    },
+  });
+  expect(created.status, `insert failed: ${JSON.stringify(created.body)}`).toBe(201);
+  const contract = created.body[0];
+
+  const accept = await api(request, '/functions/v1/validate-invite-token', {
+    body: { invite_token: contract.invite_token, accept: true, hirer_email: 'worker@example.test' },
+  });
+  expect(accept.status).toBe(200);
+
+  const creator = { token };
+  const guest = { guestToken: accept.body.guest_access_token };
+  return {
+    contract, creator, guest,
+    performer: performedBy === 'counterparty' ? guest : creator,
+    receiver: performedBy === 'counterparty' ? creator : guest,
+  };
+}
+
+const logAs = (request, who, contract, type, payload) =>
+  api(request, '/functions/v1/log-event', {
+    ...who, body: { type, contract_id: contract.id, ...(payload ? { payload } : {}) },
+  });
+
+for (const performedBy of ['creator', 'counterparty']) {
+  const who = performedBy === 'counterparty' ? 'the invited guest' : 'the account holder';
+
+  test(`the full run works when ${who} performs`, async ({ request }) => {
+    const { contract, creator, performer, receiver } = await agreementWhere(request, performedBy);
+    expect(await stateOf(request, contract, creator.token)).toBe('TERMS_ACCEPTED');
+
+    expect((await logAs(request, performer, contract, 'performance.asserted')).status).toBe(201);
+    expect(await stateOf(request, contract, creator.token)).toBe('AWAITING_CONFIRMATION');
+
+    // Correction, then perform again — no second architecture needed.
+    expect((await logAs(request, receiver, contract, 'performance.rejected',
+      { reason: 'page 2 missing' })).status).toBe(201);
+    expect(await stateOf(request, contract, creator.token)).toBe('TERMS_ACCEPTED');
+
+    expect((await logAs(request, performer, contract, 'performance.asserted')).status).toBe(201);
+    expect((await logAs(request, receiver, contract, 'performance.accepted')).status).toBe(201);
+
+    // Complete with no payment anywhere in the system.
+    expect(await stateOf(request, contract, creator.token)).toBe('PERFORMANCE_ACCEPTED');
+  });
+
+  test(`authority follows the role, not the account, when ${who} performs`, async ({ request }) => {
+    const { contract, creator, performer, receiver } = await agreementWhere(request, performedBy);
+    await logAs(request, performer, contract, 'performance.asserted');
+
+    // The receiver cannot claim to have performed merely by being a party.
+    const wrongAssert = await logAs(request, receiver, contract, 'performance.asserted');
+    expect(wrongAssert.status).toBe(403);
+    expect(wrongAssert.body.error).toBe('wrong_party_for_event_type');
+
+    // And the performer cannot accept their own assertion — in either
+    // direction. This is the property that keeps a single party from walking an
+    // agreement to completion alone.
+    const selfAccept = await logAs(request, performer, contract, 'performance.accepted');
+    expect(selfAccept.status).toBe(403);
+    expect(selfAccept.body.error).toBe('wrong_party_for_event_type');
+
+    expect(await stateOf(request, contract, creator.token)).toBe('AWAITING_CONFIRMATION');
+  });
+}

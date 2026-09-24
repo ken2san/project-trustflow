@@ -81,22 +81,45 @@ const ALLOWED_TYPES = new Set([
 // "the work arrived", which is precisely the claim TrustFlow cannot make.
 const RETIRED_TYPES = new Set(['work.submitted', 'work.approved', 'work.rejected'])
 
-// Which party an event type may come from.
+// Which FUNCTIONAL role an event type may come from.
 //
 // Being a party to the contract is not enough. Confirming an assertion is the
-// counterparty's act by definition — an Earner who could emit
-// performance.accepted would be confirming their own claim, and since that is
-// the state capture-payment opens on, they would have walked a contract to the
-// edge of an irreversible transfer entirely alone. Party authorisation answers
-// "may you write here"; this answers "is this yours to say".
+// other side's act by definition — a performer who could emit
+// performance.accepted would be confirming their own claim and walking the
+// agreement to the edge of an irreversible transfer alone. Party authorisation
+// answers "may you write here"; this answers "is this yours to say".
+//
+// These are roles in the deal, not sides of the account/guest divide. Which
+// party holds which role comes from contracts.performed_by, so the guarantee
+// holds in both directions: whoever performs may assert, whoever receives may
+// answer, and neither can do the other's part.
 //
 // Types absent from this map may come from either party.
-const ROLE_REQUIRED: Record<string, 'earner' | 'guest_hirer'> = {
-  // Only the performing party can claim to have performed.
-  'performance.asserted': 'earner',
-  // Only the receiving party can accept or reject that claim.
-  'performance.accepted': 'guest_hirer',
-  'performance.rejected': 'guest_hirer',
+const ROLE_REQUIRED: Record<string, 'performer' | 'receiver'> = {
+  'performance.asserted': 'performer',
+  'performance.accepted': 'receiver',
+  'performance.rejected': 'receiver',
+}
+
+/**
+ * Which role a party holds in this particular agreement.
+ *
+ * `party` is which side of the account/guest divide the caller is on — the
+ * account that owns the agreement, or the invited counterparty. `performed_by`
+ * says which of those two does the work. The role is the combination.
+ *
+ * Note on naming: resolveActor still reports 'earner' for the owning account
+ * and 'guest_hirer' for the guest, and contracts.earner_user_id still holds the
+ * owner. Those names predate this column and are now misleading when the owner
+ * is not the performer. Recorded as debt; renaming them is schema and data
+ * surgery that this change does not need.
+ */
+function roleInAgreement(
+  party: 'earner' | 'guest_hirer',
+  performedBy: string | null,
+): 'performer' | 'receiver' {
+  const performingParty = performedBy === 'counterparty' ? 'guest_hirer' : 'earner'
+  return party === performingParty ? 'performer' : 'receiver'
 }
 
 const MAX_PAYLOAD_BYTES = 16 * 1024
@@ -194,7 +217,7 @@ serve(async (req: Request) => {
 
     const { data: contract, error: contractError } = await admin
       .from('contracts')
-      .select('id, dod, earner_user_id, hirer_email, guest_access_token, guest_access_token_expires_at')
+      .select('id, dod, performed_by, earner_user_id, hirer_email, guest_access_token, guest_access_token_expires_at')
       .eq('id', contract_id)
       .maybeSingle()
 
@@ -204,8 +227,9 @@ serve(async (req: Request) => {
     const actor = await resolveActor(req, admin, contract)
     if (!actor) return json({ error: 'not_a_party' }, 403)
 
+    const roleHere = roleInAgreement(actor.role, contract.performed_by as string | null)
     const requiredRole = ROLE_REQUIRED[type]
-    if (requiredRole && actor.role !== requiredRole) {
+    if (requiredRole && roleHere !== requiredRole) {
       return json({ error: 'wrong_party_for_event_type' }, 403)
     }
 
