@@ -91,3 +91,6 @@ coverage/
 __snapshots__/
 .vercel
 .env*
+
+# Persistent anonymous identity for the E2E negative-auth tests (see invite-persistence.spec.js)
+tests/e2e/.anon-fixture.json

@@ -60,11 +60,19 @@ test('Trust Passport modal opens from profile avatar', async ({ page }) => {
 
 // ── 6. Wallet view ───────────────────────────────────────────────────────────
 
-test('wallet view loads and shows balance', async ({ page }) => {
+test('wallet view loads and shows the TrustPoints balance', async ({ page }) => {
   await page.goto('/');
-  // Wallet div has title="Open Wallet"
+  // The points chip in the header. Its title is level-gated in principle, but
+  // wallet unlocks at level 1 and uiProfile.level defaults to 1, so it always
+  // reads "Open Wallet" in practice.
   await page.locator('[title="Open Wallet"]').click();
-  await expect(page.locator('text=Net Liquidity').first()).toBeVisible({ timeout: 5000 });
+
+  // The view was rebuilt as a TrustPoints passport. It previously showed
+  // "Net Liquidity"; that string exists nowhere in src/ any more, so the old
+  // assertion could never pass again — this was a stale test, not a product
+  // regression.
+  await expect(page.getByText(/TrustPoints balance/i).first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(/Points History/i).first()).toBeVisible();
 });
 
 // ── 7. Command Center ────────────────────────────────────────────────────────

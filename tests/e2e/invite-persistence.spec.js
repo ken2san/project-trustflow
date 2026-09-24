@@ -17,6 +17,9 @@
 // or expired tokens fail closed.
 
 import { test, expect } from '@playwright/test';
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
@@ -45,6 +48,53 @@ async function api(request, path, { method = 'POST', token, body, prefer } = {})
   let parsed = null;
   try { parsed = await response.json(); } catch { /* empty body */ }
   return { status: response.status(), body: parsed };
+}
+
+// A persistent anonymous test identity.
+//
+// Anonymous sign-ins are capped at 30/hour per IP, and the app itself calls
+// signInAnonymously() on every page load — so a full suite run spends most of
+// the budget before this test even starts. Minting a session per run therefore
+// failed for reasons that had nothing to do with the gate under test.
+//
+// An anonymous auth.users row is permanent, so one is enough forever. The
+// fixture file holds its refresh token; exchanging a refresh token is not
+// subject to the signup rate limit. Tokens rotate, so the new one is written
+// back after each exchange. The file is created on first use and gitignored.
+const ANON_FIXTURE = process.env.TF_TEST_ANON_FIXTURE
+  ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '.anon-fixture.json');
+
+let anonSessionPromise = null;
+
+async function anonymousSession(request) {
+  anonSessionPromise ??= (async () => {
+    let stored = null;
+    try {
+      stored = JSON.parse(await readFile(ANON_FIXTURE, 'utf8'));
+    } catch { /* no fixture yet */ }
+
+    if (stored?.refresh_token) {
+      const refreshed = await api(request, '/auth/v1/token?grant_type=refresh_token', {
+        body: { refresh_token: stored.refresh_token },
+      });
+      if (refreshed.status === 200) {
+        await writeFile(ANON_FIXTURE, JSON.stringify({ refresh_token: refreshed.body.refresh_token }, null, 2));
+        expect(refreshed.body.user.is_anonymous, 'fixture identity is no longer anonymous').toBe(true);
+        return { accessToken: refreshed.body.access_token, userId: refreshed.body.user.id };
+      }
+      // Refresh token expired or revoked — fall through and mint a new one.
+    }
+
+    const { status, body } = await api(request, '/auth/v1/signup', { body: {} });
+    expect(status,
+      `could not establish an anonymous identity. 429 means the 30/hr per-IP signup cap is `
+      + `exhausted and no reusable fixture exists at ${ANON_FIXTURE} — wait for the window to `
+      + `reset and re-run once to create it. Response: ${JSON.stringify(body)}`).toBe(200);
+    expect(body.user.is_anonymous).toBe(true);
+    await writeFile(ANON_FIXTURE, JSON.stringify({ refresh_token: body.refresh_token }, null, 2));
+    return { accessToken: body.access_token, userId: body.user.id };
+  })();
+  return anonSessionPromise;
 }
 
 async function signInVerifiedEarner(request) {
@@ -93,19 +143,21 @@ test('a verified Earner persists a contract that the server owns the security fi
 });
 
 test('an unverified (anonymous) Earner cannot persist a contract at all', async ({ request }) => {
-  const anon = await api(request, '/auth/v1/signup', { body: {} });
-  // Anonymous sign-ins are rate limited to 30/hour per IP, and every page load
-  // in this suite consumes one. Being unable to mint a fresh anonymous user is
-  // an environment limit, not a failed gate — skip rather than report a false
-  // security regression. A real 200-then-not-403 still fails below.
-  test.skip(anon.status === 429,
-    'anonymous sign-in rate limited (30/hr per IP) — the verified-Earner gate was not exercised on this run');
-  expect(anon.status).toBe(200);
-  expect(anon.body.user.is_anonymous).toBe(true);
+  // This used to mint a fresh anonymous user per run, which made the test a
+  // coin flip: anonymous sign-ins are capped at 30/hour per IP and every page
+  // load in the suite consumes one, so a full run routinely exhausted the
+  // budget and the gate went unexercised behind a conditional skip.
+  //
+  // The gate is on the JWT's is_anonymous claim, and one anonymous session is
+  // as good as another, so the session is minted once per worker and reused.
+  // If the cap is genuinely hit the test fails rather than skips — an
+  // unreachable anonymous session is an environment problem worth seeing, but
+  // it is now one sign-in per run instead of one per attempt.
+  const anon = await anonymousSession(request);
 
   const { status, body } = await api(request, '/rest/v1/contracts', {
-    token: anon.body.access_token,
-    body: { earner_user_id: anon.body.user.id, ...TERMS },
+    token: anon.accessToken,
+    body: { earner_user_id: anon.userId, ...TERMS },
   });
 
   expect(status).toBe(403);
