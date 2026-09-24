@@ -76,7 +76,7 @@ import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 import { ensureActorIdentity } from './lib/identity.js';
-import { createContract, inviteUrlFor, fetchInvite, acceptInvite } from './lib/contracts.js';
+import { createContract, inviteUrlFor, fetchInvite, acceptInvite, fetchGuestEvidence } from './lib/contracts.js';
 import { storeGuestAccessToken } from './lib/guestSession.js';
 import { requestEarnerVerification, verifyEarnerOtp, isEarnerVerified } from './lib/earnerAuth.js';
 import { supabase, isSupabaseEnabled } from './lib/supabase.js';
@@ -154,6 +154,7 @@ import ContractView from './views/ContractView';
 
 // WalletView moved to views/WalletView.jsx
 import WalletView from './views/WalletView';
+import GuestEvidenceView from './views/GuestEvidenceView';
 
 // CommandCenterView moved to views/CommandCenterView.jsx
 import CommandCenterView from './views/CommandCenterView';
@@ -211,6 +212,10 @@ const App = () => {
   const [inviteLoading, setInviteLoading] = useState(() =>
     new URLSearchParams(window.location.search).has('token'));
   const [inviteTokenError, setInviteTokenError] = useState(null);
+  // The guest Hirer's evidence trail, fetched on demand from the contract's
+  // guest credential. Null until they ask to see it.
+  const [guestEvidence, setGuestEvidence] = useState(null);
+  const [guestEvidenceReason, setGuestEvidenceReason] = useState(null);
   const [view, setView] = useState(() =>
     new URLSearchParams(window.location.search).has('token') ? 'invite' : 'marketplace');
   const [step, setStep] = useState(1);
@@ -1216,7 +1221,12 @@ const App = () => {
               // Timestamped legal record of acceptance. counterparty_email is
               // the address that actually accepted, which may differ from the
               // one the invite was addressed to — both are kept.
-              logEvent({
+              //
+              // Awaited, not fire-and-forget: this is the one event that says
+              // the guest agreed, and the very next screen offers to show them
+              // the record. Letting the write race the read meant they could
+              // open their own trail and not find their own acceptance in it.
+              const consent = await logEvent({
                 type: EVENT_TYPES.DOD_CONSENT_RECORDED,
                 contractId,
                 actorId: email || name,
@@ -1230,9 +1240,17 @@ const App = () => {
                   dod_items: accepted.dod ?? [],
                   user_agent: navigator.userAgent,
                 },
-              }).catch(err => console.warn('[TrustFlow] consent log failed:', err));
+              });
               setView('invite-accepted');
-              addToast('Agreement accepted', 'Your acceptance has been recorded.', 'success');
+              // The acceptance itself already succeeded server-side — the
+              // contract is in TERMS_ACCEPTED either way — so a failed evidence
+              // write is reported without claiming the agreement did not happen.
+              if (consent?.persisted === false) {
+                addToast('Agreement accepted',
+                  'Recorded, but the evidence entry could not be written. Contact the other party.', 'warning');
+              } else {
+                addToast('Agreement accepted', 'Your acceptance has been recorded.', 'success');
+              }
             }}
             onDecline={() => {
               window.history.replaceState({}, '', window.location.pathname);
@@ -1254,7 +1272,28 @@ const App = () => {
               Payment is handled separately for now — {selectedItem?.client} will contact you about it.
               TrustFlow is not collecting money for this agreement yet.
             </p>
+            <button
+              onClick={async () => {
+                const contractId = String(selectedItem?.id ?? '');
+                setGuestEvidence(null);
+                setGuestEvidenceReason(null);
+                setView('guest-evidence');
+                const { evidence, reason } = await fetchGuestEvidence(contractId);
+                setGuestEvidence(evidence);
+                setGuestEvidenceReason(reason);
+              }}
+              className="text-xs text-slate-400 hover:text-white underline underline-offset-4 transition-colors"
+            >
+              View the record of this agreement
+            </button>
           </div>
+        )}
+        {view === 'guest-evidence' && (
+          <GuestEvidenceView
+            evidence={guestEvidence}
+            reason={guestEvidenceReason}
+            onBack={() => setView('invite-accepted')}
+          />
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} onOpenDispute={handleOpenDispute} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} onBack={() => { setView('marketplace'); setSelectedItem(null); }} guestName={guestName} />}

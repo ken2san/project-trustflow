@@ -11,6 +11,7 @@
 // invite_token_expires_at to now() + 72h.
 
 import { supabase } from './supabase.js'
+import { getGuestAccessToken } from './guestSession.js'
 
 const NOT_CONFIGURED = new Error('Supabase is not configured')
 
@@ -88,6 +89,38 @@ export async function fetchInvite(inviteToken) {
     return { invite: null, reason: data?.error ?? 'error' }
   }
   return { invite: data, reason: null }
+}
+
+/**
+ * Read the evidence trail for the contract this browser holds a guest
+ * credential for.
+ *
+ * The contract is not named in the request: the server resolves it from the
+ * guest_access_token alone, so there is no contract id for a caller to swap.
+ * The contractId argument only selects which stored credential to send.
+ *
+ * The response is a shaped view, not raw rows — payloads are allowlisted per
+ * event type and hash-chain verification is reported per event. See
+ * supabase/functions/guest-contract-events.
+ *
+ * @returns {Promise<{ evidence: object|null, reason: string|null }>}
+ *          reason is 'no_credential' | 'invalid_guest_token'
+ *                  | 'guest_token_expired' | 'error'
+ */
+export async function fetchGuestEvidence(contractId) {
+  if (!supabase) return { evidence: null, reason: 'error' }
+
+  const guestToken = getGuestAccessToken(contractId)
+  if (!guestToken) return { evidence: null, reason: 'no_credential' }
+
+  const { data, error } = await supabase.functions.invoke('guest-contract-events', {
+    headers: { 'x-guest-access-token': guestToken },
+  })
+
+  if (error || data?.error) {
+    return { evidence: null, reason: data?.error ?? 'error' }
+  }
+  return { evidence: data, reason: null }
 }
 
 /**
