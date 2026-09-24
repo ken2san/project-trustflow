@@ -64,7 +64,7 @@ import {
   Loader2, Check, MousePointer2, FileSignature, Scan, Hash,
   RefreshCw, QrCode, Briefcase, Users, ChevronRight, User, Gavel, AlertTriangle,
   Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4, Star,
-  Layers
+  Layers, UserPlus
 } from 'lucide-react';
 // Returns a unified profile object merging static and dynamic user data
 // (moved below imports)
@@ -76,7 +76,7 @@ import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 import { ensureActorIdentity } from './lib/identity.js';
-import { createContract, inviteUrlFor, fetchInvite, acceptInvite, fetchGuestEvidence } from './lib/contracts.js';
+import { createContract, listContracts, inviteUrlFor, fetchInvite, acceptInvite, fetchGuestEvidence } from './lib/contracts.js';
 import { storeGuestAccessToken } from './lib/guestSession.js';
 import { requestEarnerVerification, verifyEarnerOtp, isEarnerVerified } from './lib/earnerAuth.js';
 import { supabase, isSupabaseEnabled } from './lib/supabase.js';
@@ -155,6 +155,8 @@ import ContractView from './views/ContractView';
 // WalletView moved to views/WalletView.jsx
 import WalletView from './views/WalletView';
 import GuestEvidenceView from './views/GuestEvidenceView';
+import ContractsHomeView from './views/ContractsHomeView';
+import { stepForState } from './lib/contractStatus.js';
 
 // CommandCenterView moved to views/CommandCenterView.jsx
 import CommandCenterView from './views/CommandCenterView';
@@ -216,8 +218,15 @@ const App = () => {
   // guest credential. Null until they ask to see it.
   const [guestEvidence, setGuestEvidence] = useState(null);
   const [guestEvidenceReason, setGuestEvidenceReason] = useState(null);
+  // 'home' is the Contracts list. Marketplace and Command Center still exist
+  // and still render, but nothing in the primary navigation points at them —
+  // see the command palette for the remaining way in.
   const [view, setView] = useState(() =>
-    new URLSearchParams(window.location.search).has('token') ? 'invite' : 'marketplace');
+    new URLSearchParams(window.location.search).has('token') ? 'invite' : 'home');
+  // The signed-in Earner's own contracts, read straight from the database.
+  const [myContracts, setMyContracts] = useState([]);
+  const [contractsLoading, setContractsLoading] = useState(true);
+  const [contractsError, setContractsError] = useState(null);
   const [step, setStep] = useState(1);
 
   // UI profile state
@@ -308,6 +317,29 @@ const App = () => {
 
   // Load the invite from the contract row. Read-only: this does not consume
   // the one-time token — that happens when the Hirer actually accepts.
+  // Load the signed-in user's contracts. RLS decides which rows come back, so
+  // an anonymous or signed-out session simply sees none — which is the correct
+  // empty state, not an error.
+  const refreshContracts = useCallback(async () => {
+    setContractsLoading(true);
+    const { contracts, error } = await listContracts();
+    setMyContracts(contracts);
+    setContractsError(error ? (error.message ?? String(error)) : null);
+    setContractsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { contracts, error } = await listContracts();
+      if (!alive) return;
+      setMyContracts(contracts);
+      setContractsError(error ? (error.message ?? String(error)) : null);
+      setContractsLoading(false);
+    })();
+    return () => { alive = false; };
+  }, []);
+
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get('token');
     if (!raw) return;
@@ -407,7 +439,7 @@ const App = () => {
 
       if (ev.type === EVENT_TYPES.CONTRACT_CANCELLED) {
         addToast('Contract Cancelled', 'Your counterparty has cancelled this contract.', 'warning');
-        setView('marketplace');
+        setView('home');
         setSelectedItem(null);
         setStep(1);
         setContractEvents([]);
@@ -473,7 +505,7 @@ const App = () => {
     if (status !== 'idle') return;
     setStatus('switching');
     setTimeout(() => {
-        setMode(prev => { const newMode = prev === 'earner' ? 'hirer' : 'earner'; setView('marketplace'); return newMode; });
+        setMode(prev => { const newMode = prev === 'earner' ? 'hirer' : 'earner'; setView('home'); return newMode; });
         setSelectedItem(null);
         setAiSuggestions(null);
         setProjectPrompt('');
@@ -620,7 +652,7 @@ const App = () => {
             rating: uiProfile.avgRating ?? '—',
           }, ...prev]);
           // Reset everything for next cycle
-          setView('marketplace');
+          setView('home');
           setSelectedItem(null);
           setStep(1);
           setDodHash(null);
@@ -680,7 +712,7 @@ const App = () => {
     // above), including clearing contractEvents rather than keeping the
     // event just logged: it's already persisted, and a stale local list
     // shouldn't bleed into whatever contract is viewed next.
-    setView('marketplace');
+    setView('home');
     setSelectedItem(null);
     setStep(1);
     setContractEvents([]);
@@ -772,6 +804,41 @@ const App = () => {
     setByocContractId(crypto.randomUUID());
     setShowBYOCForm(true);
   }, []);
+
+  // Open a database contract in the existing contract flow screen.
+  //
+  // That screen is deliberately untouched in this pass: it still owns its local
+  // 1–5 step counter and still expects a marketplace-shaped item. So the row is
+  // mapped into the shape it already understands, and its opening step is
+  // derived from contracts.state so it does not claim the contract is at the
+  // beginning when it is not. This is a starting position, not a migration —
+  // the screen's progression is still its own, and the home screen remains the
+  // authority on status.
+  const openContractFromHome = useCallback((contract) => {
+    setSelectedItem({
+      id: contract.id,
+      title: contract.project_name || 'Untitled agreement',
+      client: contract.hirer_email || contract.invited_hirer_email || 'Your client',
+      totalPoints: contract.amount_jpy ?? 0,
+      acceptanceCriteria: Array.isArray(contract.dod) ? contract.dod : [],
+      deadline: contract.deadline ?? null,
+    });
+    setStep(stepForState(contract.state));
+    setView('contract');
+  }, []);
+
+  const copyInviteLink = useCallback(async (contract) => {
+    if (!contract?.invite_token) return;
+    const url = inviteUrlFor(contract.invite_token);
+    try {
+      await navigator.clipboard.writeText(url);
+      addToast('Invite link copied', 'Send it to your client.', 'success');
+    } catch {
+      // Clipboard access can be refused outright (permissions, insecure
+      // context). Showing the link is more use than a failure message.
+      addToast('Copy the invite link', url, 'info');
+    }
+  }, [addToast]);
 
   const handleBYOCSubmit = useCallback(() => {
     const item = {
@@ -868,14 +935,20 @@ const App = () => {
   const handleSendMessage = () => { if (!inputText.trim()) return; setMessages([...messages, { id: Date.now(), sender: 'me', text: inputText, time: 'Now', type: 'text' }]); setInputText(''); setTimeout(() => { setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', text: 'Context updated. Evidence logged.', time: 'Now', type: 'text' }]); }, 1000); };
   useEffect(() => { if (isChatOpen && chatEndRef.current) { chatEndRef.current.scrollIntoView({ behavior: "smooth" }); } }, [messages, isChatOpen]);
 
+  // Marketplace and Command Center are no longer in the primary navigation.
+  // They are not deleted, and the palette is where they remain reachable —
+  // deliberately, so removing them from the main path does not mean losing the
+  // ability to look at them while they are being reconsidered.
   const commands = useMemo(() => [
-      { id: 'home', label: 'Go to Marketplace', icon: LayoutGrid, action: () => setView('marketplace') },
+      { id: 'home', label: 'Go to Contracts', icon: LayoutGrid, action: () => setView('home') },
+      { id: 'new-contract', label: 'New contract', icon: UserPlus, action: () => handleBYOCStart() },
       { id: 'wallet', label: 'Open Wallet', icon: Wallet, action: () => setView('wallet') },
-      { id: 'command-center', label: 'Open Command Center', icon: Layers, action: () => setView('command-center') },
+      { id: 'marketplace', label: 'Open Marketplace (legacy)', icon: LayoutGrid, action: () => setView('marketplace') },
+      { id: 'command-center', label: 'Open Command Center (legacy)', icon: Layers, action: () => setView('command-center') },
       { id: 'profile', label: 'View Trust Passport', icon: User, action: () => handleViewProfile(USER_PROFILE) },
       { id: 'switch', label: `Switch to ${mode === 'earner' ? 'Hirer' : 'Earner'} Mode`, icon: RefreshCw, action: toggleMode },
       { id: 'chat', label: 'Toggle Chat', icon: MessageSquare, action: () => setIsChatOpen(prev => !prev) },
-  ], [mode]);
+  ], [mode, handleBYOCStart]);
 
   const activeOperations = useMemo(() => {
     if (!selectedItem || step < 1 || step > 4) return [];
@@ -1046,7 +1119,7 @@ const App = () => {
 
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/80 backdrop-blur-xl border-b border-white/[0.05] px-6 py-4 flex justify-between items-center transition-all duration-300">
-        <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setView('marketplace')}>
+        <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setView('home')}>
           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${mode === 'earner' ? 'bg-indigo-600' : 'bg-emerald-600'}`}>{mode === 'earner' ? <ShieldCheck className="text-white w-6 h-6" /> : <Briefcase className="text-white w-6 h-6" />}</div>
           <div className="hidden sm:block"><span className="font-black text-xl tracking-tighter text-white block leading-none">TRUSTFLOW</span><span className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase">{mode === 'earner' ? 'Professional' : 'Client Suite'}</span></div>
         </div>
@@ -1075,14 +1148,9 @@ const App = () => {
               <span className="text-[10px] text-slate-400 mt-1">Unlock Wallet at Level 1</span>
             )}
           </div>
-          {/* Command Center icon (PC/tablet only) */}
-          <button
-            className={`hidden sm:inline-flex p-2 ml-2 rounded-full border border-white/10 transition-colors ${view === 'command-center' ? 'bg-indigo-500/20 text-indigo-400 scale-110 shadow-[0_0_12px_rgba(99,102,241,0.15)]' : 'text-slate-400 hover:text-indigo-300 hover:bg-white/10'}`}
-            title="Command Center"
-            onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('command-center'); }}
-          >
-            <Layers className="w-6 h-6" />
-          </button>
+          {/* Command Center is no longer in the primary navigation — it was a
+              second dashboard competing with the Contracts home. The view still
+              exists; ⌘K reaches it. */}
           <button
             className={`hidden sm:inline-flex p-2 ml-1 rounded-full border border-white/10 transition-colors relative ${showActivityLog ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-indigo-300 hover:bg-white/10'}`}
             title="Activity Log"
@@ -1134,6 +1202,17 @@ const App = () => {
       </nav>
 
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
+        {view === 'home' && (
+          <ContractsHomeView
+            contracts={myContracts}
+            loading={contractsLoading}
+            error={contractsError}
+            onRetry={refreshContracts}
+            onNewContract={handleBYOCStart}
+            onOpenContract={openContractFromHome}
+            onCopyInvite={copyInviteLink}
+          />
+        )}
         {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} onBYOC={handleBYOCStart} onHire={talent => { addToast('Contract Initiated', 'Contract flow started.'); beginContract(talent); }} />}
         {/* Shared chat state for negotiation stream */}
         {view === 'project-detail' && projectDetail && (
@@ -1145,7 +1224,7 @@ const App = () => {
               setChatLocked(true); // Lock chat after contract initiation
               addToast('Commitment Locked', 'Contract flow started.');
             }}
-            onBack={() => setView('marketplace')}
+            onBack={() => setView('home')}
             onOpenChat={() => setView('negotiation-chat')}
             messages={negotiationMessages}
             agreed={negotiationAgreed}
@@ -1254,7 +1333,7 @@ const App = () => {
             }}
             onDecline={() => {
               window.history.replaceState({}, '', window.location.pathname);
-              setView('marketplace');
+              setView('home');
             }}
           />
         )}
@@ -1295,8 +1374,8 @@ const App = () => {
             onBack={() => setView('invite-accepted')}
           />
         )}
-        {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
-        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} onOpenDispute={handleOpenDispute} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} onBack={() => { setView('marketplace'); setSelectedItem(null); }} guestName={guestName} />}
+        {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('home'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
+        {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} onOpenDispute={handleOpenDispute} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} onBack={() => { setView('home'); setSelectedItem(null); }} guestName={guestName} />}
               {/* Global Level Up/Param Up Animation */}
               {showLevelUp && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
@@ -1315,7 +1394,7 @@ const App = () => {
                   <div className="text-3xl font-black text-indigo-300 drop-shadow animate-pop-fade">+1 PARAMETER</div>
                 </div>
               )}
-        {view === 'wallet' && <WalletView onBack={() => setView('marketplace')} trustPointsLedger={trustPointsLedger} trustScore={uiProfile.trustScore ?? 0} contractsCompleted={uiProfile.completedContracts ?? 0} formatNumber={formatNumber} />}
+        {view === 'wallet' && <WalletView onBack={() => setView('home')} trustPointsLedger={trustPointsLedger} trustScore={uiProfile.trustScore ?? 0} contractsCompleted={uiProfile.completedContracts ?? 0} formatNumber={formatNumber} />}
         {view === 'command-center' && (
           <CommandCenterView
             activeOperations={activeOperations}
@@ -1387,11 +1466,11 @@ const App = () => {
       </div>
 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-2xl border-t border-white/10 px-8 py-5 flex justify-between items-center z-50 shadow-[0_-15px_40px_rgba(0,0,0,0.6)]">
-        <button className={`p-3 transition-all duration-300 ${view === 'marketplace' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('marketplace'); }}><LayoutGrid className="w-6 h-6" /></button>
+        <button title="Contracts" className={`p-3 transition-all duration-300 ${view === 'home' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('home'); }}><LayoutGrid className="w-6 h-6" /></button>
         <button className={`p-3 transition-all duration-300 ${view === 'wallet' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('wallet'); }}><Wallet className="w-6 h-6" /></button>
         {/* Command Center icon (mobile only) */}
-        <button className={`p-3 transition-all duration-300 ${view === 'command-center' ? 'text-indigo-400 scale-125 bg-indigo-500/10 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'text-slate-500 hover:text-slate-300'} inline-flex sm:hidden`} onClick={() => { setIsProfileOpen(false); setIsCommandOpen(false); setProfileData(null); setView('command-center'); }}><Layers className="w-6 h-6" /></button>
-        <button className="p-3 text-slate-500 inline-flex" onClick={() => { setIsCommandOpen(false); setView('marketplace'); setProfileData(unifiedProfile); setIsProfileOpen(true); }}>
+
+        <button className="p-3 text-slate-500 inline-flex" onClick={() => { setIsCommandOpen(false); setView('home'); setProfileData(unifiedProfile); setIsProfileOpen(true); }}>
           {/* Avatar icon for mobile bottom bar (same as header) */}
           <span className="block w-6 h-6 rounded-full overflow-hidden border-2 border-indigo-400 bg-slate-800">
             {USER_PROFILE.avatarUrl ? (

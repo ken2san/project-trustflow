@@ -7,12 +7,24 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+/**
+ * The marketplace is no longer in the primary navigation, but it is not
+ * deleted — the command palette is the remaining way in, and these two tests
+ * cover the fixture-job flow that still lives there. When that flow is
+ * eventually removed, these go with it.
+ */
+async function openLegacyMarketplace(page) {
+  await page.keyboard.press('Meta+k');
+  await page.getByText('Open Marketplace (legacy)').click();
+  await expect(page.getByRole('button', { name: 'View Details' }).first()).toBeVisible({ timeout: 15_000 });
+}
+
 // ── 1. App loads ─────────────────────────────────────────────────────────────
 
-test('app loads and shows marketplace', async ({ page }) => {
+test('app loads on the contracts home', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 }).filter({ hasText: 'Get paid' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'View Details' }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Contracts', level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /New contract/i }).first()).toBeVisible();
 });
 
 // ── 2. Mode switching ────────────────────────────────────────────────────────
@@ -30,6 +42,7 @@ test('can switch between Earner and Hirer modes', async ({ page }) => {
 
 test('clicking View Details navigates to project detail', async ({ page }) => {
   await page.goto('/');
+  await openLegacyMarketplace(page);
   await page.getByRole('button', { name: 'View Details' }).first().click();
   await expect(page.getByRole('heading', { name: 'Project Overview' })).toBeVisible({ timeout: 5000 });
 });
@@ -38,6 +51,7 @@ test('clicking View Details navigates to project detail', async ({ page }) => {
 
 test('can initiate contract and reach contract view', async ({ page }) => {
   await page.goto('/');
+  await openLegacyMarketplace(page);
   await page.getByRole('button', { name: 'View Details' }).first().click();
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: 'Initiate Contract' }).click();
@@ -77,10 +91,15 @@ test('wallet view loads and shows the TrustPoints balance', async ({ page }) => 
 
 // ── 7. Command Center ────────────────────────────────────────────────────────
 
-test('command center opens', async ({ page }) => {
+test('command center is still reachable, just not from the primary nav', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Command Center' }).click();
-  await expect(page.locator('text=Active Operations').first()).toBeVisible({ timeout: 5000 });
+  // Its header button is gone: it was a second dashboard competing with the
+  // contracts home. The view itself is untouched and the palette still opens it.
+  await expect(page.getByRole('button', { name: 'Command Center' })).toHaveCount(0);
+
+  await page.keyboard.press('Meta+k');
+  await page.getByText('Open Command Center (legacy)').click();
+  await expect(page.locator('text=Active Operations').first()).toBeVisible({ timeout: 15_000 });
 });
 
 // ── 8. Cmd+K opens command palette ───────────────────────────────────────────

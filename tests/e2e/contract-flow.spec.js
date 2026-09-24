@@ -242,7 +242,7 @@ test('step 5 as Earner: logs contract.completed, appends a history entry, resets
 
   await page.getByRole('button', { name: /Return to Feed/i }).click();
 
-  const snapshot = await snapshotWhere(page, (s) => s?.view === 'marketplace');
+  const snapshot = await snapshotWhere(page, (s) => s?.view === 'home');
   // Full reset for the next cycle.
   expect(snapshot.step).toBe(1);
   expect(snapshot.selectedItem).toBeNull();
@@ -265,7 +265,7 @@ test('step 5 as Hirer: history entry records earned: 0', async ({ page }) => {
 
   await page.getByRole('button', { name: /Return to Feed/i }).click();
 
-  const snapshot = await snapshotWhere(page, (s) => s?.view === 'marketplace');
+  const snapshot = await snapshotWhere(page, (s) => s?.view === 'home');
   expect(snapshot.contractHistory).toHaveLength(1);
   expect(snapshot.contractHistory[0].earned).toBe(0);
 });
@@ -289,7 +289,7 @@ test('step 5: prepends to existing history rather than replacing it', async ({ p
 
   await page.getByRole('button', { name: /Return to Feed/i }).click();
 
-  const snapshot = await snapshotWhere(page, (s) => s?.view === 'marketplace');
+  const snapshot = await snapshotWhere(page, (s) => s?.view === 'home');
   expect(snapshot.contractHistory).toHaveLength(2);
   expect(snapshot.contractHistory[0].id).toBe(String(JOB.id));
   expect(snapshot.contractHistory[1]).toMatchObject(existing);

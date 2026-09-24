@@ -65,6 +65,38 @@ export async function createContract({
   return { contract: data ?? null, error: error ?? null }
 }
 
+/**
+ * Every contract the signed-in user is a party to, newest first.
+ *
+ * No filter is applied here: `parties_read_own_contracts` already restricts
+ * rows to `auth.uid() = earner_user_id OR auth.uid() = hirer_user_id`, so the
+ * database decides what is visible. Adding a client-side `.eq('earner_user_id',
+ * …)` would look like the security control and quietly become the thing people
+ * trust — the policy is the control.
+ *
+ * invite_token is included because the Earner needs it to re-share a pending
+ * invite; it is their own contract's token and RLS already permits reading it.
+ *
+ * Returns an empty list rather than throwing when Supabase is unconfigured, so
+ * the home screen renders its empty state instead of failing.
+ *
+ * @returns {Promise<{ contracts: object[], error: Error|null }>}
+ */
+export async function listContracts() {
+  if (!supabase) return { contracts: [], error: NOT_CONFIGURED }
+
+  const { data, error } = await supabase
+    .from('contracts')
+    .select(
+      'id, project_name, dod, amount_jpy, currency, deadline, state, '
+      + 'earner_display_name, invited_hirer_email, hirer_email, '
+      + 'invite_token, invite_token_expires_at, invite_token_used_at, created_at',
+    )
+    .order('created_at', { ascending: false })
+
+  return { contracts: data ?? [], error: error ?? null }
+}
+
 /** Build the invite URL for a server-issued token. */
 export function inviteUrlFor(inviteToken) {
   return `${window.location.origin}${window.location.pathname}?token=${encodeURIComponent(inviteToken)}`
