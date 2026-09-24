@@ -12,7 +12,7 @@
 // own progression and is untouched for now.
 
 import React from 'react';
-import { Plus, Copy, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Plus, Copy, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertTriangle, LogIn } from 'lucide-react';
 import {
   groupContracts, nextActionFor, statusLabel, formatAmount, formatDeadline,
 } from '../lib/contractStatus.js';
@@ -134,6 +134,7 @@ function Section({ title, count, children }) {
 
 export default function ContractsHomeView({
   contracts, loading, error, onOpenContract, onNewContract, onCopyInvite, onRetry,
+  authStatus = 'anonymous', authEmail = null, onSignIn,
 }) {
   const [showCompleted, setShowCompleted] = React.useState(false);
   const { needsYou, inProgress, completed } = React.useMemo(
@@ -179,7 +180,27 @@ export default function ContractsHomeView({
         </div>
       )}
 
-      {!loading && !error && !hasAny && (
+      {/* An empty list means two very different things. Someone who has never
+          made a contract should be invited to make one; someone whose session
+          lapsed is looking at work they think they have lost, and telling them
+          "no contracts yet" would be both wrong and alarming. */}
+      {!loading && !error && !hasAny && authStatus === 'expired' && (
+        <div className="rounded-[28px] border border-amber-500/20 bg-amber-500/[0.04] px-6 py-10 text-center space-y-3">
+          <p className="text-white font-bold">You are signed out.</p>
+          <p className="text-sm text-slate-400 max-w-sm mx-auto">
+            Your contracts are still there{authEmail ? <> under <span className="text-slate-200">{authEmail}</span></> : null}.
+            Sign in again to see them.
+          </p>
+          <button
+            onClick={onSignIn}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white text-[#020617] font-black text-sm hover:bg-indigo-400 hover:text-white transition-all mt-2"
+          >
+            <LogIn className="w-4 h-4" /> Sign in
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && !hasAny && authStatus !== 'expired' && (
         <div className="rounded-[28px] border border-white/5 bg-white/[0.02] px-6 py-12 text-center space-y-3">
           <p className="text-white font-bold">No contracts yet.</p>
           <p className="text-sm text-slate-500 max-w-sm mx-auto">
@@ -192,6 +213,14 @@ export default function ContractsHomeView({
           >
             <Plus className="w-4 h-4" /> New contract
           </button>
+          {authStatus === 'anonymous' && onSignIn && (
+            <p className="text-xs text-slate-600 pt-2">
+              Already set one up on another device?{' '}
+              <button onClick={onSignIn} className="text-indigo-400 hover:text-white underline underline-offset-4 transition-colors">
+                Sign in
+              </button>
+            </p>
+          )}
         </div>
       )}
 

@@ -64,7 +64,7 @@ import {
   Loader2, Check, MousePointer2, FileSignature, Scan, Hash,
   RefreshCw, QrCode, Briefcase, Users, ChevronRight, User, Gavel, AlertTriangle,
   Command, Laptop, Wand2, MapPin, Calendar, Share2, Hexagon, BarChart4, Star,
-  Layers, UserPlus
+  Layers, UserPlus, LogIn, LogOut
 } from 'lucide-react';
 // Returns a unified profile object merging static and dynamic user data
 // (moved below imports)
@@ -78,7 +78,10 @@ import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js'
 import { ensureActorIdentity } from './lib/identity.js';
 import { createContract, listContracts, inviteUrlFor, fetchInvite, acceptInvite, fetchGuestEvidence } from './lib/contracts.js';
 import { storeGuestAccessToken } from './lib/guestSession.js';
-import { requestEarnerVerification, verifyEarnerOtp, isEarnerVerified } from './lib/earnerAuth.js';
+import {
+  requestEarnerVerification, verifyEarnerOtp, isEarnerVerified,
+  requestSignInCode, verifySignInCode, getAuthState, signOutEarner,
+} from './lib/earnerAuth.js';
 import { supabase, isSupabaseEnabled } from './lib/supabase.js';
 
 
@@ -156,6 +159,7 @@ import ContractView from './views/ContractView';
 import WalletView from './views/WalletView';
 import GuestEvidenceView from './views/GuestEvidenceView';
 import ContractsHomeView from './views/ContractsHomeView';
+import SignInView from './views/SignInView';
 import { stepForState } from './lib/contractStatus.js';
 
 // CommandCenterView moved to views/CommandCenterView.jsx
@@ -223,6 +227,10 @@ const App = () => {
   // see the command palette for the remaining way in.
   const [view, setView] = useState(() =>
     new URLSearchParams(window.location.search).has('token') ? 'invite' : 'home');
+  // Who this browser is acting as: 'signed_in', 'anonymous' or 'expired'.
+  // Resolved on load from the persisted session — supabase-js restores and
+  // refreshes it itself, so this only has to report what it found.
+  const [auth, setAuth] = useState({ status: 'anonymous', email: null, userId: null });
   // The signed-in Earner's own contracts, read straight from the database.
   const [myContracts, setMyContracts] = useState([]);
   const [contractsLoading, setContractsLoading] = useState(true);
@@ -328,9 +336,17 @@ const App = () => {
     setContractsLoading(false);
   }, []);
 
+  // Session restoration. supabase-js reads the stored session and refreshes it
+  // before this resolves, so by the time getAuthState answers, an expired
+  // refresh token has already failed and reports as 'expired' rather than
+  // looking like a brand-new visitor.
   useEffect(() => {
     let alive = true;
     (async () => {
+      const state = await getAuthState();
+      if (!alive) return;
+      setAuth(state);
+
       const { contracts, error } = await listContracts();
       if (!alive) return;
       setMyContracts(contracts);
@@ -339,6 +355,7 @@ const App = () => {
     })();
     return () => { alive = false; };
   }, []);
+
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get('token');
@@ -800,6 +817,23 @@ const App = () => {
     setHasOnboarded(true);
   }, []);
 
+  // Signing in or out swaps which rows RLS will return, so both re-read.
+  const handleSignedIn = useCallback(async () => {
+    const state = await getAuthState();
+    setAuth(state);
+    setView('home');
+    await refreshContracts();
+    addToast('Signed in', 'Your contracts are back.', 'success');
+  }, [refreshContracts, addToast]);
+
+  const handleSignOut = useCallback(async () => {
+    await signOutEarner();
+    setAuth({ status: 'anonymous', email: null, userId: null });
+    setMyContracts([]);
+    setView('home');
+    addToast('Signed out', 'This browser no longer holds your session.', 'info');
+  }, [addToast]);
+
   const handleBYOCStart = useCallback(() => {
     setByocContractId(crypto.randomUUID());
     setShowBYOCForm(true);
@@ -1125,6 +1159,22 @@ const App = () => {
         </div>
         <div onClick={() => setIsCommandOpen(true)} className="hidden md:flex flex-1 max-w-md mx-6 items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 px-4 py-2.5 rounded-xl cursor-pointer transition-all group"><Search className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" /><span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">Type a command...</span><div className="ml-auto flex gap-1"><span className="text-[10px] font-mono text-slate-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">⌘K</span></div></div>
         <div className="flex gap-4 items-center">
+          {auth.status === 'signed_in' ? (
+            <button
+              onClick={handleSignOut}
+              title={auth.email ? `Signed in as ${auth.email}` : 'Sign out'}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all text-xs font-bold text-slate-400 hover:text-white"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sign out
+            </button>
+          ) : (
+            <button
+              onClick={() => setView('signin')}
+              className="flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 transition-all text-xs font-bold text-indigo-300"
+            >
+              <LogIn className="w-3.5 h-3.5" /> Sign in
+            </button>
+          )}
           <button onClick={toggleMode} className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all"><div className={`w-2 h-2 rounded-full ${mode === 'earner' ? 'bg-indigo-500' : 'bg-emerald-500'}`} /><span className="text-xs font-bold uppercase tracking-wider text-slate-300">Switch to {mode === 'earner' ? 'Hire' : 'Work'}</span><RefreshCw className="w-3 h-3 text-slate-500" /></button>
           {/* Wallet button: only enabled if unlocked */}
           <div className={`hidden sm:flex flex-col items-center gap-1 bg-white/[0.03] px-4 py-2 rounded-full border border-white/5 transition-colors ${unlockedFeatures.includes('wallet') ? 'cursor-pointer hover:bg-white/10' : 'opacity-40 cursor-not-allowed'}`}
@@ -1202,6 +1252,19 @@ const App = () => {
       </nav>
 
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
+        {view === 'signin' && (
+          <SignInView
+            initialEmail={auth.email ?? ''}
+            expired={auth.status === 'expired'}
+            onRequestCode={requestSignInCode}
+            onVerifyCode={async (email, code) => {
+              const result = await verifySignInCode(email, code);
+              if (result.user) await handleSignedIn();
+              return result;
+            }}
+            onBack={() => setView('home')}
+          />
+        )}
         {view === 'home' && (
           <ContractsHomeView
             contracts={myContracts}
@@ -1211,6 +1274,9 @@ const App = () => {
             onNewContract={handleBYOCStart}
             onOpenContract={openContractFromHome}
             onCopyInvite={copyInviteLink}
+            authStatus={auth.status}
+            authEmail={auth.email}
+            onSignIn={() => setView('signin')}
           />
         )}
         {view === 'marketplace' && <MarketplaceView mode={mode} jobs={JOBS_DATA} talents={TALENTS_DATA} onViewDetails={item => { setProjectDetail(item); setView('project-detail'); }} projectPrompt={projectPrompt} setProjectPrompt={setProjectPrompt} handleAIArchitectSubmit={handleAIArchitectSubmit} aiSuggestions={aiSuggestions} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} onBYOC={handleBYOCStart} onHire={talent => { addToast('Contract Initiated', 'Contract flow started.'); beginContract(talent); }} />}
