@@ -1,32 +1,28 @@
 // src/lib/eventLog.js
 // Append-only contract event log.
-// Provides event creation and persistence (Supabase when connected, in-memory fallback).
-// All writes are INSERT-only — no UPDATE or DELETE ever happens here.
 //
-// Integrity chain per event:
-//   1. createEvent() — assigns UUID + ISO timestamp
-//   2. look up this contract's current chain tip (latest event_hash), or the
-//      GENESIS_HASH sentinel if this is the first event for the contract
-//   3. sha256(canonical event string, including prev_hash) → event_hash
-//   4. requestTimestamp(event_hash) → RFC 3161 TSA token (null if CORS blocks — non-fatal)
-//   5. persistEvent() — single INSERT with hash + prev_hash + token already set
+// WRITES GO THROUGH THE SERVER. This module no longer inserts into `events`.
+// logEvent() calls the log-event Edge Function, which derives actor_id from the
+// caller's credentials, assigns created_at from its own clock, computes
+// event_hash and prev_event_hash itself, and checks the type against an
+// allowlist. Nothing this file sends can influence those fields.
 //
-// Including prev_hash in the hashed payload is what makes this an actual
-// chain rather than a set of independently-hashed rows: deleting, reordering,
-// or forging an event breaks the prev_hash linkage to its neighbor, which
-// auditExport.js's chain verification checks for (not just "does this event's
-// own hash match itself", which a lone forged/deleted row can't detect).
+// Why it changed: the previous path let any holder of the public anon key
+// insert an event with any actor_id, type and prev_event_hash, so the chain
+// proved nothing about who did what. It had also been failing outright — it
+// sent a prev_event_hash column that did not exist in production, and
+// persistEvent swallowed the resulting 400 into a console.warn.
 //
-// Best-effort, not DB-enforced: the chain tip lookup and the write are not
-// atomic (no DB trigger rejects a write with a stale prev_hash), so two
-// events for the same contract logged truly concurrently could each read the
-// same tip and both claim it as their prev_hash. In practice events for one
-// contract are logged sequentially by user action, so this is an accepted
-// gap, not a claimed guarantee — see the note in auditExport.js.
+// Chain integrity is now a database guarantee, not best effort: a unique index
+// on (contract_id, prev_event_hash) means two concurrent events cannot both
+// claim the same predecessor, so the chain cannot fork. See the log-event
+// function and auditExport.js.
+//
+// Reads stay client-side: fetchContractEvents and subscribeToContractEvents go
+// straight to PostgREST under the party-scoped SELECT policy.
 
 import { supabase } from './supabase.js'
-import { sha256 } from './crypto.js'
-import { requestTimestamp } from './tsa.js'
+import { getGuestAccessToken } from './guestSession.js'
 
 // ── Event type constants ────────────────────────────────────────────────────
 
@@ -65,7 +61,11 @@ export const EVENT_TYPES = {
 // ── Event builder ────────────────────────────────────────────────────────────
 
 /**
- * Build an event object (does NOT persist — call persistEvent to save).
+ * Build an event object locally. This is the shape the UI holds in React
+ * state; it is NOT what gets recorded. Persistence goes through logEvent,
+ * which sends only the client-supplied fields and lets the server decide the
+ * rest — so id, actor_id and created_at here are placeholders that the server
+ * replaces on a successful write.
  *
  * @param {object} params
  * @param {string} params.type       - one of EVENT_TYPES
@@ -89,100 +89,67 @@ export function createEvent({ type, contractId, actorId, payload = {}, dodHash }
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
-/**
- * Persist an event.
- * - If Supabase is connected: inserts into the `events` table.
- * - If not connected (mock mode): no-op, returns the event as-is.
- *
- * The caller is responsible for adding the returned event to local React state.
- *
- * @param {object} event - result of createEvent()
- * @returns {Promise<object>} the event (with server timestamps if Supabase responds)
- */
-export async function persistEvent(event) {
-  if (!supabase) {
-    // Mock mode — just return the event; caller stores it in React state
-    return event
-  }
-
-  const { data, error } = await supabase
-    .from('events')
-    .insert(event)
-    .select()
-    .single()
-
-  if (error) {
-    // Non-fatal: log warning but don't crash the app.
-    // The local event still gets returned so UI stays consistent.
-    console.warn('[TrustFlow] event persist failed:', error.message)
-    return event
-  }
-
-  return data
-}
-
 // Sentinel prev_hash for the first event in a contract's chain — distinguishes
 // "genuinely the first event" from "prev_hash lookup failed/was skipped".
+// Must match GENESIS_HASH in supabase/functions/log-event/index.ts.
 export const GENESIS_HASH = 'GENESIS'
 
 /**
- * Look up the current chain tip (most recent event_hash) for a contract.
- * Returns GENESIS_HASH if this is the first event or the lookup can't run
- * (mock mode — no persisted history to chain against).
+ * Record an event on a contract.
  *
- * @param {string} contractId
- * @returns {Promise<string>}
- */
-async function getChainTip(contractId) {
-  if (!supabase || !contractId) return GENESIS_HASH
-
-  const { data, error } = await supabase
-    .from('events')
-    .select('event_hash')
-    .eq('contract_id', contractId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error || !data?.event_hash) return GENESIS_HASH
-  return data.event_hash
-}
-
-/**
- * Convenience: create → chain → hash → TSA stamp → persist in one call.
- * The TSA token is obtained BEFORE insert so the record is complete and immutable on write.
- * TSA failure is non-fatal: token will be null, event is still recorded.
+ * Only type, contractId, payload, dodHash and idempotencyKey reach the server.
+ * actorId is accepted for the returned local object (App.jsx compares it
+ * against the current actor to ignore its own realtime echo) but is NOT sent:
+ * the server derives the recorded actor_id from the caller's credentials.
  *
- * @param {object} params - same as createEvent()
- * @returns {Promise<object>} persisted event
+ * Failure is non-fatal and always has been — the caller puts the returned
+ * object into React state either way, so the UI behaves identically. What
+ * changed is that a rejection is now reported with the server's reason rather
+ * than swallowed.
+ *
+ * Rejections that are expected, not bugs:
+ *   contract_not_found — the marketplace demo flow passes fixture ids ('1',
+ *                        'mock'). Those are not contracts, so no evidence is
+ *                        recorded for them. Resolves itself when that flow is
+ *                        wired to real contract rows.
+ *   not_a_party        — no verified Earner session and no guest credential.
+ *
+ * @param {object} params
+ * @param {string} params.type
+ * @param {string} params.contractId
+ * @param {string} [params.actorId]
+ * @param {object} [params.payload]
+ * @param {string} [params.dodHash]
+ * @param {string} [params.idempotencyKey] - retrying with the same key returns
+ *                                           the event already recorded
+ * @returns {Promise<object>} the persisted event, or the local object with
+ *                            persisted:false and persist_error set
  */
-export async function logEvent(params) {
-  const event = createEvent(params)
-  const prevHash = await getChainTip(event.contract_id)
+export async function logEvent({ type, contractId, actorId, payload = {}, dodHash, idempotencyKey }) {
+  const local = createEvent({ type, contractId, actorId, payload, dodHash })
 
-  // Build a canonical string of the event's identifying fields for hashing.
-  // prev_hash is included so this event's hash depends on the entire prior
-  // chain, not just its own fields — see file header.
-  const canonical = JSON.stringify({
-    id:          event.id,
-    type:        event.type,
-    contract_id: event.contract_id,
-    actor_id:    event.actor_id,
-    dod_hash:    event.dod_hash,
-    created_at:  event.created_at,
-    prev_hash:   prevHash,
+  if (!supabase) return local
+
+  const guestToken = getGuestAccessToken(contractId)
+
+  const { data, error } = await supabase.functions.invoke('log-event', {
+    body: {
+      type,
+      contract_id: contractId,
+      payload,
+      dod_hash: dodHash ?? null,
+      idempotency_key: idempotencyKey ?? null,
+    },
+    ...(guestToken ? { headers: { 'x-guest-access-token': guestToken } } : {}),
   })
-  const eventHash = await sha256(canonical)
 
-  // Request RFC 3161 timestamp — best-effort, null if CORS/network blocks
-  const tsaToken = await requestTimestamp(eventHash)
+  const reason = data?.error ?? (error ? error.message : null)
+  if (reason || !data?.event) {
+    console.warn(`[TrustFlow] event not recorded (${type}): ${reason ?? 'no event returned'}`)
+    return { ...local, persisted: false, persist_error: reason ?? 'unknown' }
+  }
 
-  return persistEvent({
-    ...event,
-    event_hash: eventHash,
-    prev_event_hash: prevHash,
-    tsa_token: tsaToken,
-  })
+  return data.event
 }
 
 /**

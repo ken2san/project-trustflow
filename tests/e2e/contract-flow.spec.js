@@ -104,24 +104,26 @@ async function holdButton(page, name) {
 }
 
 /**
- * Collects the `type` of every event row the app POSTs to Supabase.
+ * Collects the `type` of every event the app asks the server to record.
  * This is how logEvent's side effect is observed: the on-record badge in the
  * UI can't be used, because it only renders when a dodHash exists, and a
  * seeded snapshot has none (dodHash is computed in beginContract, which these
- * tests deliberately skip). Note the app also writes `runtime.snapshot` rows
- * through the same endpoint, hence filtering by type at the assertion.
+ * tests deliberately skip).
+ *
+ * The target is the log-event Edge Function, not a PostgREST insert: since
+ * 20260924000002 the client has no INSERT privilege on `events` at all, and
+ * what it sends is a request to record, not the record itself. Runtime
+ * snapshots no longer come through here either — they go to their own table.
  */
 function captureLoggedEventTypes(page) {
   const types = [];
   page.on('request', (request) => {
-    if (request.method() !== 'POST' || !request.url().includes('/rest/v1/events')) return;
+    if (request.method() !== 'POST' || !request.url().includes('/functions/v1/log-event')) return;
     try {
       const body = JSON.parse(request.postData() ?? 'null');
-      for (const row of Array.isArray(body) ? body : [body]) {
-        if (row?.type) types.push(row.type);
-      }
+      if (body?.type) types.push(body.type);
     } catch {
-      // Non-JSON body — not an event insert we care about.
+      // Non-JSON body — not an ingestion request we care about.
     }
   });
   return types;

@@ -1,0 +1,260 @@
+// Negative security coverage for the server-authoritative event trail.
+//
+// These tests exist to fail loudly if the trust boundary closed in
+// 20260924000002 is ever reopened. Before it, any holder of the public anon
+// key could insert an event with any actor_id, type and prev_event_hash, so
+// the hash chain proved nothing about authorship.
+//
+// Everything here runs against the live API rather than the UI: the boundary
+// is enforced by RLS, grants and the log-event function, none of which a
+// browser test can observe directly.
+//
+// Requires a verified Earner, same as invite-persistence.spec.js:
+//   TF_TEST_EARNER_EMAIL / TF_TEST_EARNER_PASSWORD
+
+import { test, expect } from '@playwright/test';
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const EARNER_EMAIL = process.env.TF_TEST_EARNER_EMAIL;
+const EARNER_PASSWORD = process.env.TF_TEST_EARNER_PASSWORD;
+
+const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_KEY && EARNER_EMAIL && EARNER_PASSWORD);
+
+test.skip(!CONFIGURED,
+  'Set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TF_TEST_EARNER_EMAIL and TF_TEST_EARNER_PASSWORD to run the event-ingestion suite.');
+
+async function api(request, path, { method = 'POST', token, guestToken, body, prefer } = {}) {
+  const headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (guestToken) headers['x-guest-access-token'] = guestToken;
+  if (prefer) headers.Prefer = prefer;
+  const response = await request.fetch(`${SUPABASE_URL}${path}`, { method, headers, data: body });
+  let parsed = null;
+  try { parsed = await response.json(); } catch { /* empty body */ }
+  return { status: response.status(), body: parsed };
+}
+
+// One Earner sign-in per worker — see the note in guest-evidence.spec.js. A
+// password grant per test added enough auth traffic to make the full suite
+// flaky for reasons unrelated to anything under test.
+let earnerSessionPromise = null;
+
+async function signInEarner(request) {
+  earnerSessionPromise ??= (async () => {
+    const { status, body } = await api(request, '/auth/v1/token?grant_type=password', {
+      body: { email: EARNER_EMAIL, password: EARNER_PASSWORD },
+    });
+    expect(status, `earner sign-in failed: ${JSON.stringify(body)}`).toBe(200);
+    return { token: body.access_token, userId: body.user.id };
+  })();
+  return earnerSessionPromise;
+}
+
+async function createContract(request) {
+  const { token, userId } = await signInEarner(request);
+  const { status, body } = await api(request, '/rest/v1/contracts', {
+    token,
+    prefer: 'return=representation',
+    body: {
+      earner_user_id: userId,
+      earner_display_name: 'Ingestion Suite Earner',
+      project_name: 'Event Ingestion Probe',
+      dod: ['deliverable'],
+      amount_jpy: 1000,
+      currency: 'JPY',
+      invited_hirer_email: 'ingestion.invitee@example.test',
+    },
+  });
+  expect(status, `contract insert failed: ${JSON.stringify(body)}`).toBe(201);
+  return { contract: body[0], token, userId };
+}
+
+// ── The client cannot write to the table at all ─────────────────────────────
+
+test('a public anonymous client cannot insert a forged event', async ({ request }) => {
+  const { status, body } = await api(request, '/rest/v1/events', {
+    body: {
+      type: 'contract.completed',
+      contract_id: 'forged-contract',
+      actor_id: 'somebody-else',
+      event_hash: 'forged',
+      prev_event_hash: 'forged',
+    },
+  });
+
+  expect(status).toBe(401);
+  expect(body.code).toBe('42501'); // insufficient_privilege
+});
+
+test('even a verified Earner cannot insert directly — ingestion is server-only', async ({ request }) => {
+  const { contract, token } = await createContract(request);
+
+  const { status, body } = await api(request, '/rest/v1/events', {
+    token,
+    body: { type: 'contract.completed', contract_id: contract.id, actor_id: 'anyone', event_hash: 'x' },
+  });
+
+  expect(status).toBe(403);
+  expect(body.code).toBe('42501');
+});
+
+test('a public anonymous client cannot read the event trail', async ({ request }) => {
+  const { status, body } = await api(request, '/rest/v1/events?select=id,type,actor_id&limit=5', {
+    method: 'GET',
+  });
+
+  expect(status).toBe(200);
+  expect(body).toEqual([]); // RLS returns no rows rather than an error
+});
+
+// ── What the ingestion function refuses ─────────────────────────────────────
+
+test('the ingestion function ignores a client-supplied actor_id, hash and timestamp', async ({ request }) => {
+  const { contract, token, userId } = await createContract(request);
+
+  const { status, body } = await api(request, '/functions/v1/log-event', {
+    token,
+    body: {
+      type: 'contract.initiated',
+      contract_id: contract.id,
+      actor_id: 'attacker-chosen',
+      event_hash: 'forged-hash',
+      prev_event_hash: 'forged-prev',
+      created_at: '1999-01-01T00:00:00.000Z',
+      payload: { step: 1 },
+    },
+  });
+
+  expect(status).toBe(201);
+  // Every field the client tried to dictate came from the server instead.
+  expect(body.event.actor_id).toBe(userId);
+  expect(body.event.event_hash).not.toBe('forged-hash');
+  expect(body.event.prev_event_hash).toBe('GENESIS');
+  expect(new Date(body.event.created_at).getFullYear()).toBeGreaterThan(2020);
+  expect(body.event.hash_version).toBe(2);
+});
+
+test('a privileged event type cannot be asserted by a party', async ({ request }) => {
+  const { contract, token } = await createContract(request);
+
+  for (const type of ['payment.captured', 'trustpoints.earned', 'dispute.resolved', 'runtime.snapshot']) {
+    const { status, body } = await api(request, '/functions/v1/log-event', {
+      token,
+      body: { type, contract_id: contract.id },
+    });
+    expect(status, `${type} should be rejected`).toBe(400);
+    expect(body.error).toBe('type_not_allowed');
+  }
+});
+
+test('an event referencing a non-contract is rejected', async ({ request }) => {
+  const { token } = await signInEarner(request);
+
+  // The ids the marketplace demo flow passes today.
+  for (const contractId of ['1', 'mock', 'runtime']) {
+    const { status, body } = await api(request, '/functions/v1/log-event', {
+      token,
+      body: { type: 'contract.accepted', contract_id: contractId },
+    });
+    expect(status, `${contractId} should be rejected`).toBe(404);
+    expect(body.error).toBe('contract_not_found');
+  }
+});
+
+test('a caller with no party credentials is rejected', async ({ request }) => {
+  const { contract } = await createContract(request);
+
+  // Anon key only — no user JWT, no guest token.
+  const anonAttempt = await api(request, '/functions/v1/log-event', {
+    body: { type: 'contract.accepted', contract_id: contract.id },
+  });
+  expect(anonAttempt.status).toBe(403);
+  expect(anonAttempt.body.error).toBe('not_a_party');
+
+  // A guest token that does not match this contract.
+  const badGuest = await api(request, '/functions/v1/log-event', {
+    guestToken: '00000000-0000-4000-8000-0000000000ff',
+    body: { type: 'dod.consent_recorded', contract_id: contract.id },
+  });
+  expect(badGuest.status).toBe(403);
+  expect(badGuest.body.error).toBe('not_a_party');
+});
+
+// ── Chain and idempotency guarantees ────────────────────────────────────────
+
+test('the chain links each event to its predecessor and cannot be forked', async ({ request }) => {
+  const { contract, token } = await createContract(request);
+
+  const first = await api(request, '/functions/v1/log-event', {
+    token, body: { type: 'contract.initiated', contract_id: contract.id, dod_hash: 'abc' },
+  });
+  const second = await api(request, '/functions/v1/log-event', {
+    token, body: { type: 'work.submitted', contract_id: contract.id },
+  });
+
+  expect(first.status).toBe(201);
+  expect(second.status).toBe(201);
+  expect(first.body.event.prev_event_hash).toBe('GENESIS');
+  expect(second.body.event.prev_event_hash).toBe(first.body.event.event_hash);
+
+  // Two concurrent writers read the same tip; the unique index on
+  // (contract_id, prev_event_hash) means only one of them can claim it, and
+  // the other retries — so the tail is a chain, never a fork.
+  const concurrent = await Promise.all(
+    ['work.approved', 'contract.completed', 'contract.cancelled'].map(type =>
+      api(request, '/functions/v1/log-event', { token, body: { type, contract_id: contract.id } })
+    )
+  );
+  for (const r of concurrent) expect(r.status).toBe(201);
+
+  const prevHashes = concurrent.map(r => r.body.event.prev_event_hash);
+  expect(new Set(prevHashes).size, 'two events claimed the same predecessor').toBe(prevHashes.length);
+});
+
+test('retrying with the same idempotency key returns the original event', async ({ request }) => {
+  const { contract, token } = await createContract(request);
+  const key = `consent:${contract.id}`;
+
+  const first = await api(request, '/functions/v1/log-event', {
+    token, body: { type: 'contract.accepted', contract_id: contract.id, idempotency_key: key },
+  });
+  const retry = await api(request, '/functions/v1/log-event', {
+    token, body: { type: 'contract.accepted', contract_id: contract.id, idempotency_key: key },
+  });
+
+  expect(first.status).toBe(201);
+  expect(first.body.deduplicated).toBe(false);
+  expect(retry.status).toBe(200);
+  expect(retry.body.deduplicated).toBe(true);
+  expect(retry.body.event.id).toBe(first.body.event.id);
+});
+
+// ── The guest Hirer's identity comes from the invite, not the request ───────
+
+test('a guest Hirer is recorded as the email that accepted, not one it supplies', async ({ request }) => {
+  const { contract } = await createContract(request);
+
+  const accept = await api(request, '/functions/v1/validate-invite-token', {
+    body: {
+      invite_token: contract.invite_token,
+      accept: true,
+      hirer_email: 'real.accepter@example.test',
+    },
+  });
+  expect(accept.status).toBe(200);
+
+  const { status, body } = await api(request, '/functions/v1/log-event', {
+    guestToken: accept.body.guest_access_token,
+    body: {
+      type: 'dod.consent_recorded',
+      contract_id: contract.id,
+      actor_id: 'spoofed@example.test',
+      payload: { counterparty_name: 'Guest' },
+    },
+  });
+
+  expect(status).toBe(201);
+  expect(body.event.actor_id).toBe('guest:real.accepter@example.test');
+  expect(body.event.payload._actor_role).toBe('guest_hirer');
+});

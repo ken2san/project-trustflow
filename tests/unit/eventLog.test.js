@@ -1,16 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createEvent, logEvent, GENESIS_HASH, EVENT_TYPES } from '../../src/lib/eventLog.js'
 
-// Mock supabase so eventLog.js can be imported without a live client.
-// persistEvent's Supabase-connected path is NOT tested here — that belongs
-// in integration tests that run against a real (or local) Supabase instance.
-// With supabase === null, getChainTip() always falls back to GENESIS_HASH,
-// so the chain-linkage tests below only exercise the "first event" case.
-vi.mock('../../src/lib/supabase.js', () => ({ supabase: null }))
-vi.mock('../../src/lib/tsa.js', () => ({ requestTimestamp: vi.fn().mockResolvedValue(null) }))
-vi.mock('../../src/lib/crypto.js', () => ({
-  sha256: vi.fn().mockResolvedValue('mock-hash-abc123'),
-  buildDodCanonical: vi.fn().mockReturnValue('mock-canonical'),
+// A stand-in for supabase.functions.invoke, so the request logEvent builds can
+// be inspected without a live client. The default mock reports success.
+const invoke = vi.fn()
+
+vi.mock('../../src/lib/supabase.js', () => ({
+  supabase: { functions: { invoke: (...args) => invoke(...args) } },
+}))
+vi.mock('../../src/lib/guestSession.js', () => ({
+  getGuestAccessToken: vi.fn(() => null),
 }))
 
 // ── EVENT_TYPES ───────────────────────────────────────────────────────────────
@@ -114,34 +113,75 @@ describe('createEvent', () => {
   })
 })
 
-// ── logEvent chain linkage ──────────────────────────────────────────────────
-// Guard: prev_event_hash is what turns independently-hashed rows into an
-// actual verifiable chain (see auditExport.js). Regressing this silently
-// reintroduces the "deletion/reorder/forged-insert goes undetected" bug.
+// ── logEvent: what the client is allowed to say ─────────────────────────────
+// Guard: the whole point of routing writes through the log-event function is
+// that the browser cannot choose who an event says it came from, when it
+// happened, or where it sits in the hash chain. If any of these fields ever
+// reappear in the outbound request, a caller could forge evidence again.
 
-describe('logEvent chain linkage', () => {
+describe('logEvent request contract', () => {
   const baseParams = {
     type: EVENT_TYPES.CONTRACT_INITIATED,
     contractId: 'contract-uuid-001',
     actorId: 'actor-uuid-999',
   }
 
-  it('sets prev_event_hash to GENESIS_HASH when there is no persisted history (mock mode)', async () => {
-    const persisted = await logEvent(baseParams)
-    expect(persisted.prev_event_hash).toBe(GENESIS_HASH)
-  })
+  const okResponse = { data: { event: { id: 'server-id', type: 'contract.initiated' } }, error: null }
 
-  it('includes prev_hash in the hashed canonical payload, not just the stored row', async () => {
-    const { sha256 } = await import('../../src/lib/crypto.js')
-    sha256.mockClear()
+  it('calls the log-event Edge Function rather than inserting directly', async () => {
+    invoke.mockResolvedValueOnce(okResponse)
     await logEvent(baseParams)
-    const canonicalArg = sha256.mock.calls[0][0]
-    expect(JSON.parse(canonicalArg)).toHaveProperty('prev_hash', GENESIS_HASH)
+    expect(invoke).toHaveBeenCalledWith('log-event', expect.anything())
   })
 
-  it('sets event_hash on the persisted event', async () => {
-    const persisted = await logEvent(baseParams)
-    expect(persisted.event_hash).toBe('mock-hash-abc123')
+  it('never sends actor_id — the server derives it from credentials', async () => {
+    invoke.mockResolvedValueOnce(okResponse)
+    await logEvent(baseParams)
+    const { body } = invoke.mock.calls.at(-1)[1]
+    expect(body).not.toHaveProperty('actor_id')
+    expect(body).not.toHaveProperty('actorId')
+  })
+
+  it('never sends hash-chain fields or a timestamp', async () => {
+    invoke.mockResolvedValueOnce(okResponse)
+    await logEvent(baseParams)
+    const { body } = invoke.mock.calls.at(-1)[1]
+    expect(body).not.toHaveProperty('event_hash')
+    expect(body).not.toHaveProperty('prev_event_hash')
+    expect(body).not.toHaveProperty('created_at')
+  })
+
+  it('sends only the fields the server accepts', async () => {
+    invoke.mockResolvedValueOnce(okResponse)
+    await logEvent({ ...baseParams, payload: { step: 2 }, dodHash: 'sha-1', idempotencyKey: 'k1' })
+    const { body } = invoke.mock.calls.at(-1)[1]
+    expect(Object.keys(body).sort()).toEqual(
+      ['contract_id', 'dod_hash', 'idempotency_key', 'payload', 'type']
+    )
+  })
+
+  it('returns the server-written event, not the locally built one', async () => {
+    invoke.mockResolvedValueOnce(okResponse)
+    const result = await logEvent(baseParams)
+    expect(result.id).toBe('server-id')
+  })
+
+  it('a rejection is non-fatal but is reported, not swallowed', async () => {
+    invoke.mockResolvedValueOnce({ data: { error: 'contract_not_found' }, error: null })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const result = await logEvent(baseParams)
+    expect(result.persisted).toBe(false)
+    expect(result.persist_error).toBe('contract_not_found')
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('attaches the guest credential as a header when one exists for the contract', async () => {
+    const { getGuestAccessToken } = await import('../../src/lib/guestSession.js')
+    getGuestAccessToken.mockReturnValueOnce('guest-token-xyz')
+    invoke.mockResolvedValueOnce(okResponse)
+    await logEvent(baseParams)
+    expect(invoke.mock.calls.at(-1)[1].headers).toEqual({ 'x-guest-access-token': 'guest-token-xyz' })
   })
 
   it('GENESIS_HASH is a stable, non-empty sentinel distinguishable from a real hash', () => {

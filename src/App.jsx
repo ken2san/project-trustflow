@@ -77,6 +77,7 @@ import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents }
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 import { ensureActorIdentity } from './lib/identity.js';
 import { createContract, inviteUrlFor, fetchInvite, acceptInvite } from './lib/contracts.js';
+import { storeGuestAccessToken } from './lib/guestSession.js';
 import { requestEarnerVerification, verifyEarnerOtp, isEarnerVerified } from './lib/earnerAuth.js';
 import { supabase, isSupabaseEnabled } from './lib/supabase.js';
 
@@ -1196,6 +1197,10 @@ const App = () => {
               }
 
               const contractId = accepted.contract_id;
+              // The guest Hirer's credential for this contract. Without it the
+              // log-event function has no way to tell this browser apart from
+              // any other, and the acceptance record below is rejected.
+              storeGuestAccessToken(contractId, accepted.guest_access_token);
               setSelectedItem({
                 id: contractId,
                 title: accepted.project_name,
@@ -1215,6 +1220,10 @@ const App = () => {
                 type: EVENT_TYPES.DOD_CONSENT_RECORDED,
                 contractId,
                 actorId: email || name,
+                // One acceptance per contract. A refresh or a retried request
+                // returns the record already written rather than appending a
+                // second, contradictory consent to the chain.
+                idempotencyKey: `consent:${contractId}`,
                 payload: {
                   counterparty_name: name,
                   counterparty_email: email || null,

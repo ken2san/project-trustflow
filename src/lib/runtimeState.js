@@ -1,3 +1,15 @@
+// src/lib/runtimeState.js
+// Per-actor application state, cached in localStorage and mirrored to the
+// runtime_snapshots table for cross-device restore.
+//
+// These snapshots used to live in `events` as type 'runtime.snapshot' — 94% of
+// that table — with contract_id set to the literal 'runtime'. They are
+// application state, not contractual evidence: no dod_hash, no event_hash, no
+// TSA token, and actor_id is often a localStorage device UUID rather than an
+// authenticated identity. Keeping them there forced the events read policy to
+// carve out a type exception. They now have their own table with a plain
+// owner-only policy (20260924000000).
+
 import { supabase } from './supabase.js'
 import { getDeviceId } from './identity.js'
 
@@ -38,12 +50,9 @@ export async function saveRuntimeSnapshot(snapshot, actorId) {
 
   if (!supabase) return { source: 'local' }
 
-  const { error } = await supabase.from('events').insert({
-    type: 'runtime.snapshot',
-    contract_id: 'runtime',
+  const { error } = await supabase.from('runtime_snapshots').insert({
     actor_id: resolvedActorId,
     payload: enriched,
-    dod_hash: null,
   })
 
   if (error) {
@@ -64,9 +73,8 @@ export async function loadRuntimeSnapshot(actorId) {
 
   const resolvedActorId = actorId || getDeviceId()
   const { data, error } = await supabase
-    .from('events')
+    .from('runtime_snapshots')
     .select('payload,created_at')
-    .eq('type', 'runtime.snapshot')
     .eq('actor_id', resolvedActorId)
     .order('created_at', { ascending: false })
     .limit(1)
