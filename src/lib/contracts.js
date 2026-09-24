@@ -24,20 +24,20 @@ const NOT_CONFIGURED = new Error('Supabase is not configured')
  * @param {string}   p.earnerDisplayName
  * @param {string}   p.projectName
  * @param {string[]} p.dod                 completion criteria, one per entry
- * @param {string}   [p.dodHash]
  * @param {number}   p.amountJpy
  * @param {string}   [p.deadline]          ISO date (YYYY-MM-DD)
  * @param {string}   p.invitedHirerEmail   address the invite is addressed to
+ * @param {'creator'|'counterparty'} [p.performedBy]  which side does the work
  * @returns {Promise<{ contract: object|null, error: Error|null }>}
  */
 export async function createContract({
   earnerDisplayName,
   projectName,
   dod,
-  dodHash,
   amountJpy,
   deadline,
   invitedHirerEmail,
+  performedBy = 'creator',
 }) {
   if (!supabase) return { contract: null, error: NOT_CONFIGURED }
 
@@ -53,11 +53,20 @@ export async function createContract({
       earner_display_name: earnerDisplayName,
       project_name: projectName,
       dod,
-      dod_hash: dodHash ?? null,
+      // dod_hash is NOT sent. It is derived from `dod` server-side wherever it
+      // is needed, and the client INSERT grant on it was revoked precisely so a
+      // party cannot record a terms-hash that disagrees with its own terms.
+      // Sending it made every creation fail with a 403 that no test caught,
+      // because the tests wrote their own insert bodies instead of calling this
+      // function — which is why there is now a test that calls this function.
       amount_jpy: amountJpy,
       currency: 'JPY',
       deadline: deadline || null,
       invited_hirer_email: invitedHirerEmail,
+      // Which side does the work. Normalised here rather than trusted: a check
+      // constraint would reject anything else anyway, but as an opaque database
+      // error rather than the quiet default a caller expects.
+      performed_by: performedBy === 'counterparty' ? 'counterparty' : 'creator',
     })
     .select()
     .single()
@@ -90,7 +99,7 @@ export async function listContracts() {
     .select(
       'id, project_name, dod, amount_jpy, currency, deadline, state, '
       + 'earner_display_name, invited_hirer_email, hirer_email, '
-      + 'invite_token, invite_token_expires_at, invite_token_used_at, created_at',
+      + 'invite_token, invite_token_expires_at, invite_token_used_at, created_at, performed_by',
     )
     .order('created_at', { ascending: false })
 
