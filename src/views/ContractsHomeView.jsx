@@ -46,7 +46,7 @@ function LeadContractCard({ contract, onOpen, onCopyInvite }) {
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
           <StatusDot owner={action.owner} />
-          {statusLabel(contract.state)}
+          {statusLabel(contract)}
         </div>
         <button
           onClick={() => onOpen(contract)}
@@ -107,7 +107,7 @@ function ContractRow({ contract, onOpen }) {
         {/* The state the server holds, then what it means for you. Both come
             from contracts.state; neither is derived from the flow screen's
             local step counter. */}
-        <span className="text-slate-400">{statusLabel(contract.state)}</span>
+        <span className="text-slate-400">{statusLabel(contract)}</span>
         <span className="text-slate-700">·</span>
         <span><Counterparty contract={contract} /></span>
         <span className="text-slate-700">·</span>

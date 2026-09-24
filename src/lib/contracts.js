@@ -103,7 +103,43 @@ export async function listContracts() {
     )
     .order('created_at', { ascending: false })
 
-  return { contracts: data ?? [], error: error ?? null }
+  if (error || !data?.length) return { contracts: data ?? [], error: error ?? null }
+
+  return { contracts: await withLatestPerformance(data), error: null }
+}
+
+/**
+ * Attach the most recent performance statement to each contract.
+ *
+ * The state column cannot express this on its own: a rejection returns the
+ * agreement to TERMS_ACCEPTED, which is indistinguishable from one that was
+ * never delivered at all. "They asked for a correction and I have not
+ * re-delivered" and "I have not started" are very different things to see in a
+ * list, and only the event log knows which is which.
+ *
+ * One extra query for the whole list rather than one per contract. Nothing is
+ * denormalised and no semantics change — this is a read-time convenience, and
+ * the state projection remains the authority on where the protocol stands.
+ */
+async function withLatestPerformance(contracts) {
+  const { data: events } = await supabase
+    .from('events')
+    .select('contract_id, type, created_at')
+    .in('contract_id', contracts.map(c => c.id))
+    .in('type', ['performance.asserted', 'performance.accepted', 'performance.rejected'])
+    .order('created_at', { ascending: false })
+
+  const latest = new Map()
+  for (const event of events ?? []) {
+    // Ordered newest-first, so the first one seen for a contract is its latest.
+    if (!latest.has(event.contract_id)) latest.set(event.contract_id, event)
+  }
+
+  return contracts.map(contract => ({
+    ...contract,
+    last_performance_type: latest.get(contract.id)?.type ?? null,
+    last_performance_at: latest.get(contract.id)?.created_at ?? null,
+  }))
 }
 
 /** Build the invite URL for a server-issued token. */

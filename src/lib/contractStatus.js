@@ -58,8 +58,23 @@ export const EXPIRY_WARNING_HOURS = 24
 
 /** Human label for a state. Unknown states render as themselves rather than
  *  as a blank or a guess — a state this file has not been taught about is
- *  something to notice, not to smooth over. */
-export function statusLabel(state) {
+ *  something to notice, not to smooth over.
+ *
+ *  Pass the contract rather than the bare state where possible: TERMS_ACCEPTED
+ *  reads differently once a correction has been asked for, and the state alone
+ *  cannot tell the two apart. */
+export function statusLabel(stateOrContract) {
+  const contract = typeof stateOrContract === 'object' && stateOrContract !== null
+    ? stateOrContract
+    : null
+  const state = contract ? contract.state : stateOrContract
+
+  if (contract
+    && (state === CONTRACT_STATES.TERMS_ACCEPTED || state === CONTRACT_STATES.IN_PROGRESS)
+    && contract.last_performance_type === 'performance.rejected') {
+    return 'Correction requested'
+  }
+
   return LABELS[state] ?? state ?? 'Unknown'
 }
 
@@ -146,14 +161,23 @@ export function nextActionFor(contract, now = new Date()) {
   const youPerform = performsHere(contract)
 
   if (state === CONTRACT_STATES.TERMS_ACCEPTED || state === CONTRACT_STATES.IN_PROGRESS) {
+    // A rejection returns the agreement here, so this state means two quite
+    // different things. Saying "ready to deliver" to someone who has just been
+    // asked to fix something would lose the only fact that matters.
+    const afterCorrection = contract?.last_performance_type === 'performance.rejected'
+    if (afterCorrection) {
+      return youPerform
+        ? { owner: 'you', label: 'Correction requested', detail: 'They asked for a change. Deliver again when ready.' }
+        : { owner: 'client', label: 'Correction requested', detail: 'You asked for a change. Waiting on them.' }
+    }
     return youPerform
-      ? { owner: 'you', label: 'Deliver the work', detail: 'They accepted the terms.' }
+      ? { owner: 'you', label: 'Ready for you to deliver', detail: 'They accepted the terms.' }
       : { owner: 'client', label: 'Waiting on them to deliver', detail: 'They accepted the terms.' }
   }
 
   if (state === CONTRACT_STATES.AWAITING_CONFIRMATION) {
     return youPerform
-      ? { owner: 'client', label: 'Waiting on their review', detail: 'You marked the work delivered.' }
+      ? { owner: 'client', label: 'Waiting on them to review', detail: 'You marked the work delivered.' }
       : { owner: 'you', label: 'Review the delivery', detail: 'They marked the work delivered.' }
   }
 

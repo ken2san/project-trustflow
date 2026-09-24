@@ -31,7 +31,7 @@ describe('nextActionFor', () => {
   it('an accepted contract is the Earner’s move', () => {
     const action = nextActionFor(contract({ state: CONTRACT_STATES.TERMS_ACCEPTED }), NOW)
     expect(action.owner).toBe('you')
-    expect(action.label).toBe('Deliver the work')
+    expect(action.label).toBe('Ready for you to deliver')
   })
 
   it('a healthy unaccepted invite is the client’s move, not a nag', () => {
@@ -158,5 +158,79 @@ describe('stepForState', () => {
     expect(stepForState(CONTRACT_STATES.AWAITING_ACCEPTANCE)).toBe(1)
     expect(stepForState(CONTRACT_STATES.CANCELLED)).toBe(1)
     expect(stepForState('SOMETHING_NEW')).toBe(1)
+  })
+})
+
+// ── Direction and correction ────────────────────────────────────────────────
+// The same state means opposite things to the two sides, and TERMS_ACCEPTED
+// means two different things depending on whether a correction was asked for.
+
+describe('status follows the functional role', () => {
+  const accepted = extra => contract({ state: CONTRACT_STATES.TERMS_ACCEPTED, ...extra })
+  const asserted = extra => contract({ state: CONTRACT_STATES.AWAITING_CONFIRMATION, ...extra })
+
+  it('tells the performer to deliver and the receiver to wait', () => {
+    expect(nextActionFor(accepted({ performed_by: 'creator' }), NOW))
+      .toMatchObject({ owner: 'you', label: 'Ready for you to deliver' })
+    expect(nextActionFor(accepted({ performed_by: 'counterparty' }), NOW))
+      .toMatchObject({ owner: 'client', label: 'Waiting on them to deliver' })
+  })
+
+  it('tells the receiver to review and the performer to wait', () => {
+    expect(nextActionFor(asserted({ performed_by: 'counterparty' }), NOW))
+      .toMatchObject({ owner: 'you', label: 'Review the delivery' })
+    expect(nextActionFor(asserted({ performed_by: 'creator' }), NOW))
+      .toMatchObject({ owner: 'client', label: 'Waiting on them to review' })
+  })
+
+  it('defaults to the creator performing, for rows written before performed_by', () => {
+    expect(nextActionFor(accepted({}), NOW)).toMatchObject({ owner: 'you' })
+  })
+})
+
+describe('a requested correction is visible', () => {
+  // A rejection returns the agreement to TERMS_ACCEPTED, so the state alone
+  // cannot distinguish "they asked me to fix something" from "I have not
+  // started". Only the last performance statement knows.
+  const afterCorrection = performed_by => contract({
+    state: CONTRACT_STATES.TERMS_ACCEPTED,
+    performed_by,
+    last_performance_type: 'performance.rejected',
+  })
+
+  it('reads as a correction for the performer, and as waiting for the receiver', () => {
+    expect(nextActionFor(afterCorrection('creator'), NOW))
+      .toMatchObject({ owner: 'you', label: 'Correction requested' })
+    expect(nextActionFor(afterCorrection('counterparty'), NOW))
+      .toMatchObject({ owner: 'client', label: 'Correction requested' })
+  })
+
+  it('labels the state from the contract, not from the bare enum', () => {
+    expect(statusLabel(afterCorrection('creator'))).toBe('Correction requested')
+    // Without that context the same state is just "Accepted" — which is why
+    // the call sites pass the contract.
+    expect(statusLabel(CONTRACT_STATES.TERMS_ACCEPTED)).toBe('Accepted')
+  })
+
+  it('goes back to ready once the performer has asserted again', () => {
+    const reasserted = contract({
+      state: CONTRACT_STATES.AWAITING_CONFIRMATION,
+      performed_by: 'creator',
+      last_performance_type: 'performance.asserted',
+    })
+    expect(nextActionFor(reasserted, NOW).label).toBe('Waiting on them to review')
+  })
+})
+
+describe('completed agreements', () => {
+  it('are finished for both sides and belong in the completed group', () => {
+    const done = contract({ state: CONTRACT_STATES.PERFORMANCE_ACCEPTED })
+    expect(nextActionFor(done, NOW).owner).toBe('none')
+    expect(isTerminal(CONTRACT_STATES.PERFORMANCE_ACCEPTED)).toBe(true)
+    expect(groupContracts([done], NOW).completed).toHaveLength(1)
+  })
+
+  it('read as completed rather than as a protocol state name', () => {
+    expect(statusLabel(CONTRACT_STATES.PERFORMANCE_ACCEPTED)).toBe('Completed')
   })
 })

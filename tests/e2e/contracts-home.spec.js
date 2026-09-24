@@ -67,7 +67,15 @@ const CONTRACTS = [
   },
 ];
 
-/** Answer the contracts query with `rows`, leaving every other request alone. */
+/**
+ * Answer the contracts query with `rows`, leaving every other request alone.
+ *
+ * listContracts() follows up with one query for the latest performance
+ * statement per contract, because the state column cannot distinguish "never
+ * delivered" from "delivered, correction requested". A fixture declares that
+ * with `last_performance_type`, and this synthesises the matching events so the
+ * real code path runs rather than being bypassed.
+ */
 async function stubContracts(page, rows) {
   await page.route('**/rest/v1/contracts*', async (route) => {
     if (route.request().method() !== 'GET') return route.fallback();
@@ -76,6 +84,22 @@ async function stubContracts(page, rows) {
       contentType: 'application/json',
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify(rows),
+    });
+  });
+  await page.route('**/rest/v1/events*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const synthesised = rows
+      .filter(r => r.last_performance_type)
+      .map(r => ({
+        contract_id: r.id,
+        type: r.last_performance_type,
+        created_at: r.created_at,
+      }));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify(synthesised),
     });
   });
   await page.addInitScript(() => localStorage.setItem('tf_onboarded', '1'));
@@ -102,7 +126,7 @@ test('contracts are grouped by whose move it is', async ({ page }) => {
   // Accepted work and a dead invite both need the Earner.
   await expect(page.getByText('Accepted — needs delivery')).toBeVisible();
   await expect(page.getByText('Invite expired')).toBeVisible();
-  await expect(page.getByText('Deliver the work').first()).toBeVisible();
+  await expect(page.getByText('Ready for you to deliver').first()).toBeVisible();
   await expect(page.getByText('Send a new invite').first()).toBeVisible();
 
   // A healthy pending invite is in progress, not nagging.
@@ -205,4 +229,127 @@ test.describe('listContracts scoping', () => {
       expect(row.earner_user_id).toBe(userId);
     }
   });
+});
+
+// ── Coming back later ───────────────────────────────────────────────────────
+//
+// The product's value is preserving agreements, so a finished one must not
+// vanish from the place people look. These use stubbed rows so the states and
+// role directions that are awkward to create for real are all present at once.
+
+const hoursAgo = h => new Date(Date.now() - h * 3_600_000).toISOString();
+
+const RETRIEVAL = [
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000001',
+    project_name: 'I perform — ready to deliver',
+    dod: ['a'], amount_jpy: 10000, currency: 'JPY', deadline: null,
+    state: 'TERMS_ACCEPTED', performed_by: 'creator',
+    earner_display_name: 'Me', invited_hirer_email: 'c@x.test', hirer_email: 'c@x.test',
+    invite_token: null, invite_token_expires_at: null, invite_token_used_at: hoursAgo(50),
+    created_at: hoursAgo(60), last_performance_type: null,
+  },
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000002',
+    project_name: 'They perform — waiting on them',
+    dod: ['b'], amount_jpy: 20000, currency: 'JPY', deadline: null,
+    state: 'TERMS_ACCEPTED', performed_by: 'counterparty',
+    earner_display_name: 'Me', invited_hirer_email: 't@x.test', hirer_email: 't@x.test',
+    invite_token: null, invite_token_expires_at: null, invite_token_used_at: hoursAgo(50),
+    created_at: hoursAgo(59), last_performance_type: null,
+  },
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000003',
+    project_name: 'They delivered — my turn to review',
+    dod: ['c'], amount_jpy: 30000, currency: 'JPY', deadline: null,
+    state: 'AWAITING_CONFIRMATION', performed_by: 'counterparty',
+    earner_display_name: 'Me', invited_hirer_email: 't@x.test', hirer_email: 't@x.test',
+    invite_token: null, invite_token_expires_at: null, invite_token_used_at: hoursAgo(50),
+    created_at: hoursAgo(58), last_performance_type: 'performance.asserted',
+  },
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000004',
+    project_name: 'I asked for a correction',
+    dod: ['d'], amount_jpy: 40000, currency: 'JPY', deadline: null,
+    state: 'TERMS_ACCEPTED', performed_by: 'counterparty',
+    earner_display_name: 'Me', invited_hirer_email: 't@x.test', hirer_email: 't@x.test',
+    invite_token: null, invite_token_expires_at: null, invite_token_used_at: hoursAgo(50),
+    created_at: hoursAgo(57), last_performance_type: 'performance.rejected',
+  },
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000005',
+    project_name: 'Finished months ago',
+    dod: ['e'], amount_jpy: 50000, currency: 'JPY', deadline: null,
+    state: 'PERFORMANCE_ACCEPTED', performed_by: 'counterparty',
+    earner_display_name: 'Me', invited_hirer_email: 't@x.test', hirer_email: 't@x.test',
+    invite_token: null, invite_token_expires_at: null, invite_token_used_at: hoursAgo(4000),
+    created_at: hoursAgo(4300), last_performance_type: 'performance.accepted',
+  },
+];
+
+test('status reads from the functional role, in both directions', async ({ page }) => {
+  await stubContracts(page, RETRIEVAL);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Contracts', level: 1 })).toBeVisible({ timeout: 15_000 });
+
+  // The account holder performs on one, receives on the other. The same
+  // TERMS_ACCEPTED must not read the same way for both.
+  await expect(page.getByText('Ready for you to deliver').first()).toBeVisible();
+  await expect(page.getByText('Waiting on them to deliver').first()).toBeVisible();
+  await expect(page.getByText('Review the delivery').first()).toBeVisible();
+});
+
+test('a requested correction is visible rather than hidden behind the state', async ({ page }) => {
+  await stubContracts(page, RETRIEVAL);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Contracts', level: 1 })).toBeVisible({ timeout: 15_000 });
+
+  // A rejection returns the agreement to TERMS_ACCEPTED, so without the last
+  // performance statement this would read as "waiting on them to deliver" and
+  // lose the only fact that matters.
+  await expect(page.getByText('Correction requested').first()).toBeVisible();
+});
+
+test('a finished agreement stays retrievable and reads as completed', async ({ page }) => {
+  await stubContracts(page, RETRIEVAL);
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /Completed/i }).click();
+  await expect(page.getByText('Finished months ago')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Completed').first()).toBeVisible();
+});
+
+test('reopening a finished agreement shows the terms and the record', async ({ page }) => {
+  await stubContracts(page, RETRIEVAL);
+  await page.route('**/rest/v1/events*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify([
+        { id: 'e1', type: 'dod.consent_recorded', actor_id: 'guest:t@x.test', created_at: hoursAgo(4200), payload: {} },
+        { id: 'e2', type: 'performance.asserted', actor_id: 'guest:t@x.test', created_at: hoursAgo(4100), payload: {} },
+        { id: 'e3', type: 'performance.rejected', actor_id: 'owner-uid', created_at: hoursAgo(4090), payload: { reason: 'page 2 missing' } },
+        { id: 'e4', type: 'performance.asserted', actor_id: 'guest:t@x.test', created_at: hoursAgo(4080), payload: {} },
+        { id: 'e5', type: 'performance.accepted', actor_id: 'owner-uid', created_at: hoursAgo(4000), payload: {} },
+      ]),
+    });
+  });
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /Completed/i }).click();
+  await page.getByText('Finished months ago').click();
+
+  // The agreement itself, months later.
+  await expect(page.getByText('What counts as complete')).toBeVisible({ timeout: 15_000 });
+
+  // The record, in order, in ordinary language — and the correction reason,
+  // which is the part someone actually needs six months later.
+  await expect(page.getByText('Agreement confirmed')).toBeVisible();
+  await expect(page.getByText('Correction requested')).toBeVisible();
+  await expect(page.getByText(/page 2 missing/)).toBeVisible();
+  await expect(page.getByText('Accepted')).toBeVisible();
+
+  // No protocol internals in the normal view.
+  await expect(page.getByText(/PERFORMANCE_ACCEPTED|performance\.asserted|payload_hash|prev_event_hash/)).toHaveCount(0);
 });
