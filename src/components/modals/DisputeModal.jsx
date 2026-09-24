@@ -1,6 +1,6 @@
 // filepath: src/components/modals/DisputeModal.jsx
 import React, { useState, useEffect } from "react";
-import { AlertTriangle, Scale, X, User, Shield, Cpu, ChevronRight, CheckCircle2, Download, ShieldCheck } from "lucide-react";
+import { Scale, X, User, Shield, Cpu, ChevronRight, CheckCircle2, Download, ShieldCheck } from "lucide-react";
 import { downloadAuditTrail } from "../../lib/auditExport";
 
 const REASONS = [

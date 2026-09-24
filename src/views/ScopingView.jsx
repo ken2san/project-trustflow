@@ -1,6 +1,6 @@
 import React from "react";
 import InitiateContractButton from "../components/ui/InitiateContractButton";
-import { ArrowLeft, ListChecks, CheckCircle2, Fingerprint } from "lucide-react";
+import { ArrowLeft, ListChecks, CheckCircle2 } from "lucide-react";
 import ScrambleText from "../components/ui/ScrambleText";
 
 

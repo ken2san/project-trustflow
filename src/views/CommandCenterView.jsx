@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, Sparkles, AlertTriangle, Lock, Unlock, Award, Wallet, MessageSquare, BarChart4, Palette, Users, Bot, BadgeCheck, KeyRound, Globe, Star, X } from 'lucide-react';
+import { User, Sparkles, AlertTriangle, Unlock, Award, Wallet, MessageSquare, BarChart4, Palette, Users, Bot, BadgeCheck, KeyRound, Globe, Star, X } from 'lucide-react';
 import { FEATURE_UNLOCKS } from '../lib/featureUnlocks';
 
 // Command Center: Unified dashboard for operations and mission logs

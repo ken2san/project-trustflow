@@ -1,9 +1,6 @@
 import React, { useState } from "react";
-import InitiateContractButton from "../components/ui/InitiateContractButton";
 import ModalDialog from "../components/ui/ModalDialog";
-import { Loader2 } from "lucide-react";
 import ToastContainer from "../components/ui/ToastContainer";
-import NegotiationChatView from "./NegotiationChatView";
 import ProfileModal from "../components/modals/ProfileModal";
 
 // ProjectDetailView: Dashboard for project specs and negotiation stream

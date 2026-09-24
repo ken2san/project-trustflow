@@ -5,7 +5,7 @@
 // Falls back to a "Test Mode" simulation when VITE_STRIPE_PUBLISHABLE_KEY is not set.
 
 import React, { useState, useEffect } from "react";
-import { Lock, X, CreditCard, CheckCircle, AlertCircle, Loader } from "lucide-react";
+import { Lock, CheckCircle, AlertCircle, Loader } from "lucide-react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import ModalDialog from "../ui/ModalDialog";
 import { getStripe, isStripeEnabled, createPaymentIntent, formatJpy } from "../../lib/stripe";

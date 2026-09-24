@@ -1,7 +1,6 @@
 import React from "react";
 import { useContractWorkflow } from "../hooks/useContractWorkflow";
-import { Heart, ArrowRight, Hash, ShieldCheck } from "lucide-react";
-import HoldButton from "../components/ui/HoldButton";
+import { Heart, ShieldCheck } from "lucide-react";
 import { parseDeadlineLocal } from "../lib/utils";
 import ContractStepTracker from "./contract/ContractStepTracker";
 import ContractStep1 from "./contract/ContractStep1";
@@ -42,9 +41,7 @@ const ContractView = (props) => {
         dodHash, contractEvents, contractAmount
     } = props;
 
-    const workflow = useContractWorkflow({
-        step, mode, handleNextStep, handleReject, status
-    });
+    const workflow = useContractWorkflow({ step });
 
     const {
         rating, setRating, deliverables, setDeliverables,

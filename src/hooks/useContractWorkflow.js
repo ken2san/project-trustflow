@@ -1,16 +1,14 @@
 import { useState, useEffect } from "react";
 
 /**
- * Custom hook to encapsulate contract workflow state and logic.
- * Handles deliverables, history, modals, rating, and workflow actions.
+ * Owns the per-contract UI state ContractView renders around: deliverables,
+ * upload fields, the approve/reject/dispute dialogs, and the blind rating.
+ *
+ * Takes only `step`, which it uses to reset the rating when a new contract
+ * starts. It previously also declared `mode`, `handleNextStep`, `handleReject`
+ * and `status` as parameters, none of which were ever read in the body.
  */
-export function useContractWorkflow({
-  step,
-  mode,
-  handleNextStep,
-  handleReject,
-  status
-}) {
+export function useContractWorkflow({ step }) {
   // Core state
   const [rating, setRating] = useState(0);
 

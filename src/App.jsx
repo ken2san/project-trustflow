@@ -70,7 +70,7 @@ import {
 // (moved below imports)
 
 // Centralized constants and mock data
-import { USER_PROFILE, JOBS_DATA, TALENTS_DATA, STEPS_DATA } from './lib/constants';
+import { USER_PROFILE, JOBS_DATA, TALENTS_DATA } from './lib/constants';
 import { formatNumber, deriveLevel } from './lib/utils';
 import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';

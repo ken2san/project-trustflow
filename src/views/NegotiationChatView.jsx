@@ -1,8 +1,6 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
-import InitiateContractButton from "../components/ui/InitiateContractButton";
 import ToastContainer from "../components/ui/ToastContainer";
 
-import ContractView from "./ContractView";
 
 const initialMessages = [
   { sender: "client", text: "Thank you for your interest. Our initial budget is 3,000,000 for the full design system.", time: "09:00" },
