@@ -320,8 +320,9 @@ test('a guest accepts an invite and can then read the record in the UI', async (
   await expect(page.getByRole('heading', { name: /Agreement accepted/i, level: 2 }))
     .toBeVisible({ timeout: 15_000 });
 
-  // The credential issued on acceptance is what unlocks the record.
-  await page.getByRole('button', { name: /View the record/i }).click();
+  // The credential issued on acceptance is what unlocks the record. The guest
+  // reaches the full verification detail from the agreement screen's own link.
+  await page.getByRole('button', { name: /View the full verification detail/i }).click();
 
   await expect(page.getByText(/Record of agreement/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Agreement created')).toBeVisible();

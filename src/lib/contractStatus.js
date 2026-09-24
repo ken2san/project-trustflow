@@ -19,7 +19,12 @@ export const CONTRACT_STATES = {
   AWAITING_ACCEPTANCE: 'AWAITING_ACCEPTANCE', // invite issued, not yet accepted
   TERMS_ACCEPTED:      'TERMS_ACCEPTED',      // the Hirer agreed
   IN_PROGRESS:         'IN_PROGRESS',         // payment authorised (Stripe; not in use yet)
-  DELIVERED:           'DELIVERED',           // work submitted, awaiting review
+  // Projected from the attested event log. AWAITING_CONFIRMATION says the
+  // performer has ASSERTED performance and the protocol waits on the receiver.
+  // It does not say the work was delivered — TrustFlow cannot observe that.
+  AWAITING_CONFIRMATION: 'AWAITING_CONFIRMATION',
+  PERFORMANCE_ACCEPTED:  'PERFORMANCE_ACCEPTED',
+  DELIVERED:           'DELIVERED',           // legacy; never written
   SETTLED:             'SETTLED',             // funds released
   CANCELLED:           'CANCELLED',
 }
@@ -29,12 +34,23 @@ const LABELS = {
   [CONTRACT_STATES.AWAITING_ACCEPTANCE]: 'Awaiting acceptance',
   [CONTRACT_STATES.TERMS_ACCEPTED]:      'Accepted',
   [CONTRACT_STATES.IN_PROGRESS]:         'In progress',
+  [CONTRACT_STATES.AWAITING_CONFIRMATION]: 'Awaiting your review',
+  // Where no money moves through TrustFlow, this is the end of the story.
+  [CONTRACT_STATES.PERFORMANCE_ACCEPTED]:  'Completed',
   [CONTRACT_STATES.DELIVERED]:           'Awaiting review',
   [CONTRACT_STATES.SETTLED]:             'Completed',
   [CONTRACT_STATES.CANCELLED]:           'Cancelled',
 }
 
-const TERMINAL = new Set([CONTRACT_STATES.SETTLED, CONTRACT_STATES.CANCELLED])
+// Terminal for the purpose of the home screen: nothing further is expected of
+// either party. PERFORMANCE_ACCEPTED belongs here because payment happens
+// outside TrustFlow — requiring a settlement that never comes would leave every
+// finished agreement sitting in the active list forever.
+const TERMINAL = new Set([
+  CONTRACT_STATES.SETTLED,
+  CONTRACT_STATES.CANCELLED,
+  CONTRACT_STATES.PERFORMANCE_ACCEPTED,
+])
 
 /** How close to expiry an unaccepted invite has to be before clearing it
  *  becomes the Earner's problem rather than the client's. */
@@ -51,6 +67,15 @@ export function isTerminal(state) {
   return TERMINAL.has(state)
 }
 
+/**
+ * Whether the viewer — always the account that owns the agreement — is the one
+ * doing the work. Defaults to true, matching every row written before
+ * performed_by existed.
+ */
+export function performsHere(contract) {
+  return (contract?.performed_by ?? 'creator') === 'creator'
+}
+
 function inviteExpiry(contract) {
   if (!contract.invite_token_expires_at) return null
   const at = new Date(contract.invite_token_expires_at)
@@ -60,9 +85,13 @@ function inviteExpiry(contract) {
 /**
  * What happens next on this contract, and whose move it is.
  *
- * `owner` is 'you' when the Earner has to do something, 'client' when the
- * contract is legitimately waiting on the other party, and 'none' when it is
- * over. Only 'you' pulls a contract into the Needs you group.
+ * `owner` is 'you' when the viewing account has to do something, 'client' when
+ * the agreement is legitimately waiting on the other party, and 'none' when it
+ * is over. Only 'you' pulls a contract into the Needs you group.
+ *
+ * The viewer is the account that owns the agreement. Whether that account is
+ * the performer or the receiver comes from performed_by, so the same state
+ * produces opposite answers for the two sides — which is the point.
  *
  * @param {object} contract  a row from listContracts()
  * @param {Date}   [now]
@@ -107,14 +136,29 @@ export function nextActionFor(contract, now = new Date()) {
     return { owner: 'client', label: 'Waiting on your client', detail: 'They have not accepted yet.' }
   }
 
-  if (state === CONTRACT_STATES.TERMS_ACCEPTED) {
-    return { owner: 'you', label: 'Deliver the work', detail: 'Your client accepted the terms.' }
+  if (state === CONTRACT_STATES.PERFORMANCE_ACCEPTED) {
+    // The end of the story where money moves outside TrustFlow.
+    return { owner: 'none', label: 'Completed', detail: null }
   }
-  if (state === CONTRACT_STATES.IN_PROGRESS) {
-    return { owner: 'you', label: 'Deliver the work', detail: 'Work is underway.' }
+
+  // From here the answer depends on which side does the work, so the same
+  // state means opposite things to the two parties.
+  const youPerform = performsHere(contract)
+
+  if (state === CONTRACT_STATES.TERMS_ACCEPTED || state === CONTRACT_STATES.IN_PROGRESS) {
+    return youPerform
+      ? { owner: 'you', label: 'Deliver the work', detail: 'They accepted the terms.' }
+      : { owner: 'client', label: 'Waiting on them to deliver', detail: 'They accepted the terms.' }
   }
+
+  if (state === CONTRACT_STATES.AWAITING_CONFIRMATION) {
+    return youPerform
+      ? { owner: 'client', label: 'Waiting on their review', detail: 'You marked the work delivered.' }
+      : { owner: 'you', label: 'Review the delivery', detail: 'They marked the work delivered.' }
+  }
+
   if (state === CONTRACT_STATES.DELIVERED) {
-    return { owner: 'client', label: 'Waiting on your client', detail: 'They are reviewing your delivery.' }
+    return { owner: 'client', label: 'Waiting on their review', detail: 'Delivery is with them.' }
   }
 
   // An unrecognised state is surfaced, not hidden: a contract in a state this
@@ -185,7 +229,10 @@ export function stepForState(state) {
     case CONTRACT_STATES.IN_PROGRESS:
       return 2
     case CONTRACT_STATES.DELIVERED:
+    case CONTRACT_STATES.AWAITING_CONFIRMATION:
       return 3
+    case CONTRACT_STATES.PERFORMANCE_ACCEPTED:
+      return 5
     case CONTRACT_STATES.SETTLED:
       return 5
     case CONTRACT_STATES.DRAFTING:

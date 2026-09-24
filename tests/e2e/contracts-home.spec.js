@@ -157,13 +157,20 @@ test('a failed load says so instead of showing an empty list', async ({ page }) 
   await expect(page.getByText('No contracts yet.')).toHaveCount(0);
 });
 
-test('opening a contract reaches the existing flow screen', async ({ page }) => {
+test('opening a contract reaches the agreement screen, not the escrow flow', async ({ page }) => {
   await stubContracts(page, CONTRACTS);
   await page.goto('/');
 
   await page.getByRole('button', { name: 'Open' }).click();
-  // The flow screen is untouched by this pass; it still renders its own tracker.
-  await expect(page.locator('text=PROTOCOL').first()).toBeVisible({ timeout: 15_000 });
+
+  // The agreement itself, and the one action that belongs to this side.
+  await expect(page.getByText('What counts as complete')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: /Accepted — needs delivery/i })).toBeVisible();
+
+  // The five-step flow is bypassed: no escrow, no staking, no tier gate between
+  // the user and the action. Those screens still exist; nothing routes here.
+  await expect(page.locator('text=PROTOCOL')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Secure Funds in Escrow/i })).toHaveCount(0);
 });
 
 // ── Scoping is the database's job ───────────────────────────────────────────

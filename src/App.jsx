@@ -160,7 +160,8 @@ import WalletView from './views/WalletView';
 import GuestEvidenceView from './views/GuestEvidenceView';
 import ContractsHomeView from './views/ContractsHomeView';
 import SignInView from './views/SignInView';
-import { stepForState } from './lib/contractStatus.js';
+import AgreementView from './views/AgreementView';
+import { performsHere } from './lib/contractStatus.js';
 
 // CommandCenterView moved to views/CommandCenterView.jsx
 import CommandCenterView from './views/CommandCenterView';
@@ -222,6 +223,12 @@ const App = () => {
   // guest credential. Null until they ask to see it.
   const [guestEvidence, setGuestEvidence] = useState(null);
   const [guestEvidenceReason, setGuestEvidenceReason] = useState(null);
+  // The one agreement currently open, from whichever side. `role` is
+  // 'performer' or 'receiver'; the server decides which, and the screen only
+  // offers the action that belongs to it.
+  const [agreement, setAgreement] = useState(null);
+  const [agreementBusy, setAgreementBusy] = useState(false);
+  const [agreementError, setAgreementError] = useState(null);
   // 'home' is the Contracts list. Marketplace and Command Center still exist
   // and still render, but nothing in the primary navigation points at them —
   // see the command palette for the remaining way in.
@@ -838,27 +845,107 @@ const App = () => {
     setShowBYOCForm(true);
   }, []);
 
-  // Open a database contract in the existing contract flow screen.
-  //
-  // That screen is deliberately untouched in this pass: it still owns its local
-  // 1–5 step counter and still expects a marketplace-shaped item. So the row is
-  // mapped into the shape it already understands, and its opening step is
-  // derived from contracts.state so it does not claim the contract is at the
-  // beginning when it is not. This is a starting position, not a migration —
-  // the screen's progression is still its own, and the home screen remains the
-  // authority on status.
-  const openContractFromHome = useCallback((contract) => {
-    setSelectedItem({
-      id: contract.id,
-      title: contract.project_name || 'Untitled agreement',
-      client: contract.hirer_email || contract.invited_hirer_email || 'Your client',
-      totalPoints: contract.amount_jpy ?? 0,
-      acceptanceCriteria: Array.isArray(contract.dod) ? contract.dod : [],
-      deadline: contract.deadline ?? null,
-    });
-    setStep(stepForState(contract.state));
-    setView('contract');
+  /**
+   * Turn raw event rows into the shape the agreement record renders.
+   *
+   * The owner reads events straight from PostgREST under the party-scoped
+   * SELECT policy; the guest gets an already-shaped response from
+   * guest-contract-events. This normalises the first into the second so one
+   * component serves both rather than two screens drifting apart.
+   */
+  const shapeOwnerEvents = useCallback((rows, contract) => {
+    const performerIsCreator = (contract.performed_by ?? 'creator') === 'creator';
+    return [...(rows ?? [])]
+      .filter(ev => ev.type !== 'runtime.snapshot')
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      .map(ev => {
+        const byCreator = ev.actor_id === contract.earner_user_id
+          || (ev.actor_id && !String(ev.actor_id).startsWith('guest:'));
+        return {
+          id: ev.id,
+          type: ev.type,
+          created_at: ev.created_at,
+          actorLabel: byCreator
+            ? 'by you'
+            : `by ${String(ev.actor_id ?? '').replace(/^guest:/, '') || 'the other party'}`,
+          reason: ev.payload?.reason ?? null,
+          _performerIsCreator: performerIsCreator,
+        };
+      });
   }, []);
+
+  /** Open a database-backed agreement as its owner. */
+  const openContractFromHome = useCallback(async (contract) => {
+    setAgreementError(null);
+    setAgreement({ contract, events: [], role: performsHere(contract) ? 'performer' : 'receiver' });
+    setView('agreement');
+    const rows = await fetchContractEvents(contract.id);
+    setAgreement(prev => (prev?.contract?.id === contract.id
+      ? { ...prev, events: shapeOwnerEvents(rows, contract) }
+      : prev));
+  }, [shapeOwnerEvents]);
+
+  /** Open the same agreement as the invited counterparty, with no account. */
+  const openAgreementAsGuest = useCallback(async (contractId) => {
+    setAgreementError(null);
+    setAgreement(null);
+    setView('agreement');
+    const { evidence, reason } = await fetchGuestEvidence(contractId);
+    if (!evidence) {
+      setAgreementError(reason === 'no_credential'
+        ? 'This browser does not hold a credential for this agreement.'
+        : 'The agreement could not be loaded.');
+      return;
+    }
+    setAgreement({
+      contract: evidence.contract,
+      // The shaped response already names the actor in readable terms.
+      events: (evidence.events ?? []).map(ev => ({
+        id: ev.id,
+        type: ev.type,
+        created_at: ev.created_at,
+        actorLabel: ev.actor.role === 'guest_hirer' ? 'by you' : `by ${ev.actor.label}`,
+        reason: ev.payload?.reason ?? null,
+      })),
+      role: evidence.contract.viewer_role ?? 'receiver',
+    });
+  }, []);
+
+  /**
+   * Record a performance statement. The server decides whether this party may
+   * make it — the screen only offers the action that belongs to the viewer, and
+   * a refusal here means the two disagree, which is worth showing.
+   */
+  const recordAgreementEvent = useCallback(async (type, payload = {}) => {
+    const contract = agreement?.contract;
+    if (!contract) return;
+    setAgreementBusy(true);
+    setAgreementError(null);
+    const result = await logEvent({ type, contractId: contract.id, actorId, payload });
+    setAgreementBusy(false);
+
+    if (result?.persisted === false) {
+      setAgreementError(result.persist_error === 'wrong_party_for_event_type'
+        ? 'That action belongs to the other party.'
+        : 'That could not be recorded. Try again in a moment.');
+      return;
+    }
+
+    // State is projected from the log, so re-read rather than guessing at it.
+    if (agreement.role === 'receiver' && contract.viewer_role === undefined) {
+      await refreshContracts();
+    }
+    const { contracts } = await listContracts();
+    const fresh = contracts.find(c => c.id === contract.id);
+    if (fresh) {
+      const rows = await fetchContractEvents(contract.id);
+      setAgreement({ contract: fresh, events: shapeOwnerEvents(rows, fresh), role: agreement.role });
+      setMyContracts(contracts);
+    } else {
+      // Guest path: no PostgREST access, so re-read the shaped response.
+      await openAgreementAsGuest(contract.id);
+    }
+  }, [agreement, actorId, refreshContracts, shapeOwnerEvents, openAgreementAsGuest]);
 
   const copyInviteLink = useCallback(async (contract) => {
     if (!contract?.invite_token) return;
@@ -917,6 +1004,7 @@ const App = () => {
       amountJpy: parseInt(byocForm.amount, 10) || 0,
       deadline: byocForm.deadline || null,
       invitedHirerEmail: (byocForm.clientEmail || '').trim(),
+      performedBy: byocForm.performedBy === 'counterparty' ? 'counterparty' : 'creator',
     });
 
     if (error || !contract) {
@@ -1087,6 +1175,35 @@ const App = () => {
             {/* Scrollable body */}
             <div className="overflow-y-auto px-10 py-6 space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Who is doing the work?</label>
+                  <div className="flex gap-3">
+                    {[
+                      { value: 'creator', label: 'Me' },
+                      { value: 'counterparty', label: 'The other person' },
+                    ].map(option => {
+                      const selected = (byocForm.performedBy ?? 'creator') === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => { setByocForm(f => ({ ...f, performedBy: option.value })); setInviteLink(null); }}
+                          className={`flex-1 py-3 rounded-2xl font-bold text-sm border transition-all ${
+                            selected
+                              ? 'bg-white text-[#020617] border-white'
+                              : 'bg-slate-800 text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-2">
+                    Whoever does the work is the one who marks it delivered. The other person accepts
+                    it or asks for a correction.
+                  </p>
+                </div>
                 <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Your name</label><input type="text" value={byocForm.earnerName ?? ''} onChange={e => { setByocForm(f => ({ ...f, earnerName: e.target.value })); setInviteLink(null); }} placeholder="Shown to your client" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
                 <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Your email</label><input type="email" value={byocForm.earnerEmail ?? ''} onChange={e => { setByocForm(f => ({ ...f, earnerEmail: e.target.value })); setInviteLink(null); }} placeholder="We send you a code to confirm it" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
               </div>
@@ -1251,6 +1368,20 @@ const App = () => {
       </nav>
 
       <main className="pt-32 pb-32 max-w-6xl mx-auto px-6 relative z-10">
+        {view === 'agreement' && (
+          <AgreementView
+            contract={agreement?.contract}
+            events={agreement?.events}
+            viewerRole={agreement?.role}
+            busy={agreementBusy}
+            error={agreementError}
+            onAssertDelivery={() => recordAgreementEvent(EVENT_TYPES.PERFORMANCE_ASSERTED)}
+            onAccept={() => recordAgreementEvent(EVENT_TYPES.PERFORMANCE_ACCEPTED)}
+            onRequestCorrection={(reason) =>
+              recordAgreementEvent(EVENT_TYPES.PERFORMANCE_REJECTED, { reason })}
+            onBack={() => { setAgreement(null); setView(auth.status === 'signed_in' ? 'home' : 'invite-accepted'); }}
+          />
+        )}
         {view === 'signin' && (
           <SignInView
             initialEmail={auth.email ?? ''}
@@ -1417,6 +1548,12 @@ const App = () => {
               TrustFlow is not collecting money for this agreement yet.
             </p>
             <button
+              onClick={() => openAgreementAsGuest(String(selectedItem?.id ?? ''))}
+              className="px-6 py-3 rounded-2xl bg-white text-[#020617] font-black text-sm hover:bg-indigo-400 hover:text-white transition-all"
+            >
+              Open this agreement
+            </button>
+            <button
               onClick={async () => {
                 const contractId = String(selectedItem?.id ?? '');
                 setGuestEvidence(null);
@@ -1426,9 +1563,9 @@ const App = () => {
                 setGuestEvidence(evidence);
                 setGuestEvidenceReason(reason);
               }}
-              className="text-xs text-slate-400 hover:text-white underline underline-offset-4 transition-colors"
+              className="block mx-auto text-xs text-slate-500 hover:text-slate-300 underline underline-offset-4 transition-colors"
             >
-              View the record of this agreement
+              View the full verification detail
             </button>
           </div>
         )}
