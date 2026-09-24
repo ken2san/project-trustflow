@@ -240,7 +240,7 @@ test('step 5 as Earner: logs contract.completed, appends a history entry, resets
   const loggedTypes = captureLoggedEventTypes(page);
   await seedAt(page, { step: 5, mode: 'earner', uiProfile: { avgRating: 4.8 }, contractHistory: [] });
 
-  await page.getByRole('button', { name: /Return to Feed/i }).click();
+  await page.getByRole('button', { name: /Return to Contracts/i }).click();
 
   const snapshot = await snapshotWhere(page, (s) => s?.view === 'home');
   // Full reset for the next cycle.
@@ -263,7 +263,7 @@ test('step 5 as Earner: logs contract.completed, appends a history entry, resets
 test('step 5 as Hirer: history entry records earned: 0', async ({ page }) => {
   await seedAt(page, { step: 5, mode: 'hirer', contractHistory: [] });
 
-  await page.getByRole('button', { name: /Return to Feed/i }).click();
+  await page.getByRole('button', { name: /Return to Contracts/i }).click();
 
   const snapshot = await snapshotWhere(page, (s) => s?.view === 'home');
   expect(snapshot.contractHistory).toHaveLength(1);
@@ -287,7 +287,7 @@ test('step 5: prepends to existing history rather than replacing it', async ({ p
   const existing = { id: 'TX-OLD', title: 'Previous Contract', client: 'Old Client', date: '2026.01.01', earned: 5000, rating: 5 };
   await seedAt(page, { step: 5, mode: 'earner', contractHistory: [existing] });
 
-  await page.getByRole('button', { name: /Return to Feed/i }).click();
+  await page.getByRole('button', { name: /Return to Contracts/i }).click();
 
   const snapshot = await snapshotWhere(page, (s) => s?.view === 'home');
   expect(snapshot.contractHistory).toHaveLength(2);

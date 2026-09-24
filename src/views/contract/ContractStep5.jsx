@@ -48,7 +48,7 @@ const ContractStep5 = ({ settledLabel, handleNextStep, onRehire, contractEvents,
             onClick={handleNextStep}
             className="px-8 py-3 rounded-full border border-white/10 hover:bg-white/10 text-white font-bold transition-all"
         >
-            Return to Feed
+            Return to Contracts
         </button>
     </div>
     );
