@@ -94,6 +94,12 @@ test('a verified Earner persists a contract that the server owns the security fi
 
 test('an unverified (anonymous) Earner cannot persist a contract at all', async ({ request }) => {
   const anon = await api(request, '/auth/v1/signup', { body: {} });
+  // Anonymous sign-ins are rate limited to 30/hour per IP, and every page load
+  // in this suite consumes one. Being unable to mint a fresh anonymous user is
+  // an environment limit, not a failed gate — skip rather than report a false
+  // security regression. A real 200-then-not-403 still fails below.
+  test.skip(anon.status === 429,
+    'anonymous sign-in rate limited (30/hr per IP) — the verified-Earner gate was not exercised on this run');
   expect(anon.status).toBe(200);
   expect(anon.body.user.is_anonymous).toBe(true);
 
