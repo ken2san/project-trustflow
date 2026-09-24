@@ -76,7 +76,8 @@ import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 import { ensureActorIdentity } from './lib/identity.js';
-import { generateInviteToken, decodeInviteTokenUnsafe, validateInviteToken } from './lib/invite.js';
+import { createContract, inviteUrlFor, fetchInvite, acceptInvite } from './lib/contracts.js';
+import { requestEarnerVerification, verifyEarnerOtp, isEarnerVerified } from './lib/earnerAuth.js';
 import { supabase, isSupabaseEnabled } from './lib/supabase.js';
 
 
@@ -199,46 +200,18 @@ const App = () => {
   // Supports two URL formats:
   //   ?token=<signed>   — new format (HMAC-signed, 72h expiry)
   //   ?invite=1&...     — legacy format (backward compat)
-  const [inviteData, setInviteData] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    // New signed-token format
-    if (params.has('token')) {
-      const raw = params.get('token');
-      const payload = decodeInviteTokenUnsafe(raw);
-      if (!payload) return null;
-      const amount = Number.isFinite(payload.amount) && payload.amount >= 0
-        ? Math.min(payload.amount, 100_000_000) : 0;
-      return {
-        contractId: typeof payload.cid === 'string' ? payload.cid.slice(0, 36) : '',
-        inviter: typeof payload.inviter === 'string' ? payload.inviter.slice(0, 100) : 'Someone',
-        project: typeof payload.project === 'string' ? payload.project.slice(0, 200) : 'A Project',
-        amount,
-        dod: Array.isArray(payload.dod)
-          ? payload.dod.map(s => String(s).trim().slice(0, 300)).filter(Boolean).slice(0, 20)
-          : [],
-        _tokenPending: true, // awaiting async HMAC validation
-      };
-    }
-    // Legacy ?invite=1 format
-    if (!params.has('invite')) return null;
-    const sanitizeText = (val, fallback, maxLen) =>
-      (typeof val === 'string' ? val.trim().slice(0, maxLen) : null) || fallback;
-    const rawAmount = parseInt(params.get('amount'), 10);
-    return {
-      contractId: sanitizeText(params.get('cid'), '', 36),
-      inviter: sanitizeText(params.get('inviter'), 'Someone', 100),
-      project: sanitizeText(params.get('project'), 'A Project', 200),
-      amount: Number.isFinite(rawAmount) && rawAmount >= 0 ? Math.min(rawAmount, 100_000_000) : 0,
-      dod: params.get('dod')
-        ? params.get('dod').split(',').map(s => s.trim().slice(0, 300)).filter(Boolean).slice(0, 20)
-        : [],
-    };
-  });
+  // The invite URL carries an opaque server-issued token and nothing else.
+  // Every contractual value shown to the Hirer is fetched from the contract
+  // row (see the invite fetch effect below). Two older formats are gone on
+  // purpose: an HMAC token whose payload *contained* the terms, and a legacy
+  // ?invite=1 that read project/amount/dod straight from query params. A URL
+  // may identify a contract; it must not carry what the contract says.
+  const [inviteData, setInviteData] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(() =>
+    new URLSearchParams(window.location.search).has('token'));
   const [inviteTokenError, setInviteTokenError] = useState(null);
-  const [view, setView] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return (params.has('invite') || params.has('token')) ? 'invite' : 'marketplace';
-  });
+  const [view, setView] = useState(() =>
+    new URLSearchParams(window.location.search).has('token') ? 'invite' : 'marketplace');
   const [step, setStep] = useState(1);
 
   // UI profile state
@@ -295,6 +268,11 @@ const App = () => {
   const [byocContractId, setByocContractId] = useState('');
   const [inviteLink, setInviteLink] = useState(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  // Earner verification (A-1): the contract is only persisted once the Earner
+  // has proved an email, so a cleared browser cannot orphan a real agreement.
+  const [otpStage, setOtpStage] = useState('idle'); // 'idle' | 'busy' | 'code'
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState(null);
   const [guestName, setGuestName] = useState(null); // set when counterparty joins via invite link
   const [guestEmail, setGuestEmail] = useState(null); // optional email from invite Stage 2
   const [isRuntimeHydrated, setIsRuntimeHydrated] = useState(false);
@@ -322,20 +300,19 @@ const App = () => {
 
   useEffect(() => { const handleKeyDown = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsCommandOpen(prev => !prev); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, []);
 
-  // Async HMAC validation for signed invite tokens
+  // Load the invite from the contract row. Read-only: this does not consume
+  // the one-time token — that happens when the Hirer actually accepts.
   useEffect(() => {
-    if (!inviteData?._tokenPending) return;
     const raw = new URLSearchParams(window.location.search).get('token');
     if (!raw) return;
-    validateInviteToken(raw).then(result => {
-      if (result.valid) {
-        setInviteData(prev => prev ? { ...prev, _tokenPending: false } : prev);
-      } else {
-        setInviteTokenError(result.reason); // 'expired' | 'tampered' | 'malformed'
-        setInviteData(null);
-      }
+    let alive = true;
+    fetchInvite(raw).then(({ invite, reason }) => {
+      if (!alive) return;
+      if (invite) setInviteData(invite);
+      else setInviteTokenError(reason);
+      setInviteLoading(false);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
@@ -810,19 +787,75 @@ const App = () => {
     addToast('Agreement Started', 'Define your scope below.');
   }, [byocForm, addToast, byocContractId]);
 
-  const handleGenerateInvite = useCallback(async () => {
-    const base = window.location.origin + window.location.pathname;
-    const token = await generateInviteToken({
-      cid: byocContractId || crypto.randomUUID(),
-      inviter: USER_PROFILE.name,
-      project: byocForm.description || 'Project',
-      amount: parseInt(byocForm.amount, 10) || 0,
-      dod: byocForm.dod
-        ? byocForm.dod.split('\n').map(s => s.trim()).filter(Boolean)
-        : [],
+  // Persists the contract and turns the server-issued invite_token into a link.
+  // Server-owned columns (state, invite_token, expiry, ...) are deliberately not
+  // sent — the client no longer holds INSERT privilege on them.
+  const persistContractAndLink = useCallback(async () => {
+    const dodItems = byocForm.dod
+      ? byocForm.dod.split('\n').map(line => line.trim()).filter(Boolean)
+      : [];
+    const canonical = buildDodCanonical({
+      dodText: dodItems.join('\n'),
+      hirerId: (byocForm.clientEmail || '').trim(),
+      earnerId: (byocForm.earnerEmail || '').trim(),
+      budgetPoints: String(parseInt(byocForm.amount, 10) || 0),
+      deadline: byocForm.deadline || 'TBD',
     });
-    setInviteLink(`${base}?token=${encodeURIComponent(token)}`);
-  }, [byocForm, byocContractId]);
+    const dodHash = await sha256(canonical);
+
+    const { contract, error } = await createContract({
+      earnerDisplayName: (byocForm.earnerName || '').trim(),
+      projectName: (byocForm.description || '').trim(),
+      dod: dodItems,
+      dodHash,
+      amountJpy: parseInt(byocForm.amount, 10) || 0,
+      deadline: byocForm.deadline || null,
+      invitedHirerEmail: (byocForm.clientEmail || '').trim(),
+    });
+
+    if (error || !contract) {
+      setOtpError(error?.message ?? 'Could not save the contract.');
+      return false;
+    }
+    setInviteLink(inviteUrlFor(contract.invite_token));
+    addToast('Contract created', 'Invite link is ready to send.', 'success');
+    return true;
+  }, [byocForm, addToast]);
+
+  const handleSendInvite = useCallback(async () => {
+    setOtpError(null);
+    setOtpStage('busy');
+    try {
+      if (await isEarnerVerified()) {
+        await persistContractAndLink();
+        setOtpStage('idle');
+        return;
+      }
+      const { error } = await requestEarnerVerification((byocForm.earnerEmail || '').trim());
+      if (error) {
+        setOtpError(error.message ?? 'Could not send the code.');
+        setOtpStage('idle');
+        return;
+      }
+      setOtpStage('code');
+    } catch (err) {
+      setOtpError(String(err?.message ?? err));
+      setOtpStage('idle');
+    }
+  }, [byocForm, persistContractAndLink]);
+
+  const handleVerifyEarnerCode = useCallback(async () => {
+    setOtpError(null);
+    setOtpStage('busy');
+    const { error } = await verifyEarnerOtp((byocForm.earnerEmail || '').trim(), otpCode);
+    if (error) {
+      setOtpError(error.message ?? 'That code did not work.');
+      setOtpStage('code');
+      return;
+    }
+    const ok = await persistContractAndLink();
+    setOtpStage(ok ? 'idle' : 'code');
+  }, [byocForm, otpCode, persistContractAndLink]);
 
   const triggerSmartContractUpdate = () => { const userMsg = { id: Date.now(), sender: 'me', text: 'Additional requirements for dark mode have come up. Can we increase the budget?', time: 'Now', type: 'text' }; setMessages(prev => [...prev, userMsg]); setTimeout(() => { const aiProposal = { id: Date.now() + 1, sender: 'ai', type: 'contract_update', data: { title: 'Scope Expansion Detected', changes: ['Add: Dark Mode Variants (+12 Screens)', 'Timeline: +2 Days'], additionalCost: 50000, newTotal: selectedItem ? selectedItem.totalPoints + 50000 : 50000 }, time: 'Now' }; setMessages(prev => [...prev, aiProposal]); }, 1500); };
   const acceptContractUpdate = (updateData) => { if (selectedItem) { setSelectedItem(prev => ({ ...prev, totalPoints: updateData.newTotal, acceptanceCriteria: [...prev.acceptanceCriteria, "Dark Mode Variants Completed"] })); } setScrambleTrigger(prev => prev + 1); setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: `Contract updated. Budget increased by ${formatNumber(updateData.additionalCost)} PTS.`, time: 'Now', type: 'text' }]); addToast('Smart Contract Updated', 'New budget locked in escrow.', 'success'); };
@@ -941,10 +974,28 @@ const App = () => {
             </div>
             {/* Scrollable body */}
             <div className="overflow-y-auto px-10 py-6 space-y-4 flex-1">
-              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Their name or handle</label><input type="text" value={byocForm.name} onChange={e => setByocForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g., Alex Chen / @alexchen" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
-              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">What are you building together?</label><textarea value={byocForm.description} onChange={e => { setByocForm(f => ({ ...f, description: e.target.value })); setInviteLink(null); }} placeholder="e.g., Mobile app redesign — 3 screens, Figma handoff included" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[80px]" /></div>
-              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Contract value (¥ JPY)</label><input type="number" min="0" value={byocForm.amount} onChange={e => { setByocForm(f => ({ ...f, amount: e.target.value })); setInviteLink(null); }} placeholder="e.g., 300000" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
-              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Definition of Done <span className="normal-case font-normal text-slate-600">(one item per line)</span></label><textarea value={byocForm.dod} onChange={e => { setByocForm(f => ({ ...f, dod: e.target.value })); setInviteLink(null); }} placeholder={"Definitive Figma Library\nDark Mode Tokens\nAtomic Design Compliance"} className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[90px] font-mono text-sm" /></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Your name</label><input type="text" value={byocForm.earnerName ?? ''} onChange={e => { setByocForm(f => ({ ...f, earnerName: e.target.value })); setInviteLink(null); }} placeholder="Shown to your client" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+                <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Your email</label><input type="email" value={byocForm.earnerEmail ?? ''} onChange={e => { setByocForm(f => ({ ...f, earnerEmail: e.target.value })); setInviteLink(null); }} placeholder="We send you a code to confirm it" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+              </div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Client email</label><input type="email" value={byocForm.clientEmail ?? ''} onChange={e => { setByocForm(f => ({ ...f, clientEmail: e.target.value })); setInviteLink(null); }} placeholder="Where this invite is addressed" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Project name</label><input type="text" value={byocForm.description} onChange={e => { setByocForm(f => ({ ...f, description: e.target.value })); setInviteLink(null); }} placeholder="e.g., Mobile app redesign — 3 screens" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Amount (¥ JPY)</label><input type="number" min="0" value={byocForm.amount} onChange={e => { setByocForm(f => ({ ...f, amount: e.target.value })); setInviteLink(null); }} placeholder="e.g., 300000" className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+                <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Deadline</label><input type="date" value={byocForm.deadline ?? ''} onChange={e => { setByocForm(f => ({ ...f, deadline: e.target.value })); setInviteLink(null); }} className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all" /></div>
+              </div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">What counts as complete <span className="normal-case font-normal text-slate-600">(one item per line)</span></label><textarea value={byocForm.dod} onChange={e => { setByocForm(f => ({ ...f, dod: e.target.value })); setInviteLink(null); }} placeholder={"Definitive Figma Library\nDark Mode Tokens\nAtomic Design Compliance"} className="w-full bg-slate-800 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[90px] font-mono text-sm" /></div>
+              {otpStage === 'code' && (
+                <div className="bg-slate-800/60 border border-indigo-500/30 rounded-2xl px-5 py-4 space-y-3">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Confirm your email</p>
+                  <p className="text-xs text-slate-400">We sent a 6-digit code to {byocForm.earnerEmail}. Entering it links this browser to a permanent account, so your contracts stay reachable.</p>
+                  <input type="text" inputMode="numeric" maxLength={6} value={otpCode} onChange={e => setOtpCode(e.target.value)} placeholder="000000" className="w-full bg-slate-900 border border-white/10 rounded-2xl px-5 py-4 text-white text-center text-2xl font-mono tracking-[0.4em] outline-none focus:border-indigo-500/50" />
+                  <button onClick={handleVerifyEarnerCode} disabled={otpCode.trim().length < 6} className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-sm transition-all">Confirm &amp; create contract</button>
+                </div>
+              )}
+              {otpError && (
+                <p className="text-xs text-rose-400 font-bold px-1">{otpError}</p>
+              )}
               {inviteLink && (
                 <div className="bg-slate-800/60 border border-indigo-500/30 rounded-2xl px-5 py-4 space-y-3">
                   <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Invite Link — share this</p>
@@ -966,8 +1017,18 @@ const App = () => {
             </div>
             {/* Sticky footer */}
             <div className="px-10 pb-10 pt-4 border-t border-white/5 flex gap-3">
-              <button onClick={handleGenerateInvite} disabled={!byocForm.description.trim()} className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black transition-all text-sm">
-                {inviteLink ? 'Regenerate' : 'Generate Link'}
+              <button
+                onClick={handleSendInvite}
+                disabled={
+                  otpStage !== 'idle'
+                  || !(byocForm.description ?? '').trim()
+                  || !(byocForm.earnerName ?? '').trim()
+                  || !(byocForm.earnerEmail ?? '').trim()
+                  || !(byocForm.clientEmail ?? '').trim()
+                }
+                className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black transition-all text-sm"
+              >
+                {otpStage === 'busy' ? 'Working…' : inviteLink ? 'Create another' : 'Send Invite'}
               </button>
               <button onClick={handleBYOCSubmit} className="flex-1 py-4 rounded-2xl bg-white text-[#020617] font-black hover:bg-indigo-400 hover:text-white transition-all text-sm">Start Myself →</button>
             </div>
@@ -1112,25 +1173,44 @@ const App = () => {
           />
         )}
         {/* ScopingView removed from contract flow. */}
-        {view === 'invite' && (inviteData || inviteTokenError) && (
+        {view === 'invite' && inviteLoading && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-slate-500">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+            <p className="text-xs font-black uppercase tracking-[0.3em]">Loading agreement…</p>
+          </div>
+        )}
+        {view === 'invite' && !inviteLoading && (inviteData || inviteTokenError) && (
           <InviteView
             inviteData={inviteData}
             tokenError={inviteTokenError}
-            onAccept={(guestName, email) => {
-              const contractId = inviteData.contractId || ('invite-' + Date.now());
-              const item = {
+            onAccept={async (guestName, email) => {
+              // Consume the one-time token server-side. This is also what
+              // records the accepting identity and moves the contract to
+              // TERMS_ACCEPTED — the client cannot do either itself.
+              const raw = new URLSearchParams(window.location.search).get('token');
+              const { accepted, reason } = await acceptInvite(raw, email);
+              if (!accepted) {
+                setInviteTokenError(reason === 'already_used' ? 'already_used' : reason);
+                setInviteData(null);
+                return;
+              }
+
+              const contractId = accepted.contract_id;
+              setSelectedItem({
                 id: contractId,
-                title: inviteData.project,
-                client: inviteData.inviter,
-                totalPoints: inviteData.amount,
-                acceptanceCriteria: inviteData.dod,
-              };
-              setSelectedItem(item);
-              const name = guestName || inviteData.inviter;
+                title: accepted.project_name,
+                client: accepted.earner_display_name ?? 'Your counterparty',
+                totalPoints: accepted.amount_jpy ?? 0,
+                acceptanceCriteria: accepted.dod ?? [],
+                deadline: accepted.deadline ?? null,
+              });
+              const name = guestName || 'Guest';
               setGuestName(name);
               if (email) setGuestEmail(email);
               window.history.replaceState({}, '', window.location.pathname);
-              // Log explicit DoD consent — timestamped legal record of acceptance
+              // Timestamped legal record of acceptance. counterparty_email is
+              // the address that actually accepted, which may differ from the
+              // one the invite was addressed to — both are kept.
               logEvent({
                 type: EVENT_TYPES.DOD_CONSENT_RECORDED,
                 contractId,
@@ -1138,18 +1218,34 @@ const App = () => {
                 payload: {
                   counterparty_name: name,
                   counterparty_email: email || null,
-                  dod_items: inviteData.dod,
+                  dod_items: accepted.dod ?? [],
                   user_agent: navigator.userAgent,
                 },
               }).catch(err => console.warn('[TrustFlow] consent log failed:', err));
-              setView('scoping');
-              addToast('Welcome', `Reviewing agreement with ${name}.`, 'success');
+              setView('invite-accepted');
+              addToast('Agreement accepted', 'Your acceptance has been recorded.', 'success');
             }}
             onDecline={() => {
               window.history.replaceState({}, '', window.location.pathname);
               setView('marketplace');
             }}
           />
+        )}
+        {view === 'invite-accepted' && (
+          <div className="max-w-lg mx-auto text-center space-y-6 py-20 animate-fade-in-up">
+            <div className="w-16 h-16 rounded-[20px] bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            </div>
+            <h2 className="text-3xl font-black tracking-tighter text-white">Agreement accepted</h2>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Your acceptance of <span className="text-white font-bold">{selectedItem?.title}</span> has been
+              timestamped and recorded. {selectedItem?.client} has been notified.
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed border border-white/5 bg-white/[0.02] rounded-2xl px-5 py-4">
+              Payment is handled separately for now — {selectedItem?.client} will contact you about it.
+              TrustFlow is not collecting money for this agreement yet.
+            </p>
+          </div>
         )}
         {view === 'scoping' && selectedItem && <ScopingView selectedItem={selectedItem} onBack={() => { setIsRehire(false); setView('marketplace'); setSelectedItem(null); }} onInitiate={() => { setIsRehire(false); initiateContract(); }} scrambleTrigger={scrambleTrigger} formatNumber={formatNumber} isRehire={isRehire} />}
         {view === 'contract' && selectedItem && <ContractView step={step} handleNextStep={handleNextStep} handleReject={handleReject} onOpenDispute={handleOpenDispute} isUploading={isUploading} uploadProgress={uploadProgress} handleFileUpload={handleFileUpload} status={status} formatNumber={formatNumber} userStats={uiProfile} setUserStats={setUIProfile} addToast={addToast} triggerLevelUp={triggerLevelUp} triggerParamUp={triggerParamUp} mode={mode} onRehire={handleRehire} contractEvents={contractEvents} dodHash={dodHash} contractId={String(selectedItem?.id ?? 'mock')} contractAmount={selectedItem?.totalPoints ?? 0} onContractCancel={handleContractCancel} onBack={() => { setView('marketplace'); setSelectedItem(null); }} guestName={guestName} />}

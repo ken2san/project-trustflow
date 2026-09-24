@@ -1,0 +1,109 @@
+// src/lib/contracts.js
+// DB-backed contract creation and invite lookup.
+//
+// The contract row is the canonical record; localStorage keeps only the
+// in-progress form. Note what is deliberately NOT sent on insert: state,
+// invite_token, invite_token_expires_at, guest_access_token, hirer_email and
+// every stripe_* / settlement column are server-owned — the client no longer
+// holds the INSERT privilege on them (20260923000000), so including any of
+// them makes the whole insert fail with 403. The server fills them: state
+// defaults to AWAITING_ACCEPTANCE, invite_token to a random UUID, and
+// invite_token_expires_at to now() + 72h.
+
+import { supabase } from './supabase.js'
+
+const NOT_CONFIGURED = new Error('Supabase is not configured')
+
+/**
+ * Persist a contract and return it, including the server-issued invite_token.
+ * Requires a verified (non-anonymous) Earner session — otherwise the
+ * verified_earner_only_insert policy rejects the row.
+ *
+ * @param {object} p
+ * @param {string}   p.earnerDisplayName
+ * @param {string}   p.projectName
+ * @param {string[]} p.dod                 completion criteria, one per entry
+ * @param {string}   [p.dodHash]
+ * @param {number}   p.amountJpy
+ * @param {string}   [p.deadline]          ISO date (YYYY-MM-DD)
+ * @param {string}   p.invitedHirerEmail   address the invite is addressed to
+ * @returns {Promise<{ contract: object|null, error: Error|null }>}
+ */
+export async function createContract({
+  earnerDisplayName,
+  projectName,
+  dod,
+  dodHash,
+  amountJpy,
+  deadline,
+  invitedHirerEmail,
+}) {
+  if (!supabase) return { contract: null, error: NOT_CONFIGURED }
+
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData?.user) {
+    return { contract: null, error: userError ?? new Error('Not signed in') }
+  }
+
+  const { data, error } = await supabase
+    .from('contracts')
+    .insert({
+      earner_user_id: userData.user.id,
+      earner_display_name: earnerDisplayName,
+      project_name: projectName,
+      dod,
+      dod_hash: dodHash ?? null,
+      amount_jpy: amountJpy,
+      currency: 'JPY',
+      deadline: deadline || null,
+      invited_hirer_email: invitedHirerEmail,
+    })
+    .select()
+    .single()
+
+  return { contract: data ?? null, error: error ?? null }
+}
+
+/** Build the invite URL for a server-issued token. */
+export function inviteUrlFor(inviteToken) {
+  return `${window.location.origin}${window.location.pathname}?token=${encodeURIComponent(inviteToken)}`
+}
+
+/**
+ * Read the contract behind an invite token, without consuming it.
+ * Values come from the contract row via the Edge Function — the URL only
+ * identifies the contract, it never carries the terms.
+ *
+ * @returns {Promise<{ invite: object|null, reason: string|null }>}
+ *          reason is 'not_found' | 'expired' | 'already_used' | 'error'
+ */
+export async function fetchInvite(inviteToken) {
+  if (!supabase) return { invite: null, reason: 'error' }
+
+  const { data, error } = await supabase.functions.invoke('validate-invite-token', {
+    body: { invite_token: inviteToken },
+  })
+
+  if (error || data?.error) {
+    return { invite: null, reason: data?.error ?? 'error' }
+  }
+  return { invite: data, reason: null }
+}
+
+/**
+ * Accept the invite: consumes the one-time token, records the accepting
+ * email, moves the contract to TERMS_ACCEPTED and returns the guest access
+ * token for this Hirer's later actions on this contract.
+ */
+export async function acceptInvite(inviteToken, hirerEmail) {
+  if (!supabase) return { accepted: null, reason: 'error' }
+
+  const { data, error } = await supabase.functions.invoke('validate-invite-token', {
+    body: { invite_token: inviteToken, accept: true, hirer_email: hirerEmail },
+  })
+
+  if (error || data?.error) {
+    return { accepted: null, reason: data?.error ?? 'error' }
+  }
+  return { accepted: data, reason: null }
+}

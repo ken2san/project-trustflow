@@ -54,8 +54,20 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
     );
   }
 
-  const { inviter, project, amount, dod } = inviteData;
+  // Field names are the contract row's own — these values came from the
+  // database through the validated invite path, not from the URL.
+  const {
+    project_name: project,
+    amount_jpy: amount,
+    deadline,
+    earner_display_name: inviter,
+    invited_hirer_email: invitedEmail,
+    dod,
+  } = inviteData;
   const amountLabel = amount > 0 ? `¥${amount.toLocaleString()}` : "TBD";
+  const deadlineLabel = deadline
+    ? new Date(`${deadline}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : 'Not set';
 
   if (stage === 'identify') {
     return (
@@ -83,7 +95,7 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
           <div className="space-y-1">
             <input
               type="email"
-              value={guestEmail}
+              value={guestEmail || invitedEmail || ''}
               onChange={e => setGuestEmail(e.target.value)}
               placeholder="Email address (required for contract record)"
               className="w-full bg-[#0f172a] border border-white/10 focus:border-indigo-500/50 rounded-2xl px-6 py-4 text-white font-medium outline-none transition-all placeholder:text-slate-600"
@@ -145,13 +157,19 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Project</p>
           <h2 className="text-2xl font-black text-white tracking-tight">{project}</h2>
         </div>
-        <div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Contract Value</p>
-          <p className="text-3xl font-black italic text-white">{amountLabel}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Contract Value</p>
+            <p className="text-3xl font-black italic text-white">{amountLabel}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Deadline</p>
+            <p className="text-lg font-black text-white pt-2">{deadlineLabel}</p>
+          </div>
         </div>
         {dod.length > 0 && (
           <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Definition of Done</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">What counts as complete</p>
             <div className="space-y-2">
               {dod.map((item, i) => (
                 <div key={i} className="flex items-start gap-3 text-sm text-slate-300">

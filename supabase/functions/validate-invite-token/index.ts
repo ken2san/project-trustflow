@@ -54,7 +54,7 @@ serve(async (req: Request) => {
 
     const { data: contract, error } = await supabase
       .from('contracts')
-      .select('id, project_name, dod, amount_jpy, earner_user_id, invite_token_expires_at, invite_token_used_at')
+      .select('id, project_name, dod, amount_jpy, deadline, earner_display_name, invited_hirer_email, earner_user_id, invite_token_expires_at, invite_token_used_at')
       .eq('invite_token', invite_token)
       .single()
 
@@ -78,11 +78,17 @@ serve(async (req: Request) => {
 
     if (!accept) {
       // Read-only preview — token stays valid/unused.
+      // Everything here comes from the contract row. The URL carries only the
+      // token, never the terms, so a tampered URL cannot change what the
+      // Hirer is shown.
       return new Response(JSON.stringify({
         contract_id: contract.id,
         project_name: contract.project_name,
         dod: contract.dod,
         amount_jpy: contract.amount_jpy,
+        deadline: contract.deadline,
+        earner_display_name: contract.earner_display_name,
+        invited_hirer_email: contract.invited_hirer_email,
       }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
@@ -125,6 +131,8 @@ serve(async (req: Request) => {
       project_name: contract.project_name,
       dod: contract.dod,
       amount_jpy: contract.amount_jpy,
+      deadline: contract.deadline,
+      earner_display_name: contract.earner_display_name,
       guest_access_token: guestAccessToken,
     }), {
       status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
