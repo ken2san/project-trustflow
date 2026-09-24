@@ -34,7 +34,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-guest-access-token',
 }
 
-const CANCELLABLE_STATES = ['TERMS_ACCEPTED', 'IN_PROGRESS', 'DELIVERED']
+// 'DELIVERED' is retained because historical rows could in principle hold it,
+// though nothing ever wrote it. The two projected states replace it: a contract
+// awaiting confirmation, or one already confirmed but not yet settled, must
+// still be cancellable — otherwise asserting performance would trap the
+// agreement with no way out for either party.
+const CANCELLABLE_STATES = [
+  'TERMS_ACCEPTED', 'IN_PROGRESS', 'DELIVERED',
+  'AWAITING_CONFIRMATION', 'PERFORMANCE_ACCEPTED',
+]
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {

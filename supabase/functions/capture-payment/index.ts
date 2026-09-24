@@ -1,7 +1,7 @@
 // supabase/functions/capture-payment/index.ts
 //
 // Releases held funds to the Earner's Stripe Connected Account.
-// Called when the Hirer confirms delivery (state === DELIVERED). The caller
+// Called after the Hirer has confirmed performance (state === PERFORMANCE_ACCEPTED). The caller
 // must authorize as the Hirer — guest (X-Guest-Access-Token) or, if later
 // registered, Supabase Auth matching hirer_user_id. See _shared/partyAuth.ts.
 //
@@ -11,7 +11,7 @@
 // safely: no transfer, no state change, no points awarded.
 //
 // Flow:
-//   1. Verify contract is in DELIVERED state and caller is the Hirer
+//   1. Verify contract is in PERFORMANCE_ACCEPTED state and caller is the Hirer
 //   2. Resolve the Earner's Stripe Connected Account server-side
 //   3. Retrieve the Stripe PaymentIntent
 //   4. Create a Stripe Transfer to the Earner's Connected Account
@@ -79,10 +79,16 @@ serve(async (req: Request) => {
       })
     }
 
-    // Only from DELIVERED — no delivery acceptance, no settlement. (Full
-    // ACCEPTED/AUTO_ACCEPTED states land in a later phase; DELIVERED-only is
-    // the interim gate that rules out the IN_PROGRESS -> SETTLED shortcut.)
-    if (contract.state !== 'DELIVERED') {
+    // Only from PERFORMANCE_ACCEPTED: the state a contract reaches when the
+    // HIRER has confirmed the Earner's assertion of performance.
+    //
+    // This deliberately replaces the old 'DELIVERED' gate. 'DELIVERED' read as
+    // an established fact but nothing ever set it, and the projection that
+    // would have set it is driven by the Earner's own assertion. Gating an
+    // irreversible transfer on a state one party can reach alone is the exact
+    // failure this boundary exists to prevent — an assertion is not a
+    // confirmation, and only a confirmation opens this door.
+    if (contract.state !== 'PERFORMANCE_ACCEPTED') {
       return new Response(JSON.stringify({ error: `Cannot capture in state: ${contract.state}` }), {
         status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -118,7 +124,7 @@ serve(async (req: Request) => {
       .from('contracts')
       .update({ settlement_claimed_at: new Date().toISOString() })
       .eq('id', contractId)
-      .eq('state', 'DELIVERED')
+      .eq('state', 'PERFORMANCE_ACCEPTED')
       .is('settlement_claimed_at', null)
       .select('id')
 

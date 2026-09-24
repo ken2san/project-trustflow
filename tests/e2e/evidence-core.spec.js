@@ -1,0 +1,288 @@
+// The evidence core, tested as an evidence system rather than as a UI flow.
+//
+// What this suite is defending is a single idea: TrustFlow attests that a party
+// SAID something, never that what they said is true. Every test below is a way
+// that distinction could quietly collapse — a party confirming their own claim,
+// an assertion citing terms nobody agreed to, a payload edited after the fact,
+// or a state name that turns a claim into a fact.
+//
+// Requires a verified Earner:
+//   TF_TEST_EARNER_EMAIL / TF_TEST_EARNER_PASSWORD
+
+import { test, expect } from '@playwright/test';
+import { getEarnerSession } from './earnerSession.js';
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const EARNER_EMAIL = process.env.TF_TEST_EARNER_EMAIL;
+const EARNER_PASSWORD = process.env.TF_TEST_EARNER_PASSWORD;
+
+const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_KEY && EARNER_EMAIL && EARNER_PASSWORD);
+
+test.skip(!CONFIGURED,
+  'Set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TF_TEST_EARNER_EMAIL and TF_TEST_EARNER_PASSWORD to run the evidence-core suite.');
+
+async function api(request, path, { method = 'POST', token, guestToken, body, prefer } = {}) {
+  const headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (guestToken) headers['x-guest-access-token'] = guestToken;
+  if (prefer) headers.Prefer = prefer;
+  const response = await request.fetch(`${SUPABASE_URL}${path}`, { method, headers, data: body });
+  let parsed = null;
+  try { parsed = await response.json(); } catch { /* empty body */ }
+  return { status: response.status(), body: parsed };
+}
+
+/** An accepted agreement with both parties' credentials in hand. */
+async function acceptedContract(request, { dod = ['ship the thing'] } = {}) {
+  const { token, userId } = await getEarnerSession(request);
+
+  const created = await api(request, '/rest/v1/contracts', {
+    token,
+    prefer: 'return=representation',
+    body: {
+      earner_user_id: userId,
+      earner_display_name: 'Evidence Core Earner',
+      project_name: 'Evidence Core Probe',
+      dod,
+      amount_jpy: 1000,
+      currency: 'JPY',
+      invited_hirer_email: 'invited@example.test',
+    },
+  });
+  expect(created.status, `contract insert failed: ${JSON.stringify(created.body)}`).toBe(201);
+  const contract = created.body[0];
+
+  const accept = await api(request, '/functions/v1/validate-invite-token', {
+    body: { invite_token: contract.invite_token, accept: true, hirer_email: 'hirer@example.test' },
+  });
+  expect(accept.status).toBe(200);
+
+  return { contract, earnerToken: token, earnerUserId: userId, guestToken: accept.body.guest_access_token };
+}
+
+const stateOf = async (request, contract, token) => {
+  const { body } = await api(request,
+    `/rest/v1/contracts?id=eq.${contract.id}&select=state`, { method: 'GET', token });
+  return body[0].state;
+};
+
+// ── An assertion is not a fact ──────────────────────────────────────────────
+
+test('an assertion moves the protocol to a waiting position, not to "delivered"', async ({ request }) => {
+  const { contract, earnerToken } = await acceptedContract(request);
+  expect(await stateOf(request, contract, earnerToken)).toBe('TERMS_ACCEPTED');
+
+  const asserted = await api(request, '/functions/v1/log-event', {
+    token: earnerToken,
+    body: { type: 'performance.asserted', contract_id: contract.id, payload: { note: 'done' } },
+  });
+  expect(asserted.status).toBe(201);
+
+  // The state names where the protocol stands, not what happened in the world.
+  const state = await stateOf(request, contract, earnerToken);
+  expect(state).toBe('AWAITING_CONFIRMATION');
+  expect(state).not.toBe('DELIVERED');
+});
+
+test('a unilateral assertion cannot reach settlement', async ({ request }) => {
+  const { contract, earnerToken, guestToken } = await acceptedContract(request);
+
+  await api(request, '/functions/v1/log-event', {
+    token: earnerToken, body: { type: 'performance.asserted', contract_id: contract.id },
+  });
+
+  // The Hirer is the only party who may call capture, and even they cannot
+  // while the only thing that has happened is the Earner's own claim.
+  const capture = await api(request, '/functions/v1/capture-payment', {
+    guestToken, body: { contractId: contract.id },
+  });
+  expect(capture.status).toBe(409);
+  expect(capture.body.error).toContain('AWAITING_CONFIRMATION');
+  expect(await stateOf(request, contract, earnerToken)).not.toBe('SETTLED');
+});
+
+test('a party cannot confirm their own assertion', async ({ request }) => {
+  const { contract, earnerToken } = await acceptedContract(request);
+  await api(request, '/functions/v1/log-event', {
+    token: earnerToken, body: { type: 'performance.asserted', contract_id: contract.id },
+  });
+
+  // Being a party is not enough — confirming is the counterparty's act. Without
+  // this the Earner could walk a contract to the settlement gate alone.
+  const selfAccept = await api(request, '/functions/v1/log-event', {
+    token: earnerToken, body: { type: 'performance.accepted', contract_id: contract.id },
+  });
+  expect(selfAccept.status).toBe(403);
+  expect(selfAccept.body.error).toBe('wrong_party_for_event_type');
+  expect(await stateOf(request, contract, earnerToken)).toBe('AWAITING_CONFIRMATION');
+});
+
+test('the Hirer cannot assert performance on the Earner’s behalf', async ({ request }) => {
+  const { contract, guestToken } = await acceptedContract(request);
+
+  const { status, body } = await api(request, '/functions/v1/log-event', {
+    guestToken, body: { type: 'performance.asserted', contract_id: contract.id },
+  });
+  expect(status).toBe(403);
+  expect(body.error).toBe('wrong_party_for_event_type');
+});
+
+// ── Disagreement is representable, and repeatable ───────────────────────────
+
+test('assert → reject → assert → accept needs no second architecture', async ({ request }) => {
+  const { contract, earnerToken, guestToken } = await acceptedContract(request);
+
+  const assert1 = await api(request, '/functions/v1/log-event', {
+    token: earnerToken, body: { type: 'performance.asserted', contract_id: contract.id },
+  });
+  expect(assert1.status).toBe(201);
+  expect(await stateOf(request, contract, earnerToken)).toBe('AWAITING_CONFIRMATION');
+
+  const reject = await api(request, '/functions/v1/log-event', {
+    guestToken,
+    body: { type: 'performance.rejected', contract_id: contract.id, payload: { reason: 'incomplete' } },
+  });
+  expect(reject.status).toBe(201);
+  // A rejection returns the protocol to a position where the Earner may assert
+  // again. It is not a verdict, and both positions stay in the log.
+  expect(await stateOf(request, contract, earnerToken)).toBe('TERMS_ACCEPTED');
+
+  const assert2 = await api(request, '/functions/v1/log-event', {
+    token: earnerToken, body: { type: 'performance.asserted', contract_id: contract.id },
+  });
+  expect(assert2.status).toBe(201);
+
+  const accept = await api(request, '/functions/v1/log-event', {
+    guestToken, body: { type: 'performance.accepted', contract_id: contract.id },
+  });
+  expect(accept.status).toBe(201);
+  expect(await stateOf(request, contract, earnerToken)).toBe('PERFORMANCE_ACCEPTED');
+
+  // All four remain, in order, attributed to whoever made them.
+  const trail = await api(request, '/functions/v1/guest-contract-events', { guestToken });
+  const performance = trail.body.events.filter(e => e.type.startsWith('performance.'));
+  expect(performance.map(e => e.type)).toEqual([
+    'performance.asserted', 'performance.rejected', 'performance.asserted', 'performance.accepted',
+  ]);
+  expect(performance.map(e => e.actor.role)).toEqual(['earner', 'guest_hirer', 'earner', 'guest_hirer']);
+});
+
+// ── What an assertion may cite ──────────────────────────────────────────────
+
+test('a client cannot choose which agreement version its assertion cites', async ({ request }) => {
+  const { contract, earnerToken } = await acceptedContract(request);
+
+  const forged = await api(request, '/functions/v1/log-event', {
+    token: earnerToken,
+    body: { type: 'performance.asserted', contract_id: contract.id, dod_hash: 'terms-nobody-agreed-to' },
+  });
+  expect(forged.status).toBe(400);
+  expect(forged.body.error).toBe('dod_hash_is_server_derived');
+});
+
+test('the terms an assertion cites are derived from the agreement itself', async ({ request }) => {
+  const a = await acceptedContract(request, { dod: ['three logo concepts'] });
+  const b = await acceptedContract(request, { dod: ['three logo concepts', 'and a website'] });
+
+  const inA = await api(request, '/functions/v1/log-event', {
+    token: a.earnerToken, body: { type: 'performance.asserted', contract_id: a.contract.id },
+  });
+  const inB = await api(request, '/functions/v1/log-event', {
+    token: b.earnerToken, body: { type: 'performance.asserted', contract_id: b.contract.id },
+  });
+
+  expect(inA.body.event.dod_hash).toBeTruthy();
+  // Different terms produce different pins, which is what would make a scope
+  // change visible in the log rather than silent.
+  expect(inB.body.event.dod_hash).not.toBe(inA.body.event.dod_hash);
+});
+
+// ── The substance is attested, not merely recorded ──────────────────────────
+
+test('the payload is bound into the hash under the current version', async ({ request }) => {
+  const { contract, earnerToken, guestToken } = await acceptedContract(request);
+
+  const written = await api(request, '/functions/v1/log-event', {
+    token: earnerToken,
+    body: { type: 'performance.asserted', contract_id: contract.id, payload: { note: 'delivered in full' } },
+  });
+  expect(written.status).toBe(201);
+  expect(written.body.event.hash_version).toBe(3);
+  expect(written.body.event.payload_hash).toBeTruthy();
+
+  const trail = await api(request, '/functions/v1/guest-contract-events', { guestToken });
+  const asserted = trail.body.events.find(e => e.type === 'performance.asserted');
+  expect(asserted.integrity.hash_valid).toBe(true);
+  expect(asserted.integrity.substance_valid).toBe(true);
+  expect(trail.body.chain.payload_covered_by_hash).toBe(true);
+});
+
+test('a payload edited after the fact fails verification', async ({ request }) => {
+  const { contract, earnerToken, guestToken } = await acceptedContract(request);
+  await api(request, '/functions/v1/log-event', {
+    token: earnerToken,
+    body: { type: 'performance.asserted', contract_id: contract.id, payload: { note: 'original claim' } },
+  });
+
+  // An edit is refused by the no_update_events rule rather than by a permission
+  // check — Postgres reports 0A000 because a DO INSTEAD NOTHING rule cannot
+  // satisfy UPDATE ... RETURNING. That distinction matters: a grant applies to
+  // a role, but the rule applies to every role, the service role included.
+  const edit = await api(request, `/rest/v1/events?contract_id=eq.${contract.id}`, {
+    method: 'PATCH', token: earnerToken, body: { payload: { note: 'a different claim' } },
+  });
+  expect(edit.status).toBe(400);
+  expect(edit.body.code).toBe('0A000');
+
+  // And the stored hash is over the stored payload, so had an edit landed by
+  // some other route, verification would report it.
+  const trail = await api(request, '/functions/v1/guest-contract-events', { guestToken });
+  const asserted = trail.body.events.find(e => e.type === 'performance.asserted');
+  expect(asserted.integrity.substance_valid).toBe(true);
+});
+
+// ── Vocabulary that claims a world fact is refused ──────────────────────────
+
+test('the retired world-fact event names are no longer accepted', async ({ request }) => {
+  const { contract, earnerToken } = await acceptedContract(request);
+
+  for (const type of ['work.submitted', 'work.approved', 'work.rejected']) {
+    const { status, body } = await api(request, '/functions/v1/log-event', {
+      token: earnerToken, body: { type, contract_id: contract.id },
+    });
+    expect(status, `${type} should be refused`).toBe(400);
+    expect(body.error).toBe('type_retired');
+  }
+});
+
+// ── Preserved invariants ────────────────────────────────────────────────────
+
+test('replaying an assertion returns the original rather than appending', async ({ request }) => {
+  const { contract, earnerToken } = await acceptedContract(request);
+  const key = `assert:${contract.id}`;
+
+  const first = await api(request, '/functions/v1/log-event', {
+    token: earnerToken,
+    body: { type: 'performance.asserted', contract_id: contract.id, idempotency_key: key },
+  });
+  const replay = await api(request, '/functions/v1/log-event', {
+    token: earnerToken,
+    body: { type: 'performance.asserted', contract_id: contract.id, idempotency_key: key },
+  });
+
+  expect(first.status).toBe(201);
+  expect(replay.status).toBe(200);
+  expect(replay.body.deduplicated).toBe(true);
+  expect(replay.body.event.id).toBe(first.body.event.id);
+});
+
+test('a client still cannot write state directly', async ({ request }) => {
+  const { contract, earnerToken } = await acceptedContract(request);
+
+  const direct = await api(request, `/rest/v1/contracts?id=eq.${contract.id}`, {
+    method: 'PATCH', token: earnerToken, body: { state: 'PERFORMANCE_ACCEPTED' },
+  });
+  expect(direct.status).toBeGreaterThanOrEqual(401);
+  expect(await stateOf(request, contract, earnerToken)).toBe('TERMS_ACCEPTED');
+});

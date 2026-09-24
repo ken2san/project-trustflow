@@ -111,6 +111,8 @@ test('the ingestion function ignores a client-supplied actor_id, hash and timest
       prev_event_hash: 'forged-prev',
       created_at: '1999-01-01T00:00:00.000Z',
       payload: { step: 1 },
+      // dod_hash is deliberately absent — it is rejected outright now, and
+      // that refusal has its own test in evidence-core.spec.js.
     },
   });
 
@@ -120,7 +122,7 @@ test('the ingestion function ignores a client-supplied actor_id, hash and timest
   expect(body.event.event_hash).not.toBe('forged-hash');
   expect(body.event.prev_event_hash).toBe('GENESIS');
   expect(new Date(body.event.created_at).getFullYear()).toBeGreaterThan(2020);
-  expect(body.event.hash_version).toBe(2);
+  expect(body.event.hash_version).toBe(3);
 });
 
 test('a privileged event type cannot be asserted by a party', async ({ request }) => {
@@ -175,10 +177,10 @@ test('the chain links each event to its predecessor and cannot be forked', async
   const { contract, token } = await createContract(request);
 
   const first = await api(request, '/functions/v1/log-event', {
-    token, body: { type: 'contract.initiated', contract_id: contract.id, dod_hash: 'abc' },
+    token, body: { type: 'contract.initiated', contract_id: contract.id },
   });
   const second = await api(request, '/functions/v1/log-event', {
-    token, body: { type: 'work.submitted', contract_id: contract.id },
+    token, body: { type: 'contract.accepted', contract_id: contract.id },
   });
 
   expect(first.status).toBe(201);
@@ -190,7 +192,7 @@ test('the chain links each event to its predecessor and cannot be forked', async
   // (contract_id, prev_event_hash) means only one of them can claim it, and
   // the other retries — so the tail is a chain, never a fork.
   const concurrent = await Promise.all(
-    ['work.approved', 'contract.completed', 'contract.cancelled'].map(type =>
+    ['contract.completed', 'contract.cancelled', 'dispute.opened'].map(type =>
       api(request, '/functions/v1/log-event', { token, body: { type, contract_id: contract.id } })
     )
   );

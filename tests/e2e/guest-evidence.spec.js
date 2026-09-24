@@ -63,7 +63,7 @@ async function acceptedContract(request, { projectName = 'Guest Evidence Probe' 
   const contract = created.body[0];
 
   await api(request, '/functions/v1/log-event', {
-    token, body: { type: 'contract.initiated', contract_id: contract.id, dod_hash: 'probe-dod-hash', payload: { step: 1 } },
+    token, body: { type: 'contract.initiated', contract_id: contract.id, payload: { step: 1 } },
   });
 
   const accept = await api(request, '/functions/v1/validate-invite-token', {
@@ -244,7 +244,7 @@ test('internal event fields are omitted and payloads are allowlisted', async ({ 
   await api(request, '/functions/v1/log-event', {
     token: earnerToken,
     body: {
-      type: 'work.submitted',
+      type: 'performance.asserted',
       contract_id: contract.id,
       idempotency_key: 'guest-evidence-secret-key',
       payload: { step: 3, internal_note: 'SHOULD-NOT-REACH-GUEST', user_agent: 'probe-agent/1.0' },
@@ -263,7 +263,7 @@ test('internal event fields are omitted and payloads are allowlisted', async ({ 
   expect(serialized).not.toContain('guest_access_token');
   expect(serialized).not.toContain('invite_token');
 
-  const submitted = body.events.find(e => e.type === 'work.submitted');
+  const submitted = body.events.find(e => e.type === 'performance.asserted');
   expect(Object.keys(submitted.payload)).toEqual(['step']);
   // The role survives, lifted out of the payload into a field of its own.
   expect(submitted.actor.role).toBe('earner');
@@ -335,17 +335,22 @@ test('a guest accepts an invite and can then read the record in the UI', async (
   // this asserts presence rather than uniqueness.
   await expect(page.getByText('ui.actual@example.test', { exact: true }).first()).toBeVisible();
 
-  // And it does not overstate what the hash covers.
-  await expect(page.getByText(/not.*cover the detail fields/i)).toBeVisible();
+  // And it states what the hash covers without overstating it. These events are
+  // written under canonical v3, so the detail fields are covered — and the view
+  // is explicit that a record of what was stated is not a finding that it is true.
+  await expect(page.getByText(/also covers the detail fields/i)).toBeVisible();
+  await expect(page.getByText(/does not establish that a statement is true/i)).toBeVisible();
 });
 
-test('the response states that payloads are outside the hash', async ({ request }) => {
+test('the response states whether payloads are covered by the hash', async ({ request }) => {
   const { guestToken } = await acceptedContract(request);
 
   const { body } = await api(request, '/functions/v1/guest-contract-events', { guestToken });
 
-  // The canonical covers id, type, contract_id, actor_id, dod_hash, created_at
-  // and prev_hash — not payload. Saying so in the response keeps the trail from
-  // implying more than it proves.
-  expect(body.chain.payload_covered_by_hash).toBe(false);
+  // Events written under canonical v3 bind a hash of the payload, so on a
+  // trail made up entirely of such events the detail fields ARE tamper-evident
+  // and the response says so. The flag is per-trail rather than constant: a
+  // trail containing a pre-v3 event reports false, because its substance was
+  // never attested.
+  expect(body.chain.payload_covered_by_hash).toBe(true);
 });
