@@ -28,6 +28,9 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  GENESIS_HASH, eventCanonical, canonicalVersionOf, payloadHash, sha256Hex,
+} from '../_shared/eventCanonical.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -40,7 +43,6 @@ const json = (body: unknown, status: number) =>
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
 
-const GENESIS_HASH = 'GENESIS'
 const MAX_EVENTS = 500
 
 // Payload keys a guest may see, per event type. Everything else is dropped.
@@ -53,6 +55,10 @@ const MAX_EVENTS = 500
 const PAYLOAD_ALLOWLIST: Record<string, string[]> = {
   'contract.initiated':    ['step', 'title', 'budgetPoints'],
   'contract.accepted':     ['step'],
+  'performance.asserted':  ['step', 'note'],
+  'performance.accepted':  ['step'],
+  'performance.rejected':  ['step', 'reason'],
+  // Retired names, kept so historical rows still render their detail.
   'work.submitted':        ['step'],
   'work.approved':         ['step'],
   'work.rejected':         ['step', 'reason'],
@@ -61,26 +67,6 @@ const PAYLOAD_ALLOWLIST: Record<string, string[]> = {
   'dod.consent_recorded':  ['counterparty_name', 'counterparty_email', 'dod_items'],
   'dispute.opened':        ['reason'],
   'rating.submitted':      ['rating'],
-}
-
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text)
-  const buf = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-/**
- * The timestamp exactly as it was hashed at write time.
- *
- * Events are hashed over `new Date().toISOString()`, which renders as
- * 2026-09-24T12:52:40.016Z. PostgREST returns the same instant as
- * 2026-09-24T12:52:40.016+00:00. Hashing the value as read therefore produces
- * a different digest from the one stored, and every row looks tampered with.
- * Re-normalising through Date restores the written form.
- */
-function canonicalTimestamp(value: string): string {
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString()
 }
 
 function filterPayload(type: string, payload: unknown): Record<string, unknown> {
@@ -172,7 +158,7 @@ serve(async (req: Request) => {
     // is a weaker guarantee than "it is not selected".
     const { data: rows, error: eventsError } = await admin
       .from('events')
-      .select('id, type, actor_id, payload, dod_hash, created_at, event_hash, prev_event_hash, hash_version')
+      .select('id, type, actor_id, payload, dod_hash, created_at, event_hash, prev_event_hash, hash_version, payload_hash')
       .eq('contract_id', contract.id)
       .neq('type', 'runtime.snapshot')
       .order('created_at', { ascending: true })
@@ -184,22 +170,28 @@ serve(async (req: Request) => {
     const events = []
 
     for (const row of rows ?? []) {
-      // Two canonical formats exist; a row must be verified under the one it
-      // was written with. Rows with no hash_version predate the column and are
-      // v1, which hashed the event's own fields with no prev_hash.
-      const hashVersion = row.hash_version ?? (row.prev_event_hash ? 2 : 1)
-      const base = {
-        id:          row.id,
-        type:        row.type,
-        contract_id: contract.id,
-        actor_id:    row.actor_id,
-        dod_hash:    row.dod_hash ?? null,
-        created_at:  canonicalTimestamp(row.created_at),
-      }
-      const canonical = hashVersion >= 2
-        ? JSON.stringify({ ...base, prev_hash: row.prev_event_hash ?? GENESIS_HASH })
-        : JSON.stringify(base)
-      const recomputed = await sha256(canonical)
+      // Three canonical formats now exist; a row is verified under the one it
+      // was written with. Applying the newest to an older row reports an
+      // untouched event as tampered with.
+      const hashVersion = canonicalVersionOf(row)
+      const recomputed = await sha256Hex(eventCanonical({
+        id:              row.id,
+        type:            row.type,
+        contract_id:     contract.id,
+        actor_id:        row.actor_id,
+        dod_hash:        row.dod_hash ?? null,
+        created_at:      row.created_at,
+        prev_event_hash: row.prev_event_hash,
+        payload_hash:    row.payload_hash,
+      }, hashVersion))
+
+      // From v3 the payload is bound into the hash, so the substance of an
+      // assertion can be checked as well as its authorship. null rather than
+      // false for older rows: TrustFlow never attested their payloads, which is
+      // a different statement from the check having failed.
+      const substanceValid = hashVersion >= 3 && row.payload_hash
+        ? (await payloadHash(row.payload ?? {})) === row.payload_hash
+        : null
 
       const actorRole = (row.payload as Record<string, unknown> | null)?._actor_role as string | null
 
@@ -218,6 +210,7 @@ serve(async (req: Request) => {
           prev_event_hash: row.prev_event_hash ?? null,
           hash_valid:      row.event_hash ? row.event_hash === recomputed : null,
           chain_linked:    row.prev_event_hash ? row.prev_event_hash === expectedPrev : null,
+          substance_valid: substanceValid,
         },
       })
 
@@ -252,11 +245,12 @@ serve(async (req: Request) => {
         verified: attested.length > 0
           && attested.every(e => e.integrity.hash_valid !== false && e.integrity.chain_linked !== false),
         truncated: (rows?.length ?? 0) >= MAX_EVENTS,
-        // Stated in the response rather than left for a reader to discover:
-        // the canonical that produces event_hash covers id, type, contract_id,
-        // actor_id, dod_hash, created_at and prev_hash. It does NOT cover
-        // payload, so payload contents are not tamper-evident.
-        payload_covered_by_hash: false,
+        // Whether the detail fields are tamper-evident, stated rather than left
+        // for a reader to discover. True only when every returned event was
+        // written under a canonical that binds its payload; events from before
+        // that are covered for authorship and timing but not for substance.
+        payload_covered_by_hash: events.length > 0
+          && events.every(e => e.integrity.substance_valid !== null),
       },
     }, 200)
 

@@ -24,7 +24,9 @@ function attestedEvent({ id, type, actorId, createdAt, dodHash = null, prevHash 
   }
 }
 
-/** An event hashed the way the pre-chain client hashed one (canonical v1). */
+/** An event hashed the way the pre-chain client hashed one (canonical v1).
+ *  The retired work.* type names below are deliberate: these stand in for rows
+ *  written before the vocabulary changed, and such rows must keep verifying. */
 function legacyEvent({ id, type, actorId, createdAt, dodHash = null }) {
   const event_hash = sha(JSON.stringify({
     id, type, contract_id: CONTRACT, actor_id: actorId,

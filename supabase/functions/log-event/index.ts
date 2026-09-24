@@ -31,6 +31,9 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  GENESIS_HASH, HASH_VERSION, eventCanonical, payloadHash, deriveDodHash, sha256Hex,
+} from '../_shared/eventCanonical.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -48,14 +51,6 @@ const json = (body: unknown, status: number) =>
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
 
-// Sentinel prev_hash for a contract's first event. Must match
-// GENESIS_HASH in src/lib/eventLog.js.
-const GENESIS_HASH = 'GENESIS'
-
-// The canonical format this function writes. v1 (no prev_hash field) is the
-// pre-20260921000004 format and is never produced here, only verified.
-const HASH_VERSION = 2
-
 // Types a party may record about their own contract. Deliberately excludes
 // runtime.snapshot (application state, now in runtime_snapshots) and every
 // type whose truth is decided by the payment processor rather than by a
@@ -65,9 +60,13 @@ const HASH_VERSION = 2
 const ALLOWED_TYPES = new Set([
   'contract.initiated',
   'contract.accepted',
-  'work.submitted',
-  'work.approved',
-  'work.rejected',
+  // What a party SAYS about performance. These names are deliberate: the
+  // Earner asserting they performed is not the same fact as the work having
+  // been delivered, and TrustFlow can only attest the first. The projection in
+  // derive_contract_state() is built on exactly this distinction.
+  'performance.asserted',
+  'performance.accepted',
+  'performance.rejected',
   'contract.cancelled',
   'contract.completed',
   'dod.consent_recorded',
@@ -75,16 +74,33 @@ const ALLOWED_TYPES = new Set([
   'rating.submitted',
 ])
 
+// Written before the vocabulary above. Still readable and still verifiable
+// under the canonical they were written with — the log is append-only, so
+// their names are permanent — but no longer accepted for new events, and they
+// do not drive the projection. 'work.submitted' in particular could be read as
+// "the work arrived", which is precisely the claim TrustFlow cannot make.
+const RETIRED_TYPES = new Set(['work.submitted', 'work.approved', 'work.rejected'])
+
+// Which party an event type may come from.
+//
+// Being a party to the contract is not enough. Confirming an assertion is the
+// counterparty's act by definition — an Earner who could emit
+// performance.accepted would be confirming their own claim, and since that is
+// the state capture-payment opens on, they would have walked a contract to the
+// edge of an irreversible transfer entirely alone. Party authorisation answers
+// "may you write here"; this answers "is this yours to say".
+//
+// Types absent from this map may come from either party.
+const ROLE_REQUIRED: Record<string, 'earner' | 'guest_hirer'> = {
+  // Only the performing party can claim to have performed.
+  'performance.asserted': 'earner',
+  // Only the receiving party can accept or reject that claim.
+  'performance.accepted': 'guest_hirer',
+  'performance.rejected': 'guest_hirer',
+}
+
 const MAX_PAYLOAD_BYTES = 16 * 1024
 const MAX_CHAIN_RETRIES = 5
-
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text)
-  const buf = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-}
 
 /**
  * Resolve who is making this request, from credentials only.
@@ -141,7 +157,8 @@ serve(async (req: Request) => {
     const { type, contract_id, payload, dod_hash, idempotency_key } = body as Record<string, unknown>
 
     if (typeof type !== 'string' || !ALLOWED_TYPES.has(type)) {
-      return json({ error: 'type_not_allowed' }, 400)
+      const retired = typeof type === 'string' && RETIRED_TYPES.has(type)
+      return json({ error: retired ? 'type_retired' : 'type_not_allowed' }, 400)
     }
     if (typeof contract_id !== 'string' || !contract_id) {
       return json({ error: 'missing_contract_id' }, 400)
@@ -152,8 +169,12 @@ serve(async (req: Request) => {
     if (JSON.stringify(payload ?? {}).length > MAX_PAYLOAD_BYTES) {
       return json({ error: 'payload_too_large' }, 413)
     }
-    if (dod_hash !== undefined && dod_hash !== null && typeof dod_hash !== 'string') {
-      return json({ error: 'invalid_dod_hash' }, 400)
+    // Rejected, not ignored. The terms an assertion refers to are derived from
+    // the agreement itself further down; a caller offering its own value is
+    // either confused or trying to pin its assertion to terms that were never
+    // agreed. Silently dropping it would hide both.
+    if (dod_hash !== undefined && dod_hash !== null) {
+      return json({ error: 'dod_hash_is_server_derived' }, 400)
     }
     if (idempotency_key !== undefined && idempotency_key !== null && typeof idempotency_key !== 'string') {
       return json({ error: 'invalid_idempotency_key' }, 400)
@@ -173,7 +194,7 @@ serve(async (req: Request) => {
 
     const { data: contract, error: contractError } = await admin
       .from('contracts')
-      .select('id, earner_user_id, hirer_email, guest_access_token, guest_access_token_expires_at')
+      .select('id, dod, earner_user_id, hirer_email, guest_access_token, guest_access_token_expires_at')
       .eq('id', contract_id)
       .maybeSingle()
 
@@ -182,6 +203,11 @@ serve(async (req: Request) => {
 
     const actor = await resolveActor(req, admin, contract)
     if (!actor) return json({ error: 'not_a_party' }, 403)
+
+    const requiredRole = ROLE_REQUIRED[type]
+    if (requiredRole && actor.role !== requiredRole) {
+      return json({ error: 'wrong_party_for_event_type' }, 403)
+    }
 
     // Idempotency: a retry returns what was already written.
     if (idempotency_key) {
@@ -206,37 +232,43 @@ serve(async (req: Request) => {
 
       const prevHash = tip?.event_hash ?? GENESIS_HASH
 
+      // The terms this assertion refers to, derived from the agreement rather
+      // than taken from the caller. Two assertions made either side of a scope
+      // change carry different values, which is what makes an unannounced
+      // change to the terms visible in the log instead of silent.
+      const termsHash = await deriveDodHash(contract.dod)
+
+      // The substance of the assertion, bound into the hash from v3 on.
+      const recordedPayload = {
+        ...(payload as Record<string, unknown> ?? {}),
+        // Recorded, not accepted: how the writer was authenticated.
+        _actor_role: actor.role,
+      }
+      const substanceHash = await payloadHash(recordedPayload)
+
       const event = {
         id: crypto.randomUUID(),
         type,
         contract_id,
         actor_id: actor.actorId,
-        dod_hash: (dod_hash as string | null) ?? null,
+        dod_hash: termsHash,
         created_at: new Date().toISOString(),
       }
 
-      // Byte-identical to the canonical in src/lib/eventLog.js — key order
-      // included. The chain format is unchanged by moving computation here.
-      const canonical = JSON.stringify({
-        id:          event.id,
-        type:        event.type,
-        contract_id: event.contract_id,
-        actor_id:    event.actor_id,
-        dod_hash:    event.dod_hash,
-        created_at:  event.created_at,
-        prev_hash:   prevHash,
-      })
-      const eventHash = await sha256(canonical)
+      // One definition of the canonical, shared with the verifiers — see
+      // _shared/eventCanonical.ts for why that matters.
+      const eventHash = await sha256Hex(eventCanonical({
+        ...event,
+        prev_event_hash: prevHash,
+        payload_hash: substanceHash,
+      }, HASH_VERSION))
 
       const { data: inserted, error: insertError } = await admin
         .from('events')
         .insert({
           ...event,
-          payload: {
-            ...(payload as Record<string, unknown> ?? {}),
-            // Recorded, not accepted: how the writer was authenticated.
-            _actor_role: actor.role,
-          },
+          payload: recordedPayload,
+          payload_hash: substanceHash,
           event_hash: eventHash,
           prev_event_hash: prevHash,
           hash_version: HASH_VERSION,

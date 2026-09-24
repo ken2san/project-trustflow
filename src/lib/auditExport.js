@@ -18,26 +18,11 @@
 // prev_hash) and comparing against on-chain anchors or TSA tokens without
 // access to TrustFlow servers.
 
-import { sha256 } from './crypto.js'
-import { GENESIS_HASH } from './eventLog.js'
+import {
+  GENESIS_HASH, eventCanonical, canonicalVersionOf, payloadHash, sha256Hex,
+} from '../../supabase/functions/_shared/eventCanonical.ts'
 
 const EXPORT_VERSION = '1.1'
-
-/**
- * The timestamp exactly as it was hashed at write time.
- *
- * Events are hashed over `new Date().toISOString()`, which renders as
- * 2026-09-24T12:52:40.016Z. PostgREST returns the same instant as
- * 2026-09-24T12:52:40.016+00:00, so hashing the value as read produces a
- * different digest from the one stored and every row is reported as tampered
- * with. Re-normalising through Date restores the written form. Events still
- * held only in local React state already carry the written form, and
- * normalising them is a no-op.
- */
-function canonicalTimestamp(value) {
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString()
-}
 
 /**
  * Build and download a signed JSON audit trail for a contract.
@@ -59,29 +44,23 @@ export async function buildAuditDocument({ contractId, dodHash, events, meta = {
   // Re-verify each event's own hash AND its link to its chronological
   // predecessor at export time.
   //
-  // Two canonical formats exist and a row must be verified under the one it
-  // was written with. v1 (rows written before the chain existed) hashed the
-  // event's own fields only; v2 added prev_hash. Verifying a v1 row with the
-  // v2 canonical produces a mismatch on an untampered row — which is exactly
-  // what this function used to report for every historical event. hash_version
-  // is stored per row (20260924000001); rows predating that column are v1,
-  // identifiable by having no prev_event_hash.
+  // Three canonical formats exist and a row must be verified under the one it
+  // was written with: v1 hashed the event's own fields, v2 added prev_hash, v3
+  // added payload_hash. Verifying a row under the wrong one reports an
+  // untampered event as altered — which is exactly what this function used to
+  // do to every historical row. The canonical itself is defined once, in
+  // _shared/eventCanonical.ts, and shared with the server that writes it.
   let prevHash = GENESIS_HASH
   const verifiedEvents = []
   for (const ev of chronological) {
-    const hashVersion = ev.hash_version ?? (ev.prev_event_hash ? 2 : 1)
-    const base = {
-      id:          ev.id,
-      type:        ev.type,
-      contract_id: ev.contract_id,
-      actor_id:    ev.actor_id,
-      dod_hash:    ev.dod_hash ?? null,
-      created_at:  canonicalTimestamp(ev.created_at),
-    }
-    const canonical = hashVersion >= 2
-      ? JSON.stringify({ ...base, prev_hash: ev.prev_event_hash ?? GENESIS_HASH })
-      : JSON.stringify(base)
-    const recomputedHash = await sha256(canonical)
+    const hashVersion = canonicalVersionOf(ev)
+    const recomputedHash = await sha256Hex(eventCanonical(ev, hashVersion))
+
+    // From v3 the payload is bound into the hash. null for older rows — their
+    // substance was never attested, which is not the same as failing a check.
+    const substanceMatch = hashVersion >= 3 && ev.payload_hash
+      ? (await payloadHash(ev.payload ?? {})) === ev.payload_hash
+      : null
     const hashMatch = ev.event_hash
       ? ev.event_hash === recomputedHash
       : null  // hash not yet stored (pre-chain events, before this field existed)
@@ -93,6 +72,7 @@ export async function buildAuditDocument({ contractId, dodHash, events, meta = {
       ...ev,
       _export_verification: {
         canonical_version: hashVersion,
+        substance_match:   substanceMatch,
         recomputed_hash:   recomputedHash,
         stored_hash:       ev.event_hash ?? null,
         hash_match:        hashMatch,
@@ -104,6 +84,10 @@ export async function buildAuditDocument({ contractId, dodHash, events, meta = {
         // history, but they are not server-attested evidence. v2 rows were
         // written by the log-event Edge Function, which derives all of those.
         trust_model:       hashVersion >= 2 ? 'server_attested' : 'client_asserted',
+        // What the attestation covers. From v3 the payload is bound in too, so
+        // the substance of an assertion is tamper-evident and not merely
+        // recorded alongside one that is.
+        substance_attested: hashVersion >= 3,
       },
     })
 
@@ -115,6 +99,7 @@ export async function buildAuditDocument({ contractId, dodHash, events, meta = {
 
   const allHashesMatch = verifiedEvents.every(
     ev => ev._export_verification.hash_match !== false
+      && ev._export_verification.substance_match !== false
   )
   const chainIntact = verifiedEvents.every(
     ev => ev._export_verification.chain_link_match !== false
@@ -163,7 +148,7 @@ export async function buildAuditDocument({ contractId, dodHash, events, meta = {
         '2. Normalise created_at to the form it was hashed in: an ISO-8601 instant in UTC with milliseconds and a trailing Z (2026-09-24T12:52:40.016Z). A timestamp rendered any other way — for example with a +00:00 offset — produces a different digest even though it is the same instant.',
         '3. For each event, recompute SHA-256 over a JSON object with keys in this exact order. For events where _export_verification.canonical_version is 2: {id, type, contract_id, actor_id, dod_hash, created_at, prev_hash}, where prev_hash is that event\'s own prev_event_hash field (or the literal string "GENESIS" for the first event). For canonical_version 1 — events written before the chain existed — omit prev_hash entirely; those rows were hashed without it, and including it will produce a mismatch on an untampered row. Compare with event.event_hash; any mismatch indicates that event was altered.',
         '4. Separately, confirm each event\'s prev_event_hash equals the PRECEDING event\'s event_hash. A break here — even if every individual event\'s own hash still matches itself — indicates an event was deleted, reordered, or a forged event was inserted.',
-        '5. The hash covers only the fields listed in step 3. It does NOT cover payload, so the detail fields on each event are recorded but not tamper-evident.',
+        '5. For canonical_version 3 and above, payload_hash is the SHA-256 of the event payload serialized deterministically — object keys sorted recursively, arrays left in order, no whitespace — and is itself covered by the event hash, so the detail fields are tamper-evident. For versions 1 and 2 the hash does NOT cover payload: those detail fields were recorded but never attested, and _export_verification.substance_attested says which applies.',
         '6. _export_verification.trust_model distinguishes server_attested events, whose actor, timestamp and hash were assigned by the server, from client_asserted ones, written under an earlier model where the browser chose all three. A client_asserted event that verifies proves only that it has not changed since it was stored, not that it says anything true.',
         '7. tsa_token_present only means a token was returned at logging time — it has not been cryptographically verified here. To actually verify one, check its RFC 3161 signature against FreeTSA\'s public certificate. No event in this system currently carries one.',
         '8. dod_hash proves the Definition of Done text was not modified after contract initiation',
