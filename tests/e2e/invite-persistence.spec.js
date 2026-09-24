@@ -97,12 +97,20 @@ async function anonymousSession(request) {
   return anonSessionPromise;
 }
 
+// One Earner sign-in per worker, as in the event-ingestion and guest-evidence
+// suites. A password grant per test adds enough auth traffic to make the full
+// suite flaky for reasons unrelated to anything under test.
+let earnerSessionPromise = null;
+
 async function signInVerifiedEarner(request) {
-  const { status, body } = await api(request, '/auth/v1/token?grant_type=password', {
-    body: { email: EARNER_EMAIL, password: EARNER_PASSWORD },
-  });
-  expect(status, `verified earner sign-in failed: ${JSON.stringify(body)}`).toBe(200);
-  return { token: body.access_token, userId: body.user.id };
+  earnerSessionPromise ??= (async () => {
+    const { status, body } = await api(request, '/auth/v1/token?grant_type=password', {
+      body: { email: EARNER_EMAIL, password: EARNER_PASSWORD },
+    });
+    expect(status, `verified earner sign-in failed: ${JSON.stringify(body)}`).toBe(200);
+    return { token: body.access_token, userId: body.user.id };
+  })();
+  return earnerSessionPromise;
 }
 
 /** Creates a contract the way the app does: business columns only. */
@@ -230,4 +238,78 @@ test('an expired invite fails closed', async ({ page, request }) => {
 
   await expect(page.getByText(/Invalid invite link|expired/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('button', { name: /Review Agreement/i })).toHaveCount(0);
+});
+
+// ── Accepting at the address the invite was sent to ──────────────────────────
+
+test('a guest can accept without editing the prefilled email', async ({ page, request }) => {
+  // Regression: the email field renders `guestEmail || invitedEmail`, but the
+  // submit button and onAccept read only `guestEmail`. A guest who accepted
+  // the address shown to them, without editing it, saw a filled-in form and a
+  // permanently disabled button with nothing explaining why.
+  const invitedEmail = 'prefilled.invitee@example.test';
+  const { contract, token } = await createFixtureContract(request, {
+    invited_hirer_email: invitedEmail,
+  });
+
+  await page.addInitScript(() => localStorage.setItem('tf_onboarded', '1'));
+  await page.goto(`/?token=${contract.invite_token}`);
+
+  await expect(page.getByText(TERMS.project_name)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: /Review Agreement|Continue|Accept/i }).first().click();
+
+  // The address is already there, put there by the invite.
+  await expect(page.getByPlaceholder(/Email address/i)).toHaveValue(invitedEmail);
+
+  // Name and consent only — the email is deliberately left untouched.
+  await page.getByPlaceholder('Your name or handle').fill('Prefilled Guest');
+  await page.getByRole('checkbox').check();
+
+  const agree = page.getByRole('button', { name: /I Agree/i });
+  await expect(agree, 'the submit button must be usable without editing the email').toBeEnabled();
+  await agree.click();
+
+  await expect(page.getByRole('heading', { name: /Agreement accepted/i, level: 2 }))
+    .toBeVisible({ timeout: 15_000 });
+
+  // The two concepts stay distinct even when they carry the same value:
+  // invited_hirer_email is who the Earner addressed it to and is never written
+  // by acceptance; hirer_email is who actually accepted.
+  const { status, body } = await api(request,
+    `/rest/v1/contracts?id=eq.${contract.id}&select=invited_hirer_email,hirer_email,state`,
+    { method: 'GET', token });
+  expect(status).toBe(200);
+  expect(body[0].invited_hirer_email).toBe(invitedEmail);
+  expect(body[0].hirer_email).toBe(invitedEmail);
+  expect(body[0].state).toBe('TERMS_ACCEPTED');
+});
+
+test('editing the prefilled email records the address that actually accepted', async ({ page, request }) => {
+  // The other half of the same distinction: when the guest accepts from a
+  // different address, both are kept and they differ.
+  const invitedEmail = 'addressed.to@example.test';
+  const actualEmail = 'accepted.from@example.test';
+  const { contract, token } = await createFixtureContract(request, {
+    invited_hirer_email: invitedEmail,
+  });
+
+  await page.addInitScript(() => localStorage.setItem('tf_onboarded', '1'));
+  await page.goto(`/?token=${contract.invite_token}`);
+
+  await expect(page.getByText(TERMS.project_name)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: /Review Agreement|Continue|Accept/i }).first().click();
+
+  await page.getByPlaceholder('Your name or handle').fill('Different Address Guest');
+  await page.getByPlaceholder(/Email address/i).fill(actualEmail);
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: /I Agree/i }).click();
+
+  await expect(page.getByRole('heading', { name: /Agreement accepted/i, level: 2 }))
+    .toBeVisible({ timeout: 15_000 });
+
+  const { body } = await api(request,
+    `/rest/v1/contracts?id=eq.${contract.id}&select=invited_hirer_email,hirer_email`,
+    { method: 'GET', token });
+  expect(body[0].invited_hirer_email).toBe(invitedEmail);
+  expect(body[0].hirer_email).toBe(actualEmail);
 });

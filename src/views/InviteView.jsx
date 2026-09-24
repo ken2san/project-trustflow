@@ -64,6 +64,23 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
     invited_hirer_email: invitedEmail,
     dod,
   } = inviteData;
+  // The address this acceptance will be recorded under.
+  //
+  // The email field is prefilled with the address the invite was sent to, and
+  // a guest may accept at that address without editing it. Everything that
+  // acts on the email therefore reads the edited value when there is one and
+  // the prefilled one otherwise. Previously the field rendered the prefilled
+  // address while the submit button and onAccept read only `guestEmail`, so
+  // anyone who simply accepted what was shown faced a permanently disabled
+  // button with nothing explaining why.
+  //
+  // This does not merge the two concepts. invited_hirer_email stays the
+  // address the Earner addressed the invite to and is never written here;
+  // hirer_email is whoever actually accepted, which the server records from
+  // this value. The two coincide when the guest accepts as invited, and differ
+  // when they type a different address — both remain separately recorded.
+  const acceptingEmail = (guestEmail || invitedEmail || '').trim();
+
   const amountLabel = amount > 0 ? `¥${amount.toLocaleString()}` : "TBD";
   const deadlineLabel = deadline
     ? new Date(`${deadline}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -114,8 +131,8 @@ const InviteView = ({ inviteData, tokenError, onAccept, onDecline }) => {
             </span>
           </label>
           <button
-            onClick={() => onAccept(displayName.trim() || 'Guest', guestEmail.trim())}
-            disabled={!displayName.trim() || !guestEmail.trim() || !consentChecked}
+            onClick={() => onAccept(displayName.trim() || 'Guest', acceptingEmail)}
+            disabled={!displayName.trim() || !acceptingEmail || !consentChecked}
             className="w-full py-5 bg-white text-[#020617] rounded-[24px] font-black text-lg flex items-center justify-center gap-3 hover:bg-indigo-400 hover:text-white transition-all shadow-2xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#020617]"
           >
             I Agree — Join This Contract
