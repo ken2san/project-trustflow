@@ -94,3 +94,6 @@ __snapshots__/
 
 # Persistent anonymous identity for the E2E negative-auth tests (see invite-persistence.spec.js)
 tests/e2e/.anon-fixture.json
+
+# Cached verified-Earner session for the E2E suites (holds a live token)
+tests/e2e/.earner-session.json

@@ -13,6 +13,7 @@
 //   TF_TEST_EARNER_EMAIL / TF_TEST_EARNER_PASSWORD
 
 import { test, expect } from '@playwright/test';
+import { getEarnerSession } from './earnerSession.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
@@ -35,21 +36,8 @@ async function api(request, path, { method = 'POST', token, guestToken, body, pr
   return { status: response.status(), body: parsed };
 }
 
-// One Earner sign-in per worker — see the note in guest-evidence.spec.js. A
-// password grant per test added enough auth traffic to make the full suite
-// flaky for reasons unrelated to anything under test.
-let earnerSessionPromise = null;
-
-async function signInEarner(request) {
-  earnerSessionPromise ??= (async () => {
-    const { status, body } = await api(request, '/auth/v1/token?grant_type=password', {
-      body: { email: EARNER_EMAIL, password: EARNER_PASSWORD },
-    });
-    expect(status, `earner sign-in failed: ${JSON.stringify(body)}`).toBe(200);
-    return { token: body.access_token, userId: body.user.id };
-  })();
-  return earnerSessionPromise;
-}
+// Shared across every live-API suite and cached on disk — see earnerSession.js.
+const signInEarner = getEarnerSession;
 
 async function createContract(request) {
   const { token, userId } = await signInEarner(request);

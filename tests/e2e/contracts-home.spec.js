@@ -15,6 +15,7 @@
 //   TF_TEST_EARNER_EMAIL / TF_TEST_EARNER_PASSWORD
 
 import { test, expect } from '@playwright/test';
+import { getEarnerSession } from './earnerSession.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
@@ -183,13 +184,7 @@ test.describe('listContracts scoping', () => {
   });
 
   test('a signed-in Earner sees their own contracts and only those', async ({ request }) => {
-    const auth = await request.fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-      data: { email: EARNER_EMAIL, password: EARNER_PASSWORD },
-    });
-    expect(auth.status()).toBe(200);
-    const { access_token, user } = await auth.json();
+    const { token: access_token, userId } = await getEarnerSession(request);
 
     const response = await request.fetch(
       `${SUPABASE_URL}/rest/v1/contracts?select=id,earner_user_id,state&limit=200`,
@@ -200,7 +195,7 @@ test.describe('listContracts scoping', () => {
 
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect(row.earner_user_id).toBe(user.id);
+      expect(row.earner_user_id).toBe(userId);
     }
   });
 });

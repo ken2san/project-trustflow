@@ -17,6 +17,7 @@
 // or expired tokens fail closed.
 
 import { test, expect } from '@playwright/test';
+import { getEarnerSession } from './earnerSession.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,21 +98,8 @@ async function anonymousSession(request) {
   return anonSessionPromise;
 }
 
-// One Earner sign-in per worker, as in the event-ingestion and guest-evidence
-// suites. A password grant per test adds enough auth traffic to make the full
-// suite flaky for reasons unrelated to anything under test.
-let earnerSessionPromise = null;
-
-async function signInVerifiedEarner(request) {
-  earnerSessionPromise ??= (async () => {
-    const { status, body } = await api(request, '/auth/v1/token?grant_type=password', {
-      body: { email: EARNER_EMAIL, password: EARNER_PASSWORD },
-    });
-    expect(status, `verified earner sign-in failed: ${JSON.stringify(body)}`).toBe(200);
-    return { token: body.access_token, userId: body.user.id };
-  })();
-  return earnerSessionPromise;
-}
+// Shared across every live-API suite and cached on disk — see earnerSession.js.
+const signInVerifiedEarner = getEarnerSession;
 
 /** Creates a contract the way the app does: business columns only. */
 async function createFixtureContract(request, overrides = {}) {

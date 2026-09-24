@@ -10,6 +10,7 @@
 //   TF_TEST_EARNER_EMAIL / TF_TEST_EARNER_PASSWORD
 
 import { test, expect } from '@playwright/test';
+import { getEarnerSession } from './earnerSession.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
@@ -32,23 +33,11 @@ async function api(request, path, { method = 'POST', token, guestToken, body, pr
   return { status: response.status(), body: parsed };
 }
 
-// One Earner sign-in per worker. Every test here needs a contract, and a
-// password grant per test put enough auth traffic through the suite to start
-// tripping Supabase rate limits and Playwright request-context teardown races
-// under full-suite load. Access tokens are valid for an hour, far longer than
-// a run, so one grant serves the whole file.
-let earnerSessionPromise = null;
-
-async function signInEarner(request) {
-  earnerSessionPromise ??= (async () => {
-    const { status, body } = await api(request, '/auth/v1/token?grant_type=password', {
-      body: { email: EARNER_EMAIL, password: EARNER_PASSWORD },
-    });
-    expect(status, `earner sign-in failed: ${JSON.stringify(body)}`).toBe(200);
-    return { token: body.access_token, userId: body.user.id };
-  })();
-  return earnerSessionPromise;
-}
+// The Earner session is shared across every live-API suite and cached on disk
+// — see earnerSession.js. Five suites each opening their own session put enough
+// traffic through Supabase Auth to time out token grants during a full run,
+// failing tests that had nothing to do with authentication.
+const signInEarner = getEarnerSession;
 
 /**
  * A contract that has been accepted by a guest, with a handful of events on it.
