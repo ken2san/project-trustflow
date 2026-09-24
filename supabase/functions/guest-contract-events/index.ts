@@ -30,6 +30,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   GENESIS_HASH, eventCanonical, canonicalVersionOf, payloadHash, sha256Hex,
+  buildAgreementSnapshot,
 } from '../_shared/eventCanonical.ts'
 
 const CORS = {
@@ -81,6 +82,26 @@ function filterPayload(type: string, payload: unknown): Record<string, unknown> 
     if (key in source) out[key] = source[key]
   }
   return out
+}
+
+/**
+ * Which agreed terms the contract row no longer matches.
+ *
+ * Built by re-deriving the snapshot from the CURRENT row with the same function
+ * that produced the accepted one, so this comparison cannot drift from what the
+ * hash actually binds. An empty list means the row still says what was agreed;
+ * a non-empty one means the record moved and the accepted terms are the ones
+ * the evidence proves.
+ */
+function termsChangedSinceAcceptance(
+  accepted: Record<string, unknown> | null,
+  contract: Record<string, unknown>,
+): string[] | null {
+  if (!accepted) return null
+  const current = buildAgreementSnapshot(contract) as unknown as Record<string, unknown>
+  return Object.keys(current)
+    .filter(key => key !== 'snapshot_version')
+    .filter(key => JSON.stringify(current[key]) !== JSON.stringify(accepted[key]))
 }
 
 /**
@@ -158,7 +179,7 @@ serve(async (req: Request) => {
     // is a weaker guarantee than "it is not selected".
     const { data: rows, error: eventsError } = await admin
       .from('events')
-      .select('id, type, actor_id, payload, dod_hash, created_at, event_hash, prev_event_hash, hash_version, payload_hash')
+      .select('id, type, actor_id, payload, dod_hash, created_at, event_hash, prev_event_hash, hash_version, payload_hash, agreement_hash')
       .eq('contract_id', contract.id)
       .neq('type', 'runtime.snapshot')
       .order('created_at', { ascending: true })
@@ -183,6 +204,7 @@ serve(async (req: Request) => {
         created_at:      row.created_at,
         prev_event_hash: row.prev_event_hash,
         payload_hash:    row.payload_hash,
+        agreement_hash:  row.agreement_hash,
       }, hashVersion))
 
       // From v3 the payload is bound into the hash, so the substance of an
@@ -211,6 +233,8 @@ serve(async (req: Request) => {
           hash_valid:      row.event_hash ? row.event_hash === recomputed : null,
           chain_linked:    row.prev_event_hash ? row.prev_event_hash === expectedPrev : null,
           substance_valid: substanceValid,
+          // From v4 the whole deal is bound, not just its completion criteria.
+          binds_whole_agreement: hashVersion >= 4,
         },
       })
 
@@ -219,9 +243,34 @@ serve(async (req: Request) => {
       expectedPrev = row.event_hash ?? expectedPrev
     }
 
+    // The deal as it stood when it was accepted, taken from the acceptance
+    // event rather than from the contract row. The row may legitimately have
+    // moved on, and the historical record must not depend on it.
+    const acceptance = (rows ?? []).find(r => r.type === 'dod.consent_recorded')
+    const acceptedAgreement = (acceptance?.payload as Record<string, unknown> | null)?._agreement ?? null
+    const invitedRecipient = (acceptance?.payload as Record<string, unknown> | null)?._invited_recipient ?? null
+    const claimedIdentity = (acceptance?.payload as Record<string, unknown> | null)?._claimed_identity ?? null
+
     const attested = events.filter(e => e.integrity.trust_model === 'server_attested')
 
     return json({
+      // What was ACCEPTED, recorded at the time. Null for agreements accepted
+      // before the snapshot existed — absent, not reconstructed.
+      accepted_agreement: acceptedAgreement,
+      // Terms on which the current row and the accepted agreement disagree.
+      // Empty when they still match; null when there is no accepted snapshot
+      // to compare against.
+      terms_changed_since_acceptance: termsChangedSinceAcceptance(
+        acceptedAgreement as Record<string, unknown> | null, contract),
+      // Kept apart: an invitation can be forwarded, and the divergence is
+      // itself evidence. Neither address is verified.
+      acceptance_identity: acceptance ? {
+        invited_recipient: invitedRecipient,
+        claimed_identity: claimedIdentity,
+        claimed_identity_verified: false,
+        authentication: (acceptance.payload as Record<string, unknown>)?._auth_method ?? null,
+      } : null,
+      // The CURRENT row. May differ from accepted_agreement.
       contract: {
         id:                  contract.id,
         project_name:        contract.project_name,

@@ -27,11 +27,15 @@ export const GENESIS_HASH = 'GENESIS'
  *   1 — pre-chain. {id,type,contract_id,actor_id,dod_hash,created_at}
  *   2 — adds prev_hash, making the chain a chain.
  *   3 — adds payload_hash, making the substance tamper-evident.
+ *   4 — adds agreement_hash, binding the whole agreed deal rather than only
+ *       its completion criteria.
  *
  * Historical rows are verified under the version they were written with. A row
- * with no recorded version predates the column and is v1.
+ * with no recorded version predates the column and is v1. Each version's
+ * meaning is permanent: a v3 row is a v3 row forever, and the arrival of v4
+ * does not change what it said.
  */
-export const HASH_VERSION = 3
+export const HASH_VERSION = 4
 
 export interface CanonicalEvent {
   id: string
@@ -42,6 +46,63 @@ export interface CanonicalEvent {
   created_at: string
   prev_event_hash?: string | null
   payload_hash?: string | null
+  agreement_hash?: string | null
+}
+
+/**
+ * The meaningful deal, as the counterparty was shown it.
+ *
+ * WHAT BELONGS HERE, AND THE TEST FOR IT
+ * A field belongs in the snapshot if a reasonable participant would say that
+ * changing it means they agreed to a different deal. Price, date, what is being
+ * done, what counts as finished, who does the work, and who they are dealing
+ * with all pass that test. A database id, a protocol state, a token or an
+ * internal timestamp all fail it — those describe where the transaction is or
+ * how the software works, not what was agreed.
+ *
+ * The snapshot is deliberately NOT the contract row. Hashing a whole row would
+ * bind protocol state and implementation details into the meaning of the
+ * agreement, so an ordinary state transition would look like a changed deal.
+ *
+ * Field order is fixed and part of the format: stableStringify sorts keys, but
+ * the shape itself is the contract with future verifiers.
+ */
+export interface AgreementSnapshot {
+  snapshot_version: 1
+  project_name: string | null
+  dod: unknown
+  amount: number | null
+  currency: string | null
+  deadline: string | null
+  performed_by: string | null
+  offered_by: string | null
+}
+
+/**
+ * Build the snapshot from server-trusted contract data.
+ *
+ * Never from anything a caller supplied: the point of the snapshot is that it
+ * records what the server showed the counterparty, so a client that could
+ * influence it could record a different deal from the one on screen.
+ */
+export function buildAgreementSnapshot(contract: Record<string, unknown>): AgreementSnapshot {
+  return {
+    snapshot_version: 1,
+    project_name: (contract.project_name as string | null) ?? null,
+    dod: contract.dod ?? [],
+    amount: (contract.amount_jpy as number | null) ?? null,
+    currency: (contract.currency as string | null) ?? null,
+    deadline: (contract.deadline as string | null) ?? null,
+    // Who does the work. Flipping this inverts the entire transaction.
+    performed_by: (contract.performed_by as string | null) ?? 'creator',
+    // Who the counterparty understood themselves to be dealing with.
+    offered_by: (contract.earner_display_name as string | null) ?? null,
+  }
+}
+
+/** The hash of that snapshot. */
+export function deriveAgreementHash(contract: Record<string, unknown>): Promise<string> {
+  return sha256Hex(stableStringify(buildAgreementSnapshot(contract)))
 }
 
 /**
@@ -121,7 +182,10 @@ export function eventCanonical(event: CanonicalEvent, version: number): string {
   const chained = { ...base, prev_hash: event.prev_event_hash ?? GENESIS_HASH }
   if (version === 2) return JSON.stringify(chained)
 
-  return JSON.stringify({ ...chained, payload_hash: event.payload_hash ?? null })
+  const withPayload = { ...chained, payload_hash: event.payload_hash ?? null }
+  if (version === 3) return JSON.stringify(withPayload)
+
+  return JSON.stringify({ ...withPayload, agreement_hash: event.agreement_hash ?? null })
 }
 
 /**
@@ -132,6 +196,11 @@ export function eventCanonical(event: CanonicalEvent, version: number): string {
 export function canonicalVersionOf(row: { hash_version?: number | null, prev_event_hash?: string | null }): number {
   if (row.hash_version) return row.hash_version
   return row.prev_event_hash ? 2 : 1
+}
+
+/** Whether a version binds the whole agreement rather than only its criteria. */
+export function bindsWholeAgreement(version: number): boolean {
+  return version >= 4
 }
 
 /** Recompute a stored event's hash under its own rules. */

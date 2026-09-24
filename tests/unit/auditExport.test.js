@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import { buildAuditDocument } from '../../src/lib/auditExport.js'
+import { stableStringify } from '../../supabase/functions/_shared/eventCanonical.ts'
 
 // The real sha256 is used here, not a mock: what these tests guard is whether
 // a stored hash still recomputes, which a stubbed digest cannot tell us.
@@ -36,6 +37,25 @@ function legacyEvent({ id, type, actorId, createdAt, dodHash = null }) {
     id, type, contract_id: CONTRACT, actor_id: actorId, dod_hash: dodHash,
     created_at: createdAt, prev_event_hash: null, hash_version: null,
     payload: {}, event_hash, tsa_token: null,
+  }
+}
+
+/** An event hashed under v3 (payload bound) or v4 (whole agreement bound). */
+function modernEvent({
+  id, type, actorId, createdAt, dodHash = null, prevHash, payload = {},
+  version, agreementHash = null,
+}) {
+  const payload_hash = sha(stableStringify(payload))
+  const canonical = {
+    id, type, contract_id: CONTRACT, actor_id: actorId,
+    dod_hash: dodHash, created_at: createdAt, prev_hash: prevHash, payload_hash,
+    ...(version >= 4 ? { agreement_hash: agreementHash } : {}),
+  }
+  return {
+    id, type, contract_id: CONTRACT, actor_id: actorId, dod_hash: dodHash,
+    created_at: createdAt, prev_event_hash: prevHash, hash_version: version,
+    payload, payload_hash, agreement_hash: version >= 4 ? agreementHash : undefined,
+    event_hash: sha(JSON.stringify(canonical)), tsa_token: null,
   }
 }
 
@@ -145,6 +165,73 @@ describe('audit document verification', () => {
     expect(doc.integrity_status).toBe('VERIFIED')
   })
 
+  // The Evidence Core rule: a version's meaning is permanent. A v3 row written
+  // before the agreement was bound must not start failing because v4 exists.
+  it('verifies a v3 row and a v4 row side by side in one document', async () => {
+    const v3 = modernEvent({
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', type: 'dod.consent_recorded',
+      actorId: 'guest-uuid', createdAt: '2026-09-24T12:00:00.000Z', prevHash: 'GENESIS',
+      payload: { counterparty_name: 'Guest' }, version: 3,
+    })
+    const v4 = modernEvent({
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', type: 'performance.asserted',
+      actorId: 'earner-uuid', createdAt: '2026-09-24T12:05:00.000Z', prevHash: v3.event_hash,
+      payload: { note: 'delivered' }, version: 4, agreementHash: 'agreement-digest',
+    })
+
+    const doc = (await build([v3, v4])).trustflow_audit_trail
+    expect(doc.integrity_status).toBe('VERIFIED')
+    expect(doc.events.map(e => e._export_verification.canonical_version)).toEqual([3, 4])
+    // And the document says which of the two actually binds the whole deal,
+    // rather than letting a reader assume the newer rule applied throughout.
+    expect(doc.events.map(e => e._export_verification.binds_whole_agreement))
+      .toEqual([false, true])
+  })
+
+  it('reports a v4 row whose agreement hash was swapped as altered', async () => {
+    const v4 = modernEvent({
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', type: 'dod.consent_recorded',
+      actorId: 'guest-uuid', createdAt: '2026-09-24T12:00:00.000Z', prevHash: 'GENESIS',
+      payload: { counterparty_name: 'Guest' }, version: 4, agreementHash: 'the-agreed-deal',
+    })
+
+    const doc = (await build([{ ...v4, agreement_hash: 'some-other-deal' }])).trustflow_audit_trail
+    expect(doc.events[0]._export_verification.hash_match).toBe(false)
+    expect(doc.integrity_status).toBe('HASH_MISMATCH_DETECTED')
+  })
+
+  // The point of embedding the snapshot rather than only its hash: the export
+  // can SHOW the accepted deal, and it never consults the contract row to do
+  // it — buildAuditDocument is handed events and nothing else.
+  it('carries the accepted terms in the record itself, and detects an edit to them', async () => {
+    const agreement = {
+      snapshot_version: 1, project_name: 'Translate a document', dod: ['return a stamped PDF'],
+      amount: 20000, currency: 'JPY', deadline: '2026-11-30',
+      performed_by: 'creator', offered_by: 'Acme Translations',
+    }
+    const acceptance = modernEvent({
+      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', type: 'dod.consent_recorded',
+      actorId: 'guest-uuid', createdAt: '2026-09-24T12:00:00.000Z', prevHash: 'GENESIS',
+      payload: { counterparty_name: 'Guest', _agreement: agreement },
+      version: 4, agreementHash: sha(stableStringify(agreement)),
+    })
+
+    const doc = (await build([acceptance])).trustflow_audit_trail
+    expect(doc.events[0].payload._agreement.amount).toBe(20000)
+    expect(doc.events[0]._export_verification.substance_match).toBe(true)
+    expect(doc.integrity_status).toBe('VERIFIED')
+
+    // Rewriting the price inside the exported record is caught, because from v3
+    // the payload is bound into the event hash.
+    const edited = {
+      ...acceptance,
+      payload: { ...acceptance.payload, _agreement: { ...agreement, amount: 30000 } },
+    }
+    const tampered = (await build([edited])).trustflow_audit_trail
+    expect(tampered.events[0]._export_verification.substance_match).toBe(false)
+    expect(tampered.integrity_status).toBe('HASH_MISMATCH_DETECTED')
+  })
+
   it('tells a verifier how to reproduce the hashes it reports', async () => {
     const doc = (await build([])).trustflow_audit_trail
     const instructions = doc.verification_instructions.join(' ')
@@ -153,5 +240,7 @@ describe('audit document verification', () => {
     expect(instructions).toMatch(/canonical_version/)
     // And the limit of what the hash actually covers.
     expect(instructions).toMatch(/does NOT cover payload/i)
+    // And which rows bind the whole deal rather than only its criteria.
+    expect(instructions).toMatch(/agreement_hash/)
   })
 })

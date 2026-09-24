@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   GENESIS_HASH, HASH_VERSION, stableStringify, payloadHash, deriveDodHash,
   eventCanonical, canonicalVersionOf, recomputeEventHash, canonicalTimestamp, sha256Hex,
+  buildAgreementSnapshot, deriveAgreementHash, bindsWholeAgreement,
 } from '../../supabase/functions/_shared/eventCanonical.ts'
 
 // This module is the one definition of what an attested event's hash covers,
@@ -98,8 +99,23 @@ describe('canonical versions', () => {
     expect(JSON.parse(eventCanonical(base, 2))).toHaveProperty('prev_hash', GENESIS_HASH)
   })
 
+  it('v4 binds the whole agreement on top of v3', () => {
+    const parsed = JSON.parse(eventCanonical(
+      { ...base, prev_event_hash: 'abc', payload_hash: 'def', agreement_hash: 'ghi' }, 4))
+    expect(parsed).toHaveProperty('payload_hash', 'def')
+    expect(parsed).toHaveProperty('agreement_hash', 'ghi')
+    // v3 must not acquire the new field merely because v4 now exists.
+    expect(eventCanonical({ ...base, prev_event_hash: 'abc', payload_hash: 'def' }, 3))
+      .not.toContain('agreement_hash')
+  })
+
   it('writes the current version', () => {
-    expect(HASH_VERSION).toBe(3)
+    expect(HASH_VERSION).toBe(4)
+  })
+
+  it('says which versions bind the whole deal and which bind only the criteria', () => {
+    expect([1, 2, 3].map(bindsWholeAgreement)).toEqual([false, false, false])
+    expect(bindsWholeAgreement(4)).toBe(true)
   })
 
   // Regression: the canonical gained fields twice without the verifier being
@@ -108,19 +124,101 @@ describe('canonical versions', () => {
   it('verifies each version under its own rules and not another', async () => {
     const v1Hash = await sha256Hex(eventCanonical(base, 1))
     const v2Hash = await sha256Hex(eventCanonical({ ...base, prev_event_hash: 'abc' }, 2))
-    const v3Hash = await sha256Hex(eventCanonical({ ...base, prev_event_hash: 'abc', payload_hash: 'def' }, 3))
+    const v3 = { ...base, prev_event_hash: 'abc', payload_hash: 'def' }
+    const v4 = { ...v3, agreement_hash: 'ghi' }
+    const v3Hash = await sha256Hex(eventCanonical(v3, 3))
+    const v4Hash = await sha256Hex(eventCanonical(v4, 4))
 
-    expect(new Set([v1Hash, v2Hash, v3Hash]).size).toBe(3)
+    expect(new Set([v1Hash, v2Hash, v3Hash, v4Hash]).size).toBe(4)
 
     expect(await recomputeEventHash({ ...base, hash_version: 1 })).toBe(v1Hash)
     expect(await recomputeEventHash({ ...base, prev_event_hash: 'abc', hash_version: 2 })).toBe(v2Hash)
-    expect(await recomputeEventHash({ ...base, prev_event_hash: 'abc', payload_hash: 'def', hash_version: 3 })).toBe(v3Hash)
+    expect(await recomputeEventHash({ ...v3, hash_version: 3 })).toBe(v3Hash)
+    expect(await recomputeEventHash({ ...v4, hash_version: 4 })).toBe(v4Hash)
+
+    // A v3 row keeps verifying as a v3 row forever: the arrival of v4 does not
+    // retroactively change what it said, even if an agreement_hash is present
+    // on the row for other reasons.
+    expect(await recomputeEventHash({ ...v4, hash_version: 3 })).toBe(v3Hash)
   })
 
   it('infers the version of rows written before the column existed', () => {
     expect(canonicalVersionOf({ prev_event_hash: null })).toBe(1)
     expect(canonicalVersionOf({ prev_event_hash: 'abc' })).toBe(2)
     expect(canonicalVersionOf({ hash_version: 3, prev_event_hash: 'abc' })).toBe(3)
+    expect(canonicalVersionOf({ hash_version: 4, prev_event_hash: 'abc' })).toBe(4)
+  })
+})
+
+// The defect v4 fixes: canonical v3 bound only the completion criteria, so the
+// price, the deadline or which side performs could be changed after acceptance
+// with nothing detecting it. These tests guard the snapshot that closes it.
+describe('the agreement snapshot', () => {
+  const contract = {
+    id: '22222222-2222-4222-8222-222222222222',
+    project_name: 'Certified translation of a birth certificate',
+    dod: ['translate the document', 'return a stamped PDF'],
+    amount_jpy: 20000,
+    currency: 'JPY',
+    deadline: '2026-11-30',
+    performed_by: 'counterparty',
+    earner_display_name: 'Acme Translations',
+    // Everything below describes where the transaction is or how the software
+    // works — none of it is a term anyone agreed to.
+    state: 'TERMS_ACCEPTED',
+    invite_token: 'invite-tok',
+    guest_access_token: 'guest-tok',
+    hirer_email: 'claimed@example.test',
+    invited_hirer_email: 'invited@example.test',
+    created_at: '2026-09-01T00:00:00.000Z',
+  }
+
+  it('captures the deal as the counterparty was shown it', () => {
+    expect(buildAgreementSnapshot(contract)).toEqual({
+      snapshot_version: 1,
+      project_name: 'Certified translation of a birth certificate',
+      dod: ['translate the document', 'return a stamped PDF'],
+      amount: 20000,
+      currency: 'JPY',
+      deadline: '2026-11-30',
+      performed_by: 'counterparty',
+      offered_by: 'Acme Translations',
+    })
+  })
+
+  it('leaves out protocol state, ids and tokens', () => {
+    const snapshot = JSON.stringify(buildAgreementSnapshot(contract))
+    for (const leaked of ['TERMS_ACCEPTED', 'invite-tok', 'guest-tok', 'invited@example.test', contract.id]) {
+      expect(snapshot, `${leaked} is not a term of the agreement`).not.toContain(leaked)
+    }
+  })
+
+  it('does not change when the transaction merely moves forward', async () => {
+    const agreed = await deriveAgreementHash(contract)
+    expect(await deriveAgreementHash({ ...contract, state: 'PERFORMANCE_ACCEPTED' })).toBe(agreed)
+  })
+
+  it.each([
+    ['the price', { amount_jpy: 30000 }],
+    ['the currency', { currency: 'USD' }],
+    ['the deadline', { deadline: '2026-12-15' }],
+    ['what counts as finished', { dod: ['translate the document'] }],
+    ['which side performs', { performed_by: 'creator' }],
+    ['who is offering', { earner_display_name: 'Someone Else' }],
+    ['what is being done', { project_name: 'Translate something else' }],
+  ])('changing %s changes the agreement hash', async (_term, change) => {
+    const agreed = await deriveAgreementHash(contract)
+    expect(await deriveAgreementHash({ ...contract, ...change })).not.toBe(agreed)
+  })
+
+  it('is stable across key ordering, since jsonb guarantees none', async () => {
+    const reordered = Object.fromEntries(Object.entries(contract).reverse())
+    expect(await deriveAgreementHash(reordered)).toBe(await deriveAgreementHash(contract))
+  })
+
+  it('treats a row written before performed_by existed as creator-performed', () => {
+    const { performed_by: _absent, ...older } = contract
+    expect(buildAgreementSnapshot(older).performed_by).toBe('creator')
   })
 })
 

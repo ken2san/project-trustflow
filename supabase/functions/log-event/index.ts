@@ -33,6 +33,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   GENESIS_HASH, HASH_VERSION, eventCanonical, payloadHash, deriveDodHash, sha256Hex,
+  buildAgreementSnapshot, deriveAgreementHash,
 } from '../_shared/eventCanonical.ts'
 
 const CORS = {
@@ -168,6 +169,27 @@ async function resolveActor(
   return { actorId: data.user.id, role: 'earner' }
 }
 
+/**
+ * What an acceptance permanently records, beyond the assertion itself.
+ *
+ * The snapshot is embedded, not merely hashed. A hash proves that content
+ * matches; it cannot reproduce content that has since changed. Storing the deal
+ * as it stood lets the historical record SHOW what was accepted without
+ * consulting the contract row, which may have moved on.
+ *
+ * The two email fields are kept apart on purpose. They may legitimately differ —
+ * an invitation can be forwarded — and that divergence is itself evidence.
+ * Neither is verified, and nothing here says otherwise.
+ */
+function acceptanceFacts(contract: Record<string, unknown>) {
+  return {
+    _agreement: buildAgreementSnapshot(contract),
+    _invited_recipient: (contract.invited_hirer_email as string | null) ?? null,
+    _claimed_identity: (contract.hirer_email as string | null) ?? null,
+    _claimed_identity_verified: false,
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -217,7 +239,9 @@ serve(async (req: Request) => {
 
     const { data: contract, error: contractError } = await admin
       .from('contracts')
-      .select('id, dod, performed_by, earner_user_id, hirer_email, guest_access_token, guest_access_token_expires_at')
+      .select('id, project_name, dod, amount_jpy, currency, deadline, performed_by, '
+        + 'earner_display_name, earner_user_id, invited_hirer_email, hirer_email, '
+        + 'guest_access_token, guest_access_token_expires_at')
       .eq('id', contract_id)
       .maybeSingle()
 
@@ -262,11 +286,32 @@ serve(async (req: Request) => {
       // change to the terms visible in the log instead of silent.
       const termsHash = await deriveDodHash(contract.dod)
 
+      // The whole deal, not just its completion criteria. dod_hash alone left
+      // price and date unbound, so an accepted agreement could have its amount
+      // changed afterwards with nothing detecting it.
+      const agreementHash = await deriveAgreementHash(contract)
+
       // The substance of the assertion, bound into the hash from v3 on.
+      //
+      // Underscore-prefixed keys are the server's namespace: everything under
+      // one is a fact TrustFlow derived, not one a party asserted. A caller
+      // that sent `_agreement` could not forge the hash — that is derived from
+      // the contract row — but it could leave a reader looking at terms nobody
+      // agreed to, so those keys are dropped before anything is merged in.
       const recordedPayload = {
-        ...(payload as Record<string, unknown> ?? {}),
-        // Recorded, not accepted: how the writer was authenticated.
+        ...Object.fromEntries(
+          Object.entries((payload as Record<string, unknown>) ?? {})
+            .filter(([key]) => !key.startsWith('_'))),
+        // Recorded, not accepted: how the writer was authenticated, and which
+        // role they held in this agreement at the time.
         _actor_role: actor.role,
+        _role_in_agreement: roleHere,
+        // How this party obtained the authority to act. A guest's credential
+        // exists only because a single-use invitation was consumed, so that is
+        // what their authority traces back to. This claims nothing about email
+        // verification, account identity, or who the person is.
+        _auth_method: actor.role === 'guest_hirer' ? 'invite_capability' : 'account_session',
+        ...(type === 'dod.consent_recorded' ? acceptanceFacts(contract) : {}),
       }
       const substanceHash = await payloadHash(recordedPayload)
 
@@ -285,6 +330,7 @@ serve(async (req: Request) => {
         ...event,
         prev_event_hash: prevHash,
         payload_hash: substanceHash,
+        agreement_hash: agreementHash,
       }, HASH_VERSION))
 
       const { data: inserted, error: insertError } = await admin
@@ -293,6 +339,7 @@ serve(async (req: Request) => {
           ...event,
           payload: recordedPayload,
           payload_hash: substanceHash,
+          agreement_hash: agreementHash,
           event_hash: eventHash,
           prev_event_hash: prevHash,
           hash_version: HASH_VERSION,

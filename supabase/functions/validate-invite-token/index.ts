@@ -54,7 +54,7 @@ serve(async (req: Request) => {
 
     const { data: contract, error } = await supabase
       .from('contracts')
-      .select('id, project_name, dod, amount_jpy, deadline, earner_display_name, invited_hirer_email, earner_user_id, invite_token_expires_at, invite_token_used_at')
+      .select('id, project_name, dod, amount_jpy, currency, deadline, performed_by, earner_display_name, invited_hirer_email, earner_user_id, invite_token_expires_at, invite_token_used_at')
       .eq('invite_token', invite_token)
       .single()
 
@@ -86,9 +86,14 @@ serve(async (req: Request) => {
         project_name: contract.project_name,
         dod: contract.dod,
         amount_jpy: contract.amount_jpy,
+        currency: contract.currency,
         deadline: contract.deadline,
         earner_display_name: contract.earner_display_name,
         invited_hirer_email: contract.invited_hirer_email,
+        // Which side does the work. It is bound into the agreement snapshot at
+        // acceptance, so it has to be on screen before anyone agrees —
+        // attesting consent to a term nobody was shown would be dishonest.
+        performed_by: contract.performed_by,
       }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })

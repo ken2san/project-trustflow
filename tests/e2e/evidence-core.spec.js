@@ -208,7 +208,7 @@ test('the payload is bound into the hash under the current version', async ({ re
     body: { type: 'performance.asserted', contract_id: contract.id, payload: { note: 'delivered in full' } },
   });
   expect(written.status).toBe(201);
-  expect(written.body.event.hash_version).toBe(3);
+  expect(written.body.event.hash_version).toBe(4);
   expect(written.body.event.payload_hash).toBeTruthy();
 
   const trail = await api(request, '/functions/v1/guest-contract-events', { guestToken });

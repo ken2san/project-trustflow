@@ -122,7 +122,7 @@ test('the ingestion function ignores a client-supplied actor_id, hash and timest
   expect(body.event.event_hash).not.toBe('forged-hash');
   expect(body.event.prev_event_hash).toBe('GENESIS');
   expect(new Date(body.event.created_at).getFullYear()).toBeGreaterThan(2020);
-  expect(body.event.hash_version).toBe(3);
+  expect(body.event.hash_version).toBe(4);
 });
 
 test('a privileged event type cannot be asserted by a party', async ({ request }) => {
