@@ -93,6 +93,10 @@ async function snapshotWhere(page, predicate) {
 async function holdButton(page, name) {
   const button = page.getByRole('button', { name });
   await expect(button).toBeEnabled({ timeout: 15_000 });
+  // Let the view's entry animation settle first: while it is still moving, the
+  // button slides out from under a stationary cursor, HoldButton's onMouseLeave
+  // fires, and the press is silently cancelled with no error.
+  await page.waitForTimeout(600);
   await button.hover();
   await page.mouse.down();
   await page.waitForTimeout(800);
@@ -262,6 +266,80 @@ test('step 5 as Hirer: history entry records earned: 0', async ({ page }) => {
   const snapshot = await snapshotWhere(page, (s) => s?.view === 'marketplace');
   expect(snapshot.contractHistory).toHaveLength(1);
   expect(snapshot.contractHistory[0].earned).toBe(0);
+});
+
+// ── Step 4's email branch (reachable only through the invite flow) ───────────
+
+// The other step 4 tests above seed straight into the step and therefore can
+// never exercise `if (isSupabaseEnabled && guestEmail)`: guestEmail is set only
+// by accepting an invite, and it is NOT part of the persisted runtime snapshot,
+// so it cannot be seeded. This test walks the whole real path instead — generate
+// an invite, accept it as the guest, then drive steps 1→4 without reloading
+// (a reload would drop guestEmail, which lives in React state only).
+test('invite flow sets guestEmail, and step 4 then attempts the acceptance email', async ({ page }) => {
+  // Long by necessity: BYOC form, invite acceptance, four hold gestures, the
+  // 5s approve-undo window and the 3s rating reveal all happen in one session,
+  // because guestEmail cannot survive a reload.
+  test.setTimeout(120_000);
+
+  const acceptanceEmailCalls = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/functions/v1/send-acceptance-email')) {
+      acceptanceEmailCalls.push(request.url());
+    }
+  });
+
+  await page.addInitScript(() => localStorage.setItem('tf_onboarded', '1'));
+  await page.goto('/');
+
+  // 1. As the Hirer, generate a real invite link through the BYOC form.
+  await page.getByRole('button', { name: /Switch to Hire/i }).click();
+  await page.getByRole('button', { name: /I already know who I'm working with/i }).click();
+  await page.getByPlaceholder('e.g., Alex Chen / @alexchen').fill('QA Counterparty');
+  await page.getByPlaceholder(/Mobile app redesign/i).fill('Characterization run');
+  // Under the level-1 tier limit of 100,000, or step 1's button stays disabled.
+  await page.getByPlaceholder('e.g., 300000').fill('50000');
+  await page.getByPlaceholder(/Definitive Figma Library/i).fill('Deliverable A\nDeliverable B');
+  await page.getByRole('button', { name: /Generate Link/i }).click();
+
+  const inviteLink = (await page.locator('p', { hasText: 'token=' }).first().textContent())?.trim();
+  expect(inviteLink).toContain('token=');
+
+  // 2. Open the invite as the guest and accept it — this is the only path that
+  //    sets guestEmail.
+  await page.goto(inviteLink);
+  await page.getByRole('button', { name: /Review Agreement/i }).click();
+  await page.getByPlaceholder(/Your name or handle/i).fill('QA Guest');
+  await page.getByPlaceholder(/Email address/i).fill('qa-guest@example.test');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: /I Agree/i }).click();
+
+  // 3. Acceptance lands on the scoping view; start the contract from there.
+  //    (Scoping renders Initiate Contract as a hold button, unlike the
+  //    project-detail path the existing suite drives with a plain click.)
+  await holdButton(page, /Initiate Contract/i);
+  const confirmButton = page.getByRole('button', { name: /^Confirm$/ });
+  if (await confirmButton.isVisible().catch(() => false)) await confirmButton.click();
+
+  // 4. Walk to step 4. Labels differ by role, hence the alternations.
+  await holdButton(page, /Secure Funds in Escrow/i);
+  await holdButton(page, /Skip to Next Phase|Enter Build Phase/i);
+  // Step 3 doesn't advance on the hold alone: it opens an "Approve Deliverable"
+  // dialog, and handleNextStep only fires after the 5-second undo window that
+  // "Confirm Approve" starts.
+  await holdButton(page, /Release Funds/i);
+  await page.getByRole('button', { name: /Confirm Approve/i }).click();
+  await expect(page.getByRole('button', { name: /Undo/i })).toBeHidden({ timeout: 20_000 });
+  await submitBlindRating(page);
+  await holdButton(page, /Commit & Close/i);
+
+  // The observable side effect: the app attempts the acceptance email.
+  // Only the outbound attempt is asserted — whether it succeeds depends on the
+  // deployed function and on the contract existing in the DB, which this
+  // local/demo flow's contract does not (see HANDOFF.md), so today it 404s and
+  // the app surfaces an "Email not sent" toast. That outcome is deployment
+  // state, not app behavior, so it is deliberately not asserted here.
+  await expect.poll(() => acceptanceEmailCalls.length, { timeout: 20_000 }).toBeGreaterThan(0);
 });
 
 test('step 5: prepends to existing history rather than replacing it', async ({ page }) => {
