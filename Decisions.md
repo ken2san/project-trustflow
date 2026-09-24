@@ -1,10 +1,75 @@
 # TrustFlow — Architecture Decisions
 
-_Last updated: 2026-05-22_
+_Last updated: 2026-09-26_
 
 > This file records significant design decisions and the reasoning behind them.
 > AI agents must read this before proposing changes to established patterns.
 > Do not reverse a decision without explicit user instruction.
+
+---
+
+## Open Questions — recorded, deliberately not acted on
+
+### [2026-09-26] — Performance that unfolds across several real-world steps
+
+**Status**: Recorded for later inspection. **No implementation. No schema,
+vocabulary, or UI change was made from this.**
+
+**The case**: the first real TrustFlow transaction is a professional certified
+translation. It is not obviously a single "digital file delivered → customer
+accepts" exchange. Depending on the deal it may involve preparing the certified
+translation, delivering a digital version, certification/stamp/seal
+requirements, preparing a physical certified copy, how the source document is
+treated or attached, physical shipment, and eventual physical receipt.
+
+**Do not encode those particular steps.** They are transaction-specific. The
+general question they raise is:
+
+> What happens when an agreement has several promised outcomes, and the
+> transaction cannot honestly be described by one instantaneous
+> "Mark as delivered"?
+
+The performer may be able to say truthfully *"the certified PDF is ready and
+sent"* while being unable to say truthfully *"everything promised is complete"*.
+Later they may truthfully say *"the package has shipped"* — which is not the
+same fact as the customer having received it.
+
+**Why this is an Evidence Core question, not a features question.** The steps
+above are different KINDS of evidence, and the existing distinction must not be
+collapsed into a single stronger claim than the evidence supports:
+
+| Statement | Kind |
+|---|---|
+| Performer: "I shipped it." | party assertion |
+| Receiver: "I received it." | counterparty statement |
+| Carrier API: "Delivered 14:32." | external/system observation |
+| "The translation is correct and complete." | world fact TrustFlow cannot establish |
+
+**The question to answer when we return** — by inspecting the implementation as
+it exists at that time, not from this note:
+
+> Can the `performance.asserted → accepted/rejected` model represent this
+> naturally without making the product cumbersome?
+
+Do not assume the answer is no. Any of these may turn out to be sufficient:
+clear enough agreement terms; repeated assertions; a small vocabulary change;
+lightweight deliverables or checkpoints; a genuinely justified commitment
+concept; or a separate mechanism for external observations.
+
+**Do not pre-emptively build**: a Commitment table, a deliverables framework,
+milestones, workflow builders, shipment tracking, project management, a
+generalised state machine, or an Exchange Socket. This is evidence for a future
+design decision, not a specification.
+
+**The method this illustrates**, and which should govern how TrustFlow evolves:
+
+> real transaction → real friction → inspect the existing model → decide whether
+> the friction is specific or general → make the smallest justified
+> generalisation
+
+The certified-translation job is simply the first concrete case showing that
+real-world performance may unfold across several events rather than one digital
+delivery.
 
 ---
 
