@@ -128,12 +128,30 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 
 ## Current State
 
-- Branch: **`main`** — latest local commit is 24 commits ahead of `origin/main` as of session 5's end; push status depends on whether the end-of-session `git push` in this session's history actually ran — check `git status -sb` before assuming parity.
-- Build: ✓ ~1555 modules, 0 errors
-- Tests: **91/91 passing** (up from 87 — 4 new chain-linkage regression tests in `tests/unit/eventLog.test.js`)
-- Supabase: project `trustflow` (ref: `fqgpzhwvvfsxswlnbbgg`, Mumbai) — was **paused** (inactivity) at the start of session 5, restored mid-session. Check dashboard if it silently pauses again.
-- DB: **9 migrations applied** to Supabase (4 from session 3 + 4 from session 5's first half). **1 migration NOT yet applied**: `20260921000004_events_prev_hash.sql` (committed to git, part of the quality pass — see above). Run `supabase db push` to catch it up when doing the next batched deploy.
-- Edge Functions: **6 functions live**, but only 4 reflect session 5's changes (`create-payment-intent`, `capture-payment`, `cancel-payment`, `validate-invite-token` — deployed during session 5's first half). **`send-acceptance-email` and `timestamp-event` are NOT deployed with their session-5 fixes** (unauthenticated-relay fix, hex validation) — committed to git only. `capture-payment`/`cancel-payment` also have a second round of un-deployed changes (trustpoints-constants import, email payload shape) on top of what's live. Run `supabase functions deploy` for all 6 when doing the next batched deploy — the currently-live versions of 2 of them still have the open-relay hole.
+- Branch: **`main`**, HEAD **`c245152`**, in sync with `origin/main`, working tree clean.
+- Build: ✓ 0 errors (`dist/assets/index-*.js` 599 kB, css 62 kB)
+- Tests: **197 unit tests passing** across 12 files. The Playwright E2E suites have
+  NOT been run since the outage — see the rate-limit constraint below.
+- Supabase: project `trustflow` (ref `fqgpzhwvvfsxswlnbbgg`, Mumbai) — **healthy**,
+  verified 2026-09-25 by a real `/auth/v1/health` 200 (GoTrue v2.197.0), a real
+  PostgREST query, and a DB query (PostgreSQL 17.6), not by the management API,
+  which reported `ACTIVE_HEALTHY` throughout the outage. It had been unreachable
+  from 2026-09-24 20:56 until a user-initiated restart; the cause was three
+  back-to-back full E2E runs saturating the auth rate limit via `/signup`
+  anonymous sign-in.
+- DB: **24 migrations recorded**, all matching local filenames. Migration history
+  was normalized on 2026-09-25 (`70421f5`) after a second round of drift.
+  **Pending: exactly two** — `20260927235959_reconcile_evidence_migrations`
+  (inert by design) and `20260928000000_atomic_acceptance`. Nothing out of order.
+  `accept_invitation()` and `invite_acceptance_context()` do not exist yet.
+  **Push with `supabase db push`, never the management API** — the API stamps its
+  own version numbers, which is what caused both drifts.
+- Edge Functions: the deployed source of `validate-invite-token` and `log-event`
+  was fetched and read on 2026-09-25 — both are the **old pre-atomic-acceptance
+  versions**. All three of `log-event`, `validate-invite-token` and
+  `guest-contract-events` show `updated_at` 2026-09-24 20:34 UTC; the identical
+  timestamps are a secrets-update re-bundle, not a deploy of current source.
+  `guest-contract-events` also has the event-ordering fix (`3e2e60b`) undeployed.
 - **Frontend hosting migrated to Vercel** (session 5, same day as the quality pass) — live at **`https://project-trustflow.vercel.app`**, git-push-to-deploy from `main`, project `team-kenji/project-trustflow`. `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` set on both Production and Preview. Verified live (confirmed by page `<title>`, not just HTTP status), no console errors. Rationale: pure static Vite SPA with zero server-side compute — Cloud Run's Dockerfile/nginx container was pure overhead for this project (unlike a service that actually needs GCP compute).
   - GitHub repo renamed the same day, dropping the `project-` prefix: `ken2san/project-trustflow` → `ken2san/trustflow` (local `origin` remote auto-updated by `gh repo rename`; local folder name intentionally left as `project-trustflow`). This part succeeded cleanly and stayed.
   - **Vercel project rename attempted and reverted the same day** — do not retry this without reading the rest of this bullet first. Renaming the Vercel project to `trustflow` did NOT yield the clean `https://trustflow.vercel.app` URL it looked like it would: that bare subdomain is already owned by an unrelated third party (a generic "bank login" demo page — harmless-looking but do not enter anything into a page found this way regardless). Vercel instead assigned our renamed project the team-suffixed alias `trustflow-team-kenji.vercel.app`, which turned out to also be gated behind Vercel's own Deployment Protection (SSO login required) — effectively taking the site private. Reverted the project name back to `project-trustflow`; the original `https://project-trustflow.vercel.app` alias came back immediately, publicly accessible, no protection. Net effect of the whole detour: zero — same URL as before, just confirmed it's the only one that actually works cleanly for this project. If a clean short URL is wanted later, it needs a real custom domain (e.g. via a domain the user owns), not a bare `<name>.vercel.app` guess.
@@ -149,6 +167,13 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 
 - Do not add npm packages without explicit user approval.
 - Do not deploy Supabase migrations/Edge Functions or touch Stripe production config without explicit instruction (session 5 deploys were explicitly approved each time — this is a standing rule, not a one-off).
+- **Never run the full E2E suite repeatedly.** Three back-to-back runs on
+  2026-09-24 saturated the auth rate limit through `/signup` anonymous sign-in
+  and took the whole Supabase project offline until a restart. Use targeted
+  suites first; run the full suite once, deliberately, after checking that the
+  environment can take it.
+- Do not restart, delete, or otherwise destructively touch the production
+  Supabase project. Recovery actions are the user's call.
 - Gemini API and eKYC (listed as "Next Priority" in earlier sessions, below) are explicitly **out of scope** for the current MVP consistency spec — don't pick them up without checking with the user first, that scope decision may be stale.
 
 ## Next Priority (in order)
