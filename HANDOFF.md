@@ -153,33 +153,36 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 
 ## Next Priority (in order)
 
-1. **Apply and deploy what is pending — but check three things first.** The
-   database has been unreachable since 2026-09-24 20:56 and the Supabase
-   dashboard shows the project Unhealthy. Note the management API reports
-   `ACTIVE_HEALTHY` regardless, so judge recovery only by a real
-   `/auth/v1/health` and a real PostgREST query. Once it answers, in the first
-   round trip:
+1. **Deploy is unblocked — the three pre-deploy checks are answered.** The
+   project recovered after a restart on 2026-09-25 (`/auth/v1/health` 200,
+   GoTrue v2.197.0; PostgREST 200; PostgreSQL 17.6), and all three questions
+   this entry used to ask have been settled by read-only capture:
 
-   - `select 1 from supabase_migrations.schema_migrations where version = '20260928000000'`
-     — if the version is already recorded, `db push` will **silently skip** the
-     corrected migration (schema_migrations stores no checksum) and the fix will
-     not land. This repo has been wrong about applied state before; that is what
-     the two `reconcile_*` migrations are.
-   - `select proargnames, prosrc from pg_proc where proname = 'accept_invitation'`
-     — whether the function exists, and which version of it.
-   - `select column_name, is_nullable, column_default, is_generated from
-     information_schema.columns where table_name = 'events'` — **`events` is not
-     created by any migration in this repo**, so its constraints are unknown
-     from source. `accept_invitation` inserts with `jsonb_populate_record` and
-     `select *`, which supplies an explicit NULL for every column the caller did
-     not send, so column DEFAULTS never apply. Any other NOT NULL column raises
-     on the first acceptance; a GENERATED column fails the insert outright.
-     (`log-event` is unaffected — it names its columns.)
+   - `accept_invitation()` and `invite_acceptance_context()` **do not exist**,
+     so `20260928000000` is definitively unapplied and the corrected file
+     (fbf1b63) is what will land.
+   - `events` has NOT NULL on only `id, type, contract_id, actor_id, payload,
+     created_at` — every one supplied by `buildEventRecord` — and no GENERATED
+     column. The `jsonb_populate_record` risk is retired.
+   - Migration history had drifted again and is now normalized (70421f5). It
+     holds 24 versions, all matching local filenames. Pending is exactly
+     `20260927235959_reconcile_evidence_migrations` (inert) and
+     `20260928000000_atomic_acceptance`, with nothing out of order.
 
-   Then migration first, Edge Functions second — `validate-invite-token` against
-   a database without `accept_invitation()` breaks acceptance outright. The
-   chain-tip fix (fbf1b63) coalesces both sides, so that function no longer has
-   to be deployed in step with its caller, but the ordering above still holds.
+   `events` is now in source control (438b94d), including the two append-only
+   RULES and `rls_auto_enable()`, so a fresh project can be rebuilt from
+   migrations. That rebuild has not actually been run — it needs Docker or a
+   local Postgres, neither of which was available.
+
+   So: `supabase db push`, then Edge Functions. Migration first —
+   `validate-invite-token` against a database without `accept_invitation()`
+   breaks acceptance outright. The chain-tip fix coalesces both sides, so that
+   function no longer has to be deployed in step with its caller, but the
+   ordering still holds.
+
+   **Push with `supabase db push`, never the management API.** Applying through
+   the API is what caused the history drift twice, and each repair costs another
+   reconcile migration.
 
 2. **Run the live suites once, not repeatedly**: `atomic-acceptance.spec.js`
    (14 tests, never yet executed — they are what would have caught the chain-tip
