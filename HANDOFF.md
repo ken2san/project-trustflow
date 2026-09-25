@@ -208,8 +208,32 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
   uniform, but whether the evidence chain should record the agreement's own
   creation is a design question, not plumbing. Note that inserting one event by
   hand before testing acceptance would have **masked** the chain-tip bug.
-- **`events` predates the migration history** and is therefore not in source
-  control. That is the root of the unknown-constraints risk in #1.
+- **The rebuild has never actually been run.** `events` is now in source control
+  (438b94d) and all 26 migrations parse, but no fresh project has been built from
+  them — that needs Docker or a local Postgres, and neither is installed. The
+  claim rests on static analysis, not on an executed rebuild, so ordering and
+  permission faults that only appear at execution time are still possible. The
+  event-trigger creation in `20260313000000` is the likeliest candidate, since
+  creating event triggers is normally superuser-only; it works here because the
+  existing one is owned by `postgres`. Closing this means installing Docker, or a
+  Supabase branch, which provisions a real ephemeral database and runs the whole
+  chain — the faithful test, but billable.
+- **`idx_events_contract_id` is probably redundant.** `events_contract_created_idx`
+  covers `(contract_id, created_at desc)` and serves the same queries. It was
+  reproduced as-is on the principle that the recovered baseline's job is to
+  describe the database that exists, not a better one — but writing it into a
+  migration has made it more permanent than it was. Dropping it is a separate
+  decision that wants query evidence.
+- **The migration-history drift has happened twice, from the same cause**, and
+  each repair leaves another permanent `reconcile_*` file in the tree. The only
+  guard in place is prose in #1 saying to push with the CLI. A CI check comparing
+  local migration filenames against recorded versions would catch the third one
+  mechanically. Not built.
+- **Nobody has systematically diffed the live catalogue against the migrations.**
+  `events` was found by accident, while evaluating whether to migrate to a new
+  Supabase project during the outage — not by a check designed to find it. Other
+  hand-made objects may exist. `rls_auto_enable()` and `ensure_rls` were the same
+  kind of find.
 
 ## Key Files to Read First
 
