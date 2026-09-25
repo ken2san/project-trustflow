@@ -75,6 +75,7 @@ import { formatNumber, deriveLevel } from './lib/utils';
 import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
 import { downloadAuditTrail } from './lib/auditExport.js';
+import { downloadGuestRecord } from './lib/guestRecordExport.js';
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 import { ensureActorIdentity } from './lib/identity.js';
 import { createContract, listContracts, inviteUrlFor, fetchInvite, acceptInvite, fetchGuestEvidence } from './lib/contracts.js';
@@ -903,10 +904,13 @@ const App = () => {
     }
     setAgreement({
       // A guest has no auth.users row, so RLS gives them nothing from `events`
-      // directly — their trail comes shaped from guest-contract-events. They
-      // cannot build a re-verifiable export from it, so they are not offered
-      // one rather than handed an empty or unverifiable document.
+      // directly — their trail comes shaped from guest-contract-events, with
+      // each payload allowlist-filtered. They cannot recompute a hash from
+      // that, so their export is the server's verified record rather than the
+      // owner's re-verifiable one. The unshaped response is kept because the
+      // document is built from it, not from the array this screen renders.
       source: 'guest',
+      evidence,
       contract: evidence.contract,
       // The shaped response already names the actor in readable terms.
       events: (evidence.events ?? []).map(ev => ({
@@ -948,6 +952,22 @@ const App = () => {
         exported_by_role: agreement?.role ?? null,
       },
     });
+  }, [agreement]);
+
+  /**
+   * Hand the counterparty the server-verified copy of their record.
+   *
+   * Built from the unshaped guest-contract-events response, not from
+   * `agreement.events`, for the same reason the owner's export re-fetches: the
+   * screen's array has lost the integrity verdicts this document reports. It is
+   * deliberately a different artefact from the owner's — the guest's payloads
+   * are allowlist-filtered, so a document inviting recomputation would report
+   * every untouched event as tampered with.
+   */
+  const exportGuestRecord = useCallback(async () => {
+    const evidence = agreement?.evidence;
+    if (!evidence) throw new Error('no evidence loaded for this agreement');
+    await downloadGuestRecord(evidence);
   }, [agreement]);
 
   /**
@@ -1418,7 +1438,9 @@ const App = () => {
             onAccept={() => recordAgreementEvent(EVENT_TYPES.PERFORMANCE_ACCEPTED)}
             onRequestCorrection={(reason) =>
               recordAgreementEvent(EVENT_TYPES.PERFORMANCE_REJECTED, { reason })}
-            onExport={agreement?.source === 'owner' ? exportAgreementRecord : undefined}
+            onExport={agreement?.source === 'owner' ? exportAgreementRecord
+              : agreement?.source === 'guest' ? exportGuestRecord : undefined}
+            exportKind={agreement?.source === 'guest' ? 'server_verified' : 'verifiable'}
             onBack={() => { setAgreement(null); setView(auth.status === 'signed_in' ? 'home' : 'invite-accepted'); }}
           />
         )}

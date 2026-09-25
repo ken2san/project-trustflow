@@ -1,12 +1,20 @@
-// The export button on the agreement Record section.
+// The export buttons on the agreement Record section.
 //
-// onExport re-fetches the raw event rows from `events` (see exportAgreementRecord
-// in App.jsx) to build a re-verifiable document. A guest has no auth.users row,
-// so RLS gives them nothing from that table directly — their trail only ever
-// arrives pre-shaped from guest-contract-events, which cannot be turned back
-// into a hash-checkable export. So the button is owner-only, and this is the
-// one seam most likely to regress silently: nothing stops a future change from
-// handing a guest a button that fails every time it's pressed.
+// Both parties can take the record away, but they are given DIFFERENT
+// documents, and keeping them apart is the point of this file.
+//
+// The owner re-fetches the raw event rows from `events` (exportAgreementRecord
+// in App.jsx) and gets a self-contained document a third party can re-verify.
+// A guest has no auth.users row, so RLS gives them nothing from that table:
+// their trail only ever arrives pre-shaped from guest-contract-events with each
+// payload allowlist-filtered. Recomputing a hash over that would fail on an
+// untouched record, so the guest gets the server's verified record instead
+// (exportGuestRecord), which reports what TrustFlow checked and does not invite
+// a recomputation it knows would not match.
+//
+// This is the seam most likely to regress silently: the damaging change is not
+// a missing button, it is a guest handed the owner's document — one that would
+// cry tampering on an intact record.
 //
 // Both sides are reached the way a real user reaches them — opening a contract
 // from the signed-in owner's list, and accepting a guest invite — rather than
@@ -14,6 +22,7 @@
 // still land on `source: 'owner'` / `source: 'guest'` respectively.
 
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 const json = (route, body, status = 200) => route.fulfill({
   status,
@@ -70,7 +79,7 @@ const ACCEPTED = {
 const GUEST_CONTRACT_ID = '22222222-2222-4222-8222-222222222222';
 const GUEST_INVITE_TOKEN = '33333333-3333-4333-8333-333333333333';
 
-test('a guest never sees the export button, even on the same agreement', async ({ page }) => {
+test('a guest is given the server-verified record, not the owner document', async ({ page }) => {
   await page.route('**/functions/v1/validate-invite-token', route => json(route, {
     contract_id: GUEST_CONTRACT_ID,
     project_name: ACCEPTED.project_name,
@@ -145,5 +154,35 @@ test('a guest never sees the export button, even on the same agreement', async (
 
   // The same screen the owner test asserted against.
   await expect(page.getByText('What counts as complete')).toBeVisible({ timeout: 15_000 });
+
+  // Never the owner's artefact. That document tells its reader to recompute
+  // every hash, which on an allowlist-filtered payload fails on an intact
+  // record — the one failure this product can least afford.
   await expect(page.getByRole('button', { name: 'Download the signed record' })).toHaveCount(0);
+
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download your copy of the record' }).click();
+  const file = await downloading;
+  const doc = JSON.parse(await readFile(await file.path(), 'utf8'));
+
+  // Named so it cannot be mistaken for the re-verifiable export.
+  expect(doc.trustflow_audit_trail).toBeUndefined();
+  const record = doc.trustflow_counterparty_record;
+  expect(record.document_type).toBe('server_verified_record');
+  expect(record.agreement_id).toBe(GUEST_CONTRACT_ID);
+
+  // The server's verdict, carried through rather than re-derived here.
+  expect(record.verification.server_verdict).toBe(true);
+  expect(record.verification.status).toBe('VERIFIED');
+  expect(record.verification.truncated).toBe(false);
+
+  // It does not ask the reader to do what would fail, and says so.
+  expect(record.verification_instructions).toBeUndefined();
+  expect(JSON.stringify(record.what_this_document_is)).toMatch(/CANNOT be reproduced/);
+
+  // The accepted deal is preserved, and the claimed identity is not upgraded.
+  expect(record.accepted_agreement.amount).toBe(ACCEPTED.amount);
+  expect(record.acceptance_identity.claimed_identity_verified).toBe(false);
+  expect(record.events).toHaveLength(1);
+  expect(record.events[0].server_verification.hash_valid).toBe(true);
 });

@@ -70,7 +70,7 @@ function Record({ events }) {
 
 export default function AgreementView({
   contract, events, viewerRole, busy, error,
-  onAssertDelivery, onAccept, onRequestCorrection, onExport, onBack,
+  onAssertDelivery, onAccept, onRequestCorrection, onExport, exportKind, onBack,
 }) {
   const [correcting, setCorrecting] = React.useState(false);
   const [reason, setReason] = React.useState('');
@@ -267,7 +267,10 @@ export default function AgreementView({
             >
               {exporting
                 ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Preparing…</>
-                : <><Download className="w-3.5 h-3.5" /> Download the signed record</>}
+                : <><Download className="w-3.5 h-3.5" />
+                    {exportKind === 'server_verified'
+                      ? ' Download your copy of the record'
+                      : ' Download the signed record'}</>}
             </button>
             {exportError && (
               <p role="alert" className="flex items-start gap-2 text-xs text-amber-400">
@@ -280,9 +283,20 @@ export default function AgreementView({
         <p className="text-[11px] text-slate-600 leading-relaxed border-t border-white/5 pt-4">
           This record is tamper-evident. TrustFlow records what each party stated; it does not
           establish that a statement is true.
-          {onExport && ' The download is a self-contained JSON document: it carries every event, '
-            + 'its hash and the link to the one before it, so a third party can re-verify the '
-            + 'chain without TrustFlow.'}
+          {/* What the download is differs by who is asking, and saying the wrong
+              one would overstate the guest's document. The owner reads the raw
+              rows, so theirs can be re-verified by anyone. The guest's payloads
+              are filtered to what they may see, so theirs reports what the
+              server checked and does not invite a recomputation that would fail
+              on an untouched record. */}
+          {onExport && (exportKind === 'server_verified'
+            ? ' The download is a JSON document carrying this record and the integrity checks '
+              + 'TrustFlow performed on the complete stored events. Those results cannot be '
+              + 'recomputed from the file, because the detail you are shown is filtered to what '
+              + 'you may see.'
+            : ' The download is a self-contained JSON document: it carries every event, '
+              + 'its hash and the link to the one before it, so a third party can re-verify the '
+              + 'chain without TrustFlow.')}
         </p>
       </section>
     </div>
