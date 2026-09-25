@@ -37,9 +37,22 @@ export async function buildAuditDocument({ contractId, dodHash, events, meta = {
   // Chain verification depends on chronological order — the events array as
   // received isn't guaranteed to be in that order (fetchContractEvents
   // returns newest-first; realtime-appended events may be mixed in).
-  const chronological = [...events].sort(
-    (a, b) => new Date(a.created_at) - new Date(b.created_at)
-  )
+  //
+  // id breaks the tie, matching the ordering the writers build the chain with
+  // (log-event and accept_invitation both take the tip by `created_at desc, id
+  // desc`). created_at has millisecond resolution, so two events can share one;
+  // sorting on it alone leaves their relative order to the sort's input, and
+  // replaying them the other way round reports chain_link_match false on an
+  // untouched chain. The ids are compared by code unit rather than with
+  // localeCompare, whose result depends on the runtime's locale: every id is a
+  // lowercase canonical UUID, so the dashes sit at identical positions and the
+  // hex digits compare in the same order as the bytes the database sorts on.
+  const chronological = [...events].sort((a, b) => {
+    const byTime = new Date(a.created_at) - new Date(b.created_at)
+    if (byTime) return byTime
+    const [x, y] = [String(a.id), String(b.id)]
+    return x < y ? -1 : x > y ? 1 : 0
+  })
 
   // Re-verify each event's own hash AND its link to its chronological
   // predecessor at export time.

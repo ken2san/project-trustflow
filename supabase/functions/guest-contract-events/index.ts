@@ -182,7 +182,13 @@ serve(async (req: Request) => {
       .select('id, type, actor_id, payload, dod_hash, created_at, event_hash, prev_event_hash, hash_version, payload_hash, agreement_hash')
       .eq('contract_id', contract.id)
       .neq('type', 'runtime.snapshot')
+      // The same ordering the writers use to pick the tip, read backwards.
+      // created_at comes from the writer's clock in milliseconds, so two events
+      // can share one; replaying them in an order the chain was not built in
+      // reports chain_linked false on an untouched record, which is the one
+      // failure this product can least afford.
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
       .limit(MAX_EVENTS)
 
     if (eventsError) return json({ error: 'events_lookup_failed' }, 500)

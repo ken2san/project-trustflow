@@ -244,3 +244,53 @@ describe('audit document verification', () => {
     expect(instructions).toMatch(/agreement_hash/)
   })
 })
+
+describe('event ordering', () => {
+  // The writers take the chain tip with `order by created_at desc, id desc`
+  // (log-event, accept_invitation, derive_contract_state). created_at has
+  // millisecond resolution, so two events can share one; a verifier that sorts
+  // on created_at alone replays them in whatever order it received them and
+  // reports chain_link_match false on a chain nobody touched. For a product
+  // whose one promise is a tamper-evident record, a false alarm is the
+  // expensive failure.
+  const SAME_MS = '2026-09-24T12:00:00.000Z'
+
+  /** Two events written in the same millisecond, chained id-ascending. */
+  function collidingPair() {
+    const first = attestedEvent({
+      id: '11111111-1111-4111-8111-111111111111', type: 'contract.initiated',
+      actorId: 'earner-uuid', createdAt: SAME_MS, prevHash: 'GENESIS',
+    })
+    const second = attestedEvent({
+      id: '22222222-2222-4222-8222-222222222222', type: 'work.submitted',
+      actorId: 'earner-uuid', createdAt: SAME_MS, prevHash: first.event_hash,
+    })
+    return [first, second]
+  }
+
+  it('verifies a same-millisecond pair however the rows arrive', async () => {
+    const [first, second] = collidingPair()
+
+    for (const order of [[first, second], [second, first]]) {
+      const doc = (await build(order)).trustflow_audit_trail
+      expect(doc.integrity_status).toBe('VERIFIED')
+      // Replayed in the order the chain was built in, not the order supplied.
+      expect(doc.events.map(ev => ev.id)).toEqual([first.id, second.id])
+    }
+  })
+
+  it('still reports a genuine break in a same-millisecond pair', async () => {
+    const [first] = collidingPair()
+    // Internally self-consistent — its own hash covers the prev_hash it
+    // carries — but pointing at a predecessor that is not the one before it.
+    // This is what an inserted or reordered event looks like, and it is the
+    // case the tiebreak must not paper over.
+    const forged = attestedEvent({
+      id: '22222222-2222-4222-8222-222222222222', type: 'work.submitted',
+      actorId: 'earner-uuid', createdAt: SAME_MS, prevHash: 'f'.repeat(64),
+    })
+
+    const doc = (await build([first, forged])).trustflow_audit_trail
+    expect(doc.integrity_status).toBe('CHAIN_LINK_BROKEN')
+  })
+})
