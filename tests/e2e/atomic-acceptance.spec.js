@@ -146,11 +146,14 @@ test('a retried acceptance request cannot append a second acceptance', async ({ 
   expect((await stateOf(request, contract, earnerToken)).acceptances).toHaveLength(1);
 });
 
-test('an expired invitation leaves the contract unaccepted and unrecorded', async ({ request }) => {
+test('an unknown invitation leaves the contract unaccepted and unrecorded', async ({ request }) => {
   const { contract, earnerToken } = await invited(request);
 
-  // Expire it through the Earner's own re-share path if available; otherwise
-  // the token is simply unknown, which must fail the same way.
+  // Not "expired": invite_token_expires_at is server-owned and cannot be set on
+  // insert, so a genuinely time-expired row is not constructible from a test.
+  // An unknown token is the reachable refusal, and the property being checked —
+  // a refused acceptance writes neither half — is the same one. Consumption is
+  // covered separately above.
   const unknown = await acceptWith(request, '00000000-0000-4000-8000-000000000000');
   expect(unknown.status).toBe(404);
 
