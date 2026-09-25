@@ -74,6 +74,7 @@ import { USER_PROFILE, JOBS_DATA, TALENTS_DATA } from './lib/constants';
 import { formatNumber, deriveLevel } from './lib/utils';
 import { sha256, buildDodCanonical } from './lib/crypto.js';
 import { logEvent, EVENT_TYPES, fetchContractEvents, subscribeToContractEvents } from './lib/eventLog.js';
+import { downloadAuditTrail } from './lib/auditExport.js';
 import { loadRuntimeSnapshot, saveRuntimeSnapshot } from './lib/runtimeState.js';
 import { ensureActorIdentity } from './lib/identity.js';
 import { createContract, listContracts, inviteUrlFor, fetchInvite, acceptInvite, fetchGuestEvidence } from './lib/contracts.js';
@@ -877,7 +878,10 @@ const App = () => {
   /** Open a database-backed agreement as its owner. */
   const openContractFromHome = useCallback(async (contract) => {
     setAgreementError(null);
-    setAgreement({ contract, events: [], role: performsHere(contract) ? 'performer' : 'receiver' });
+    setAgreement({ contract, events: [], role: performsHere(contract) ? 'performer' : 'receiver',
+      // The account that owns the agreement. Only this side can read the raw
+      // event rows, and therefore only this side can be offered an export.
+      source: 'owner' });
     setView('agreement');
     const rows = await fetchContractEvents(contract.id);
     setAgreement(prev => (prev?.contract?.id === contract.id
@@ -898,6 +902,11 @@ const App = () => {
       return;
     }
     setAgreement({
+      // A guest has no auth.users row, so RLS gives them nothing from `events`
+      // directly — their trail comes shaped from guest-contract-events. They
+      // cannot build a re-verifiable export from it, so they are not offered
+      // one rather than handed an empty or unverifiable document.
+      source: 'guest',
       contract: evidence.contract,
       // The shaped response already names the actor in readable terms.
       events: (evidence.events ?? []).map(ev => ({
@@ -910,6 +919,36 @@ const App = () => {
       role: evidence.contract.viewer_role ?? 'receiver',
     });
   }, []);
+
+  /**
+   * Hand the party a self-contained, re-verifiable copy of their record.
+   *
+   * Deliberately re-fetches the raw event rows rather than exporting what the
+   * screen is showing. `agreement.events` has been through shapeOwnerEvents,
+   * which drops the hashes and reduces each payload to what the UI renders —
+   * building the document from that would recompute payload hashes over
+   * truncated payloads and report every untouched event as tampered with. An
+   * evidence export that falsely cries tampering is worse than none.
+   */
+  const exportAgreementRecord = useCallback(async () => {
+    const contract = agreement?.contract;
+    if (!contract?.id) return;
+    const rows = await fetchContractEvents(contract.id);
+    // An export with nothing in it would still look like a signed record. If
+    // the rows could not be read, say so instead of producing one.
+    if (rows.length === 0) throw new Error('no readable events for this contract');
+    await downloadAuditTrail({
+      contractId: contract.id,
+      dodHash: rows.find(ev => ev.dod_hash)?.dod_hash ?? null,
+      events: rows.filter(ev => ev.type !== 'runtime.snapshot'),
+      meta: {
+        project_name: contract.project_name ?? null,
+        offered_by: contract.earner_display_name ?? null,
+        counterparty: contract.hirer_email ?? null,
+        exported_by_role: agreement?.role ?? null,
+      },
+    });
+  }, [agreement]);
 
   /**
    * Record a performance statement. The server decides whether this party may
@@ -1379,6 +1418,7 @@ const App = () => {
             onAccept={() => recordAgreementEvent(EVENT_TYPES.PERFORMANCE_ACCEPTED)}
             onRequestCorrection={(reason) =>
               recordAgreementEvent(EVENT_TYPES.PERFORMANCE_REJECTED, { reason })}
+            onExport={agreement?.source === 'owner' ? exportAgreementRecord : undefined}
             onBack={() => { setAgreement(null); setView(auth.status === 'signed_in' ? 'home' : 'invite-accepted'); }}
           />
         )}

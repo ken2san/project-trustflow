@@ -20,7 +20,7 @@
 // not rule that the objection is justified.
 
 import React from 'react';
-import { ArrowLeft, CheckCircle2, Send, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Send, Loader2, AlertTriangle, Download } from 'lucide-react';
 
 /** Human wording for the attested event types, from the reader's side. */
 const RECORD_LABELS = {
@@ -70,10 +70,12 @@ function Record({ events }) {
 
 export default function AgreementView({
   contract, events, viewerRole, busy, error,
-  onAssertDelivery, onAccept, onRequestCorrection, onBack,
+  onAssertDelivery, onAccept, onRequestCorrection, onExport, onBack,
 }) {
   const [correcting, setCorrecting] = React.useState(false);
   const [reason, setReason] = React.useState('');
+  const [exporting, setExporting] = React.useState(false);
+  const [exportError, setExportError] = React.useState(null);
 
   if (!contract) {
     return (
@@ -240,9 +242,47 @@ export default function AgreementView({
       <section className="space-y-3">
         <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-600">Record</h2>
         <Record events={events} />
+
+        {/* The point of keeping a tamper-evident record is being able to take it
+            somewhere else. Until now the export existed but nothing in this
+            flow could reach it, so the one thing TrustFlow promises to produce
+            was not obtainable by anyone actually using it. */}
+        {onExport && (
+          <div className="space-y-2 pt-1">
+            <button
+              onClick={async () => {
+                setExportError(null);
+                setExporting(true);
+                try {
+                  await onExport();
+                } catch (err) {
+                  setExportError('The record could not be exported. Please try again.');
+                  console.warn('[TrustFlow] audit export failed:', err);
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              disabled={exporting}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border border-white/10 text-slate-300 font-bold text-xs hover:border-white/20 hover:text-white transition-all disabled:opacity-40"
+            >
+              {exporting
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Preparing…</>
+                : <><Download className="w-3.5 h-3.5" /> Download the signed record</>}
+            </button>
+            {exportError && (
+              <p role="alert" className="flex items-start gap-2 text-xs text-amber-400">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{exportError}
+              </p>
+            )}
+          </div>
+        )}
+
         <p className="text-[11px] text-slate-600 leading-relaxed border-t border-white/5 pt-4">
           This record is tamper-evident. TrustFlow records what each party stated; it does not
           establish that a statement is true.
+          {onExport && ' The download is a self-contained JSON document: it carries every event, '
+            + 'its hash and the link to the one before it, so a third party can re-verify the '
+            + 'chain without TrustFlow.'}
         </p>
       </section>
     </div>
