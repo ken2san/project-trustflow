@@ -158,7 +158,24 @@ begin
    order by e.created_at desc, e.id desc
    limit 1;
 
-  if v_tip is distinct from p_prev_event_hash then
+  -- An empty chain is SQL NULL here but the literal 'GENESIS' in the caller and
+  -- in the row it is about to write, so the two must be brought into one domain
+  -- before they are compared. Without this every acceptance fails: the
+  -- acceptance event is always the FIRST event on a contract — createContract
+  -- writes no event — so v_tip is always null on the real path, `null is
+  -- distinct from 'GENESIS'` is true, and the caller's retry loop spins on an
+  -- unchanging tip until it gives up with chain_contention.
+  --
+  -- Both sides are coalesced rather than only one, so this accepts either
+  -- convention and the function therefore does not have to be deployed in step
+  -- with the Edge Function that calls it. 'GENESIS' cannot collide with a real
+  -- tip, which is always a SHA-256 hex digest.
+  --
+  -- The sentinel belongs here despite living in _shared/eventCanonical.ts: the
+  -- partial unique index events_chain_no_fork_idx (… where prev_event_hash is
+  -- not null) only guards the genesis link because the first event stores that
+  -- literal, so the database's anti-fork guarantee already rests on this value.
+  if coalesce(v_tip, 'GENESIS') is distinct from coalesce(p_prev_event_hash, 'GENESIS') then
     return jsonb_build_object('status', 'chain_conflict');
   end if;
 
