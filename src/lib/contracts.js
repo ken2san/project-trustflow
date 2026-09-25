@@ -201,15 +201,28 @@ export async function fetchGuestEvidence(contractId) {
 }
 
 /**
- * Accept the invite: consumes the one-time token, records the accepting
- * email, moves the contract to TERMS_ACCEPTED and returns the guest access
- * token for this Hirer's later actions on this contract.
+ * Accept the invitation.
+ *
+ * One server-side operation: it consumes the one-time token, records the
+ * accepting identity, moves the contract to TERMS_ACCEPTED, issues the guest
+ * access token for this Hirer's later actions, and appends the acceptance
+ * evidence event carrying the agreed terms. All of it commits together or none
+ * of it does, so a caller that gets a result has both the acceptance and the
+ * record of what was accepted.
  */
-export async function acceptInvite(inviteToken, hirerEmail) {
+export async function acceptInvite(inviteToken, hirerEmail, counterpartyName) {
   if (!supabase) return { accepted: null, reason: 'error' }
 
+  // One call. The function consumes the invitation and writes the acceptance
+  // evidence in the same transaction, so there is no second request whose
+  // failure could leave an accepted agreement without a record of it.
   const { data, error } = await supabase.functions.invoke('validate-invite-token', {
-    body: { invite_token: inviteToken, accept: true, hirer_email: hirerEmail },
+    body: {
+      invite_token: inviteToken,
+      accept: true,
+      hirer_email: hirerEmail,
+      counterparty_name: counterpartyName ?? null,
+    },
   })
 
   if (error || data?.error) {

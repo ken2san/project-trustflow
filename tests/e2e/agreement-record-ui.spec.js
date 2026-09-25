@@ -38,7 +38,11 @@ const json = (route, body, status = 200) => route.fulfill({
  * `trail` overrides let one test present an agreement whose live row has
  * drifted from what was accepted.
  */
+let logEventCalls = [];
+
 async function openTheRecord(page, { invite = {}, trail = {} } = {}) {
+  logEventCalls = [];
+
   await page.route('**/functions/v1/validate-invite-token', route => json(route, {
     contract_id: CONTRACT_ID,
     project_name: ACCEPTED.project_name,
@@ -53,9 +57,13 @@ async function openTheRecord(page, { invite = {}, trail = {} } = {}) {
     ...invite,
   }));
 
-  await page.route('**/functions/v1/log-event', route => json(route, {
-    event: { id: '33333333-3333-4333-8333-333333333333' },
-  }, 201));
+  // Nothing should reach log-event on this path any more: acceptance writes its
+  // own evidence server-side. Fulfilled with an error so that a client that
+  // regressed to calling it would fail loudly rather than pass unnoticed.
+  await page.route('**/functions/v1/log-event', route => {
+    logEventCalls.push(route.request().url());
+    return json(route, { error: 'log_event_should_not_be_called_on_acceptance' }, 500);
+  });
 
   await page.route('**/functions/v1/guest-contract-events', route => json(route, {
     accepted_agreement: ACCEPTED,
@@ -116,6 +124,9 @@ async function acceptAndOpen(page) {
     .click({ timeout: 15_000 });
   await expect(page.getByRole('heading', { name: 'Record of agreement' }))
     .toBeVisible({ timeout: 15_000 });
+  // The correctness of the record must not depend on a second client call.
+  expect(logEventCalls, 'acceptance must not write evidence from the browser')
+    .toEqual([]);
 }
 
 // ── Before agreeing ─────────────────────────────────────────────────────────

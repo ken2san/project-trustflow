@@ -68,27 +68,20 @@ async function acceptedAgreement(request, {
   expect(created.status, `contract insert failed: ${JSON.stringify(created.body)}`).toBe(201);
   const contract = created.body[0];
 
+  // Consuming the invitation and recording what was accepted are one operation.
   const accept = await api(request, '/functions/v1/validate-invite-token', {
-    body: { invite_token: contract.invite_token, accept: true, hirer_email: acceptingEmail },
-  });
-  expect(accept.status, `acceptance failed: ${JSON.stringify(accept.body)}`).toBe(200);
-  const guestToken = accept.body.guest_access_token;
-
-  // The acceptance EVIDENCE is a second, separate write, made by the accepting
-  // party with the credential they were just issued. Consuming the invitation
-  // moves the contract; this is what records the deal that was agreed to.
-  const consent = await api(request, '/functions/v1/log-event', {
-    guestToken,
     body: {
-      type: 'dod.consent_recorded',
-      contract_id: contract.id,
-      idempotencyKey: `consent:${contract.id}`,
-      payload: { counterparty_name: 'Guest', counterparty_email: acceptingEmail },
+      invite_token: contract.invite_token, accept: true,
+      hirer_email: acceptingEmail, counterparty_name: 'Guest',
     },
   });
-  expect(consent.status, `consent write failed: ${JSON.stringify(consent.body)}`).toBe(201);
+  expect(accept.status, `acceptance failed: ${JSON.stringify(accept.body)}`).toBe(200);
 
-  return { contract, earnerToken: token, earnerUserId: userId, guestToken };
+  return {
+    contract, earnerToken: token, earnerUserId: userId,
+    guestToken: accept.body.guest_access_token,
+    acceptanceEventId: accept.body.acceptance_event_id,
+  };
 }
 
 const trailFor = async (request, guestToken) =>

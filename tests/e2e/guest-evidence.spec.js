@@ -66,15 +66,15 @@ async function acceptedContract(request, { projectName = 'Guest Evidence Probe' 
     token, body: { type: 'contract.initiated', contract_id: contract.id, payload: { step: 1 } },
   });
 
+  // Accepting writes its own evidence, in the same transaction. There is no
+  // second call to make.
   const accept = await api(request, '/functions/v1/validate-invite-token', {
-    body: { invite_token: contract.invite_token, accept: true, hirer_email: 'guest.reader@example.test' },
+    body: {
+      invite_token: contract.invite_token, accept: true,
+      hirer_email: 'guest.reader@example.test', counterparty_name: 'Guest Reader',
+    },
   });
   expect(accept.status).toBe(200);
-
-  await api(request, '/functions/v1/log-event', {
-    guestToken: accept.body.guest_access_token,
-    body: { type: 'dod.consent_recorded', contract_id: contract.id, payload: { counterparty_name: 'Guest Reader' } },
-  });
 
   return { contract, earnerToken: token, earnerUserId: userId, guestToken: accept.body.guest_access_token };
 }

@@ -165,7 +165,7 @@ test('a caller with no party credentials is rejected', async ({ request }) => {
   // A guest token that does not match this contract.
   const badGuest = await api(request, '/functions/v1/log-event', {
     guestToken: '00000000-0000-4000-8000-0000000000ff',
-    body: { type: 'dod.consent_recorded', contract_id: contract.id },
+    body: { type: 'contract.accepted', contract_id: contract.id },
   });
   expect(badGuest.status).toBe(403);
   expect(badGuest.body.error).toBe('not_a_party');
@@ -234,13 +234,14 @@ test('a guest Hirer is recorded as the email that accepted, not one it supplies'
   });
   expect(accept.status).toBe(200);
 
+  // A later assertion by the same guest, with a forged actor_id in the body.
   const { status, body } = await api(request, '/functions/v1/log-event', {
     guestToken: accept.body.guest_access_token,
     body: {
-      type: 'dod.consent_recorded',
+      type: 'contract.accepted',
       contract_id: contract.id,
       actor_id: 'spoofed@example.test',
-      payload: { counterparty_name: 'Guest' },
+      payload: { step: 1 },
     },
   });
 

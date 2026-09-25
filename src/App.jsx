@@ -1465,11 +1465,15 @@ const App = () => {
             inviteData={inviteData}
             tokenError={inviteTokenError}
             onAccept={async (guestName, email) => {
-              // Consume the one-time token server-side. This is also what
-              // records the accepting identity and moves the contract to
-              // TERMS_ACCEPTED — the client cannot do either itself.
+              // One server-side operation. It consumes the one-time token,
+              // records the accepting identity, moves the contract to
+              // TERMS_ACCEPTED and writes the acceptance evidence — all or
+              // nothing. The client used to write that evidence itself in a
+              // second call, which meant a dropped connection could leave an
+              // accepted agreement with no record of what was accepted.
               const raw = new URLSearchParams(window.location.search).get('token');
-              const { accepted, reason } = await acceptInvite(raw, email);
+              const name = guestName || 'Guest';
+              const { accepted, reason } = await acceptInvite(raw, email, name);
               if (!accepted) {
                 setInviteTokenError(reason === 'already_used' ? 'already_used' : reason);
                 setInviteData(null);
@@ -1489,43 +1493,13 @@ const App = () => {
                 acceptanceCriteria: accepted.dod ?? [],
                 deadline: accepted.deadline ?? null,
               });
-              const name = guestName || 'Guest';
               setGuestName(name);
               if (email) setGuestEmail(email);
               window.history.replaceState({}, '', window.location.pathname);
-              // Timestamped legal record of acceptance. counterparty_email is
-              // the address that actually accepted, which may differ from the
-              // one the invite was addressed to — both are kept.
-              //
-              // Awaited, not fire-and-forget: this is the one event that says
-              // the guest agreed, and the very next screen offers to show them
-              // the record. Letting the write race the read meant they could
-              // open their own trail and not find their own acceptance in it.
-              const consent = await logEvent({
-                type: EVENT_TYPES.DOD_CONSENT_RECORDED,
-                contractId,
-                actorId: email || name,
-                // One acceptance per contract. A refresh or a retried request
-                // returns the record already written rather than appending a
-                // second, contradictory consent to the chain.
-                idempotencyKey: `consent:${contractId}`,
-                payload: {
-                  counterparty_name: name,
-                  counterparty_email: email || null,
-                  dod_items: accepted.dod ?? [],
-                  user_agent: navigator.userAgent,
-                },
-              });
               setView('invite-accepted');
-              // The acceptance itself already succeeded server-side — the
-              // contract is in TERMS_ACCEPTED either way — so a failed evidence
-              // write is reported without claiming the agreement did not happen.
-              if (consent?.persisted === false) {
-                addToast('Agreement accepted',
-                  'Recorded, but the evidence entry could not be written. Contact the other party.', 'warning');
-              } else {
-                addToast('Agreement accepted', 'Your acceptance has been recorded.', 'success');
-              }
+              // No qualification needed any more. The response exists only
+              // because the acceptance and its evidence committed together.
+              addToast('Agreement accepted', 'Your acceptance has been recorded.', 'success');
             }}
             onDecline={() => {
               window.history.replaceState({}, '', window.location.pathname);

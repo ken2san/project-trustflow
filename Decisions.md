@@ -1,6 +1,6 @@
 # TrustFlow — Architecture Decisions
 
-_Last updated: 2026-09-27_
+_Last updated: 2026-09-28_
 
 > This file records significant design decisions and the reasoning behind them.
 > AI agents must read this before proposing changes to established patterns.
@@ -399,6 +399,68 @@ the contract to `TERMS_ACCEPTED`) and then calls `log-event` to record
 no acceptance event, and therefore no agreement snapshot — the UI warns the
 user, but the evidence is simply absent. Making acceptance and its record a
 single server-side act is the obvious repair and has not been done.
+
+---
+
+### [2026-09-28] — Acceptance and its evidence commit together
+
+**Invariant**: TrustFlow never records that an agreement was accepted unless the
+authoritative acceptance evidence for that exact agreement — the canonical v4
+event carrying the agreement snapshot, the invited recipient, the claimed
+identity and the authentication method — was durably written in the same
+database transaction. Neither can exist without the other.
+
+**Context**: accepting an invitation was two independent requests.
+`validate-invite-token` consumed the one-time invite and moved the contract to
+`TERMS_ACCEPTED`; the browser then called `log-event` to write
+`dod.consent_recorded`. Anything failing in between — a dropped connection, a
+closed tab, a rejected CORS preflight — left a contract that was accepted with
+no record of what had been accepted. That was tolerable while the acceptance
+event added little the contract row did not already hold. It stopped being
+tolerable on 2026-09-27, when the acceptance event became the only place the
+agreed deal is preserved: its absence is now the absence of the evidence, not of
+a log line.
+
+**Where the boundary was drawn**: the transaction covers the invite validity
+check, the single-use consumption, the state transition, the claimed identity,
+the guest access credential, and the acceptance event with its snapshot, hashes
+and chain link. The guest credential is inside it for free — it is a column on
+the same row — but the load-bearing pair is the accepted state and the evidence.
+
+**Why a SQL function and not SQL-side hashing**: the event hash is computed in
+Deno over the canonical defined once in `_shared/eventCanonical.ts`.
+Recomputing it in plpgsql would create a second implementation of that
+canonical, which is exactly the drift that produced this project's one
+production bug. So the hash stays in one place and the database is given only
+the job it is uniquely good at — committing several writes or none.
+`invite_acceptance_context()` reads the terms, the chain tip and an opaque row
+version; the Edge Function builds and hashes; `accept_invitation()` re-checks
+all three under a row lock and commits.
+
+**Consequences that future work must not undo**:
+
+- **`dod.consent_recorded` is no longer writable by a party.** `log-event`
+  refuses it with `type_is_server_recorded`. A guest who could append a second
+  acceptance could record a snapshot taken at a different moment, leaving two
+  records and no rule for which is the agreement. Existing rows are untouched
+  and verify exactly as before.
+- **The client must never regain a second call on this path.** Correctness may
+  not depend on the browser completing a follow-up request; a test asserts that
+  nothing reaches `log-event` during acceptance.
+- **The row lock is what makes concurrency safe.** `select … for update` in
+  `accept_invitation` serializes concurrent accepts of one invitation. The
+  previous conditional update guarded the contract row but not the event, so two
+  racing accepts could each have gone on to append their own acceptance.
+- **Evidence must not come to depend on the transaction succeeding quietly.**
+  A refused acceptance returns a status before anything is written; a failed one
+  raises and rolls back. There is no ordering that writes one half.
+
+**Known limit, not fixed here**: a client that loses the response to a
+successful acceptance cannot retry. The invitation is spent, so the retry gets
+`already_used`, and the guest access credential issued to the first attempt is
+lost with the response. Re-issuing it on demand would let anyone holding the
+invite token mint a credential, so it is a recovery problem rather than an
+atomicity one, and guest recovery remains unaddressed.
 
 ---
 

@@ -31,10 +31,8 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import {
-  GENESIS_HASH, HASH_VERSION, eventCanonical, payloadHash, deriveDodHash, sha256Hex,
-  buildAgreementSnapshot, deriveAgreementHash,
-} from '../_shared/eventCanonical.ts'
+import { GENESIS_HASH } from '../_shared/eventCanonical.ts'
+import { ACCEPTANCE_TYPE, buildEventRecord, roleInAgreement } from '../_shared/eventRecord.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -70,10 +68,19 @@ const ALLOWED_TYPES = new Set([
   'performance.rejected',
   'contract.cancelled',
   'contract.completed',
-  'dod.consent_recorded',
   'dispute.opened',
   'rating.submitted',
 ])
+
+// Written by the server as part of another operation, never on a party's say-so.
+//
+// dod.consent_recorded is the authoritative record of what was accepted, and it
+// is now appended inside the same transaction that consumes the invitation —
+// see validate-invite-token. Accepting one here as well would let a guest add a
+// second, later acceptance to the same agreement, with a snapshot taken at a
+// different moment, and leave a reader with two records and no rule for which
+// one is the agreement. Existing rows are untouched and verify as before.
+const SERVER_RECORDED_TYPES = new Set([ACCEPTANCE_TYPE])
 
 // Written before the vocabulary above. Still readable and still verifiable
 // under the canonical they were written with — the log is append-only, so
@@ -100,27 +107,6 @@ const ROLE_REQUIRED: Record<string, 'performer' | 'receiver'> = {
   'performance.asserted': 'performer',
   'performance.accepted': 'receiver',
   'performance.rejected': 'receiver',
-}
-
-/**
- * Which role a party holds in this particular agreement.
- *
- * `party` is which side of the account/guest divide the caller is on — the
- * account that owns the agreement, or the invited counterparty. `performed_by`
- * says which of those two does the work. The role is the combination.
- *
- * Note on naming: resolveActor still reports 'earner' for the owning account
- * and 'guest_hirer' for the guest, and contracts.earner_user_id still holds the
- * owner. Those names predate this column and are now misleading when the owner
- * is not the performer. Recorded as debt; renaming them is schema and data
- * surgery that this change does not need.
- */
-function roleInAgreement(
-  party: 'earner' | 'guest_hirer',
-  performedBy: string | null,
-): 'performer' | 'receiver' {
-  const performingParty = performedBy === 'counterparty' ? 'guest_hirer' : 'earner'
-  return party === performingParty ? 'performer' : 'receiver'
 }
 
 const MAX_PAYLOAD_BYTES = 16 * 1024
@@ -169,27 +155,6 @@ async function resolveActor(
   return { actorId: data.user.id, role: 'earner' }
 }
 
-/**
- * What an acceptance permanently records, beyond the assertion itself.
- *
- * The snapshot is embedded, not merely hashed. A hash proves that content
- * matches; it cannot reproduce content that has since changed. Storing the deal
- * as it stood lets the historical record SHOW what was accepted without
- * consulting the contract row, which may have moved on.
- *
- * The two email fields are kept apart on purpose. They may legitimately differ —
- * an invitation can be forwarded — and that divergence is itself evidence.
- * Neither is verified, and nothing here says otherwise.
- */
-function acceptanceFacts(contract: Record<string, unknown>) {
-  return {
-    _agreement: buildAgreementSnapshot(contract),
-    _invited_recipient: (contract.invited_hirer_email as string | null) ?? null,
-    _claimed_identity: (contract.hirer_email as string | null) ?? null,
-    _claimed_identity_verified: false,
-  }
-}
-
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -203,7 +168,12 @@ serve(async (req: Request) => {
 
     if (typeof type !== 'string' || !ALLOWED_TYPES.has(type)) {
       const retired = typeof type === 'string' && RETIRED_TYPES.has(type)
-      return json({ error: retired ? 'type_retired' : 'type_not_allowed' }, 400)
+      const serverRecorded = typeof type === 'string' && SERVER_RECORDED_TYPES.has(type)
+      return json({
+        error: serverRecorded ? 'type_is_server_recorded'
+          : retired ? 'type_retired'
+          : 'type_not_allowed',
+      }, 400)
     }
     if (typeof contract_id !== 'string' || !contract_id) {
       return json({ error: 'missing_contract_id' }, 400)
@@ -280,70 +250,25 @@ serve(async (req: Request) => {
 
       const prevHash = tip?.event_hash ?? GENESIS_HASH
 
-      // The terms this assertion refers to, derived from the agreement rather
-      // than taken from the caller. Two assertions made either side of a scope
-      // change carry different values, which is what makes an unannounced
-      // change to the terms visible in the log instead of silent.
-      const termsHash = await deriveDodHash(contract.dod)
-
-      // The whole deal, not just its completion criteria. dod_hash alone left
-      // price and date unbound, so an accepted agreement could have its amount
-      // changed afterwards with nothing detecting it.
-      const agreementHash = await deriveAgreementHash(contract)
-
-      // The substance of the assertion, bound into the hash from v3 on.
-      //
-      // Underscore-prefixed keys are the server's namespace: everything under
-      // one is a fact TrustFlow derived, not one a party asserted. A caller
-      // that sent `_agreement` could not forge the hash — that is derived from
-      // the contract row — but it could leave a reader looking at terms nobody
-      // agreed to, so those keys are dropped before anything is merged in.
-      const recordedPayload = {
-        ...Object.fromEntries(
-          Object.entries((payload as Record<string, unknown>) ?? {})
-            .filter(([key]) => !key.startsWith('_'))),
-        // Recorded, not accepted: how the writer was authenticated, and which
-        // role they held in this agreement at the time.
-        _actor_role: actor.role,
-        _role_in_agreement: roleHere,
-        // How this party obtained the authority to act. A guest's credential
-        // exists only because a single-use invitation was consumed, so that is
-        // what their authority traces back to. This claims nothing about email
-        // verification, account identity, or who the person is.
-        _auth_method: actor.role === 'guest_hirer' ? 'invite_capability' : 'account_session',
-        ...(type === 'dod.consent_recorded' ? acceptanceFacts(contract) : {}),
-      }
-      const substanceHash = await payloadHash(recordedPayload)
-
-      const event = {
-        id: crypto.randomUUID(),
+      // Everything that makes this row evidence — the terms pin, the agreement
+      // snapshot and its hash, the actor's role, how they were authenticated —
+      // is derived in _shared/eventRecord.ts, the one place that assembles an
+      // event, so an assertion written here and an acceptance written by
+      // validate-invite-token are the same kind of object.
+      const event = await buildEventRecord({
         type,
-        contract_id,
-        actor_id: actor.actorId,
-        dod_hash: termsHash,
-        created_at: new Date().toISOString(),
-      }
-
-      // One definition of the canonical, shared with the verifiers — see
-      // _shared/eventCanonical.ts for why that matters.
-      const eventHash = await sha256Hex(eventCanonical({
-        ...event,
-        prev_event_hash: prevHash,
-        payload_hash: substanceHash,
-        agreement_hash: agreementHash,
-      }, HASH_VERSION))
+        contract,
+        actorId: actor.actorId,
+        party: actor.role,
+        payload,
+        prevEventHash: prevHash,
+        idempotencyKey: (idempotency_key as string | null) ?? null,
+      })
 
       const { data: inserted, error: insertError } = await admin
         .from('events')
         .insert({
           ...event,
-          payload: recordedPayload,
-          payload_hash: substanceHash,
-          agreement_hash: agreementHash,
-          event_hash: eventHash,
-          prev_event_hash: prevHash,
-          hash_version: HASH_VERSION,
-          idempotency_key: (idempotency_key as string | null) ?? null,
           server_recorded_at: new Date().toISOString(),
           tsa_token: null,
         })
