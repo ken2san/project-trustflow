@@ -67,16 +67,12 @@ serve(async (req: Request) => {
   try {
     const { invite_token, accept, hirer_email, counterparty_name } = await req.json()
     if (!invite_token || typeof invite_token !== 'string') {
-      return new Response(JSON.stringify({ error: 'missing invite_token' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json({ error: 'missing invite_token' }, 400)
     }
 
     if (accept) {
       if (typeof hirer_email !== 'string' || !EMAIL_RE.test(hirer_email.trim())) {
-        return new Response(JSON.stringify({ error: 'valid hirer_email required' }), {
-          status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
+        return json({ error: 'valid hirer_email required' }, 400)
       }
     }
 
@@ -86,36 +82,33 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    const { data: contract, error } = await supabase
-      .from('contracts')
-      .select('id, project_name, dod, amount_jpy, currency, deadline, performed_by, earner_display_name, invited_hirer_email, earner_user_id, invite_token_expires_at, invite_token_used_at')
-      .eq('invite_token', invite_token)
-      .single()
-
-    if (error || !contract) {
-      return new Response(JSON.stringify({ error: 'not_found' }), {
-        status: 404, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-
-    if (contract.invite_token_used_at) {
-      return new Response(JSON.stringify({ error: 'already_used' }), {
-        status: 410, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-
-    if (contract.invite_token_expires_at && new Date(contract.invite_token_expires_at) < new Date()) {
-      return new Response(JSON.stringify({ error: 'expired' }), {
-        status: 410, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-
     if (!accept) {
-      // Read-only preview — token stays valid/unused.
+      // Read-only preview — the token stays valid and unused.
+      //
+      // This path validates the invitation here because nothing else will. The
+      // ACCEPT path deliberately does not: it validates inside the transaction
+      // that consumes the token, where the answer is still true when it is
+      // acted on. Checking here as well would be two code paths answering the
+      // same question, and a check made before a lock is a check that can be
+      // stale by the time it matters.
+      const { data: contract, error } = await supabase
+        .from('contracts')
+        .select('id, project_name, dod, amount_jpy, currency, deadline, performed_by, '
+          + 'earner_display_name, invited_hirer_email, invite_token_expires_at, invite_token_used_at')
+        .eq('invite_token', invite_token)
+        .maybeSingle()
+
+      if (error || !contract) return json({ error: 'not_found' }, 404)
+      if (contract.invite_token_used_at) return json({ error: 'already_used' }, 410)
+      if (contract.invite_token_expires_at
+          && new Date(contract.invite_token_expires_at) < new Date()) {
+        return json({ error: 'expired' }, 410)
+      }
+
       // Everything here comes from the contract row. The URL carries only the
       // token, never the terms, so a tampered URL cannot change what the
       // Hirer is shown.
-      return new Response(JSON.stringify({
+      return json({
         contract_id: contract.id,
         project_name: contract.project_name,
         dod: contract.dod,
@@ -128,9 +121,7 @@ serve(async (req: Request) => {
         // acceptance, so it has to be on screen before anyone agrees —
         // attesting consent to a term nobody was shown would be dishonest.
         performed_by: contract.performed_by,
-      }), {
-        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      }, 200)
     }
 
     // Accept: consume the invitation and record the evidence for it, together.
@@ -218,8 +209,6 @@ serve(async (req: Request) => {
     return json({ error: 'chain_contention' }, 409)
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'internal_error', detail: String(err) }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json({ error: 'internal_error', detail: String(err) }, 500)
   }
 })
