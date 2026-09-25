@@ -244,7 +244,11 @@ serve(async (req: Request) => {
         .select('event_hash')
         .eq('contract_id', contract_id)
         .not('event_hash', 'is', null)
+        // Same ordering as accept_invitation and derive_contract_state. Two
+        // events can share a millisecond, and a tip that depends on which row
+        // the planner returns is a tip two writers can disagree about.
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(1)
         .maybeSingle()
 

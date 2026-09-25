@@ -65,7 +65,11 @@ begin
     from public.events e
    where e.contract_id = c.id::text
      and e.event_hash is not null
-   order by e.created_at desc
+   -- id breaks the tie, matching derive_contract_state. created_at comes from
+   -- the writer's clock in milliseconds, so two events can share one; without a
+   -- tiebreak "the tip" is whichever row the planner happened to return, and
+   -- two readers could disagree about where the chain ends.
+   order by e.created_at desc, e.id desc
    limit 1;
 
   return jsonb_build_object(
@@ -147,7 +151,11 @@ begin
     from public.events e
    where e.contract_id = c.id::text
      and e.event_hash is not null
-   order by e.created_at desc
+   -- id breaks the tie, matching derive_contract_state. created_at comes from
+   -- the writer's clock in milliseconds, so two events can share one; without a
+   -- tiebreak "the tip" is whichever row the planner happened to return, and
+   -- two readers could disagree about where the chain ends.
+   order by e.created_at desc, e.id desc
    limit 1;
 
   if v_tip is distinct from p_prev_event_hash then
