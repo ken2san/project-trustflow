@@ -1,6 +1,6 @@
 # TrustFlow — AI Session Handoff
 
-_Last updated: 2026-09-22 (session 5, part 3 — Vercel migration)_
+_Last updated: 2026-09-29 (evidence core: canonical v4, atomic acceptance, record export)_
 
 > Use this file to brief a new AI session on the current project state.
 > Update before ending a session. Paste the contents as your first message.
@@ -32,7 +32,34 @@ Stack: React 18, Vite, TailwindCSS. Backend: Supabase (PostgreSQL + Edge Functio
 
 ## Current Phase
 
-Mid MVP-consistency refactor. Backend payment security (this session) is done and deployed; UI is not yet wired to the DB-backed contract flow at all.
+**Evidence core.** The UI *is* now wired to the DB-backed flow — that sentence
+in older revisions of this file is out of date, as is most of "Next Priority"
+below. `Decisions.md` is the current source of truth; read it first and treat
+anything here that contradicts it as superseded.
+
+Where the product actually stands:
+
+- A signed-in Earner creates an agreement, invites a counterparty by link, and
+  both sides work from `AgreementView`. `ContractsHomeView` is the home screen.
+- Accepting an invitation consumes the invite, records the claimed identity,
+  issues the guest credential, moves the contract to `TERMS_ACCEPTED` and writes
+  the acceptance evidence — **one database transaction, all or nothing**
+  (`accept_invitation()`, commit 893c957).
+- Events are hash-chained and server-attested. Canonical v4 binds an agreement
+  snapshot, so the acceptance record proves the whole deal — price, deadline,
+  which side performs — not just the completion criteria.
+- Reachable states: `DRAFTING → AWAITING_ACCEPTANCE → TERMS_ACCEPTED →
+  AWAITING_CONFIRMATION → PERFORMANCE_ACCEPTED` (terminal), with
+  `performance.rejected` returning to `TERMS_ACCEPTED`. `SETTLED`, `DELIVERED`
+  and `CANCELLED` are **not reachable** — money moves outside TrustFlow by
+  design, and cancellation is an open question (see `Decisions.md`).
+- The owning account can download a self-contained, re-verifiable record from
+  `AgreementView`. The guest cannot yet — see `Decisions.md`.
+
+The legacy five-step `ContractView`/Marketplace surface still exists and still
+runs on local mock state. It is reachable only through command-palette entries
+labelled "(legacy)" and its `logEvent` calls fail server-side by design. Do not
+mistake it for the real flow.
 
 ## What Was Done (cumulative)
 
@@ -124,14 +151,31 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 
 ## Next Priority (in order)
 
-0. **Deploy the pending migration + Edge Function updates** (`supabase db push` + `supabase functions deploy`) — user deliberately deferred this at the end of session 5 to batch it with whatever comes next, not because anything is wrong with the changes. See Current State above for exactly what's pending. Confirm with the user before running (standing deploy-approval rule, Active Constraints).
-1. **Wire the UI to the DB-backed contract flow** — the biggest gap. `App.jsx` contract creation, `InviteView.jsx` acceptance, and `PaymentModal.jsx` need to actually call `contracts` INSERT / `validate-invite-token` / `create-payment-intent` / `capture-payment` / `cancel-payment` for the first time. This is entangled with completing the state machine (below), since the UI has no DB state to drive off of otherwise.
-2. **Complete the state machine** — only `DRAFTING`/`TERMS_ACCEPTED`/`IN_PROGRESS`/`DELIVERED`/`CANCELLED`/`SETTLED` exist. Still missing: `INVITED`, `FUNDED` (separate from `IN_PROGRESS`), `ACCEPTED`/`AUTO_ACCEPTED` (separate from `SETTLED` — capture-payment currently conflates "Hirer confirms delivery" and "funds released" into one step), `DISPUTED`, `REFUNDED` (separate from `CANCELLED`). The 7-day auto-accept timeout needs a scheduling mechanism (pg_cron availability on this Supabase plan is unconfirmed) — `delivered_at` column + index already anticipate this (see `20260527000003_contracts_delivered_at.sql`).
-3. **Stripe Connect onboarding** — `earner_payout_profiles` table exists (session 5) but nothing populates it. Needed before `capture-payment` can ever succeed for a real Earner.
-4. **Fault-attributed cancellation penalties** — `cancel-payment` still applies a flat -30 TrustPoints to both parties regardless of fault.
-5. **Docs cleanup** — `Protocol.md` is two contradictory legacy documents concatenated (Pause/Resume, AI arbitration, blockchain terminology — none of it matches the current model); `Decisions.md` self-contradicts on guest dispute rights; `Roadmap.md` self-contradicts on whether Pause/Resume/Renegotiation are eliminated or required, and still lists Gemini API/eKYC/blockchain anchoring as near-term.
-6. **`App.jsx` decomposition** — 1234 lines, 52 `useState`, 6 `useEffect`. Extract `useInviteFlow`/`usePaymentFlow`/`useContractState` once the DB wiring above lands (extracting before the logic is correct just means redoing it).
-7. Stripe live keys (`VITE_STRIPE_PUBLISHABLE_KEY`), RLS hardening beyond what session 5 touched — unchanged from earlier sessions, still open.
+The list that used to sit here — wire the UI to the DB, build out
+`FUNDED`/`DISPUTED`/`REFUNDED`, Stripe Connect onboarding — has been overtaken.
+The UI is wired; the state machine is now the evidence projection in
+`derive_contract_state()`, not that list; payments were deliberately moved
+outside the product.
+
+1. **Apply and deploy what is pending.** `20260928000000_atomic_acceptance.sql`
+   is committed but **not applied**, and `log-event` / `validate-invite-token`
+   are **not deployed** with the atomic-acceptance change. **The migration must
+   land before the functions** — deploying `validate-invite-token` against a
+   database without `accept_invitation()` breaks acceptance outright. Blocked
+   while the Supabase project is unreachable (see Active Constraints).
+2. **Run the live suites once the database is back**: `atomic-acceptance.spec.js`
+   (14 tests, never yet executed) and `agreement-binding.spec.js`. Do **not**
+   run the full E2E suite repeatedly — three back-to-back runs saturated the
+   project's auth rate limit on 2026-09-24 and took it offline.
+3. **Decide cancellation semantics** before writing any cancel UI. Recorded as
+   an open question in `Decisions.md`: the product renders a `CANCELLED` state
+   nothing can reach, and whether one party may unilaterally void an accepted
+   agreement is a decision about evidence, not a button.
+4. **Guest record export** — the guest, who most needs the record, cannot export
+   one. Requires deciding what a document may claim when the reader's copy of
+   each payload is allowlist-filtered. See `Decisions.md`.
+5. **Docs**: `Protocol.md` and `Roadmap.md` are still stale legacy documents
+   describing a model the code no longer implements.
 
 ## Key Files to Read First
 
@@ -140,6 +184,7 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 - `Decisions.md` — architectural decisions (do not reverse without instruction) — **note**: contains a contradiction on guest dispute rights, see Next Priority #5
 - `Protocol.md` — **note**: two contradictory legacy documents concatenated, effectively not usable as-is, see Next Priority #5
 - `src/lib/trustpoints.js` — TrustPoints earn/spend rules (single unified ledger — Trust Score/Trust Passport as separate concepts don't exist in code)
-- `src/lib/invite.js` — client-side HMAC invite tokens — **this is what the live app actually uses today**; `validate-invite-token` (the real, DB-backed, session-5-hardened version) is not yet called from the UI
+- `supabase/functions/_shared/eventCanonical.ts` — the one definition of what an event's hash covers; `_shared/eventRecord.ts` — the one place an event row is assembled
+- `src/lib/invite.js` — client-side HMAC invite tokens, **legacy**: the live app now goes through the DB-backed `validate-invite-token`
 - `src/lib/auditExport.js` — audit trail export (includes `counterparty_consent`)
-- `supabase/functions/` — 6 deployed Edge Functions, 4 rewritten session 5 — not yet called from `src/` except `create-payment-intent` (Test-Mode-only path)
+- `supabase/functions/` — `log-event`, `validate-invite-token`, `guest-contract-events` and `timestamp-event` are live and called from `src/`. `capture-payment` and `cancel-payment` are orphaned (nothing in `src/` calls them); `create-payment-intent` and `send-acceptance-email` are reachable only from the legacy flow.
