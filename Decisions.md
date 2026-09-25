@@ -1,6 +1,6 @@
 # TrustFlow — Architecture Decisions
 
-_Last updated: 2026-09-28_
+_Last updated: 2026-09-29_
 
 > This file records significant design decisions and the reasoning behind them.
 > AI agents must read this before proposing changes to established patterns.
@@ -9,6 +9,39 @@ _Last updated: 2026-09-28_
 ---
 
 ## Open Questions — recorded, deliberately not acted on
+
+### [2026-09-29] — An agreement cannot be called off, and CANCELLED is unreachable
+
+**Status**: a verified gap in the current flow. **No cancellation semantics have
+been chosen, and nothing below approves a design.**
+
+Three facts, each confirmed in code:
+
+1. `AgreementView` — the screen every database-backed agreement uses — is never
+   given a cancel action. Cancellation exists only on the legacy mock
+   `ContractView`, reachable through the command-palette entries already
+   labelled "(legacy)".
+2. `log-event` accepts `contract.cancelled` from a party, but
+   `derive_contract_state()` projects only `performance.asserted`,
+   `performance.accepted` and `performance.rejected`. A cancellation event would
+   be recorded and the contract's state would never move.
+3. The only writer of `state = 'CANCELLED'` is `cancel-payment`, which nothing
+   in `src/` calls. Meanwhile `contractStatus.js` carries a full presentation for
+   `CANCELLED` — a label, terminal handling, a progress reading. **The product
+   renders a state it can never enter.**
+
+**The undecided question is not plumbing.** It is whether one party may
+unilaterally void an agreement the other accepted. TrustFlow's whole stance is
+that a party's assertion is not a fact, so "cancelled" asserted by one side sits
+awkwardly beside `performance.asserted`, which is deliberately *not* treated as
+"delivered". Plausible readings — a unilateral withdrawal before performance, a
+request the other side must answer, or a mutual release needing both — produce
+different evidence, not just different buttons.
+
+Do not record that any of these is the chosen model. Do not wire a cancel button
+before the semantics are decided, because the event it writes is permanent.
+
+---
 
 ### [2026-09-26] — What TrustFlow actually knows about the guest, and what it does not
 
@@ -461,6 +494,41 @@ successful acceptance cannot retry. The invitation is spent, so the retry gets
 lost with the response. Re-issuing it on demand would let anyone holding the
 invite token mint a credential, so it is a recovery problem rather than an
 atomicity one, and guest recovery remains unaddressed.
+
+---
+
+### [2026-09-29] — An export is built from rows that can be re-verified
+
+**Invariant**: an evidence export is always built from the raw `events` rows, never
+from the shaped view a screen is rendering. A document built from shaped events
+would recompute each payload hash over a payload the UI had already filtered or
+truncated, and report every untouched event as tampered with. **An evidence
+export that falsely cries tampering is worse than no export at all.**
+
+**Context**: `downloadAuditTrail()` has existed since early on but was reachable
+only from the legacy five-step mock flow — `DisputeModal` and `ContractStep5`.
+No database-backed agreement could produce one, so the single artefact TrustFlow
+promises — a self-contained record a third party can verify without us — was not
+obtainable by anyone actually using the product. `AgreementView` now offers it.
+
+**Consequences future work must not undo**:
+
+- The handler re-fetches with `fetchContractEvents()` rather than exporting
+  `agreement.events`, which has been through `shapeOwnerEvents` and carries no
+  hashes and reduced payloads. Wiring the export to the screen's own array is
+  the obvious-looking change and is the one that breaks it.
+- An empty result raises instead of producing a document. A record with nothing
+  in it still looks like a signed record.
+- **Only the owning account is offered the export.** A guest has no `auth.users`
+  row, so RLS returns them nothing from `events`; their trail arrives already
+  shaped from `guest-contract-events`. Offering them a button would produce
+  either an empty document or an unverifiable one.
+
+**Known gap**: the guest — often the party who most needs the record — still has
+no export. Giving them one honestly requires deciding what a document can claim
+when the reader's copy of each payload is allowlist-filtered: either widen what
+the guest may see, or publish a document that carries the server's verification
+verdicts and does not invite the reader to recompute. Not decided here.
 
 ---
 
