@@ -1,6 +1,6 @@
 # TrustFlow — AI Session Handoff
 
-_Last updated: 2026-09-25 (chain-tip fix, verifier ordering, counterparty record export)_
+_Last updated: 2026-09-25 (atomic acceptance deployed and verified live; two uuid/text faults fixed)_
 
 > Use this file to brief a new AI session on the current project state.
 > Update before ending a session. Paste the contents as your first message.
@@ -128,10 +128,19 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 
 ## Current State
 
-- Branch: **`main`**, HEAD **`c245152`**, in sync with `origin/main`, working tree clean.
+- Branch: **`main`**, HEAD **`0e9586f`**, in sync with `origin/main`, working tree clean.
 - Build: ✓ 0 errors (`dist/assets/index-*.js` 599 kB, css 62 kB)
-- Tests: **197 unit tests passing** across 12 files. The Playwright E2E suites have
-  NOT been run since the outage — see the rate-limit constraint below.
+- Tests: **197 unit tests passing** across 12 files. Two live suites were run
+  deliberately, once each, and both pass: `atomic-acceptance` **10/10** and
+  `agreement-binding` **15/15**. The rest of the E2E suites have still not been
+  run since the outage — see the rate-limit constraint below.
+  Running any live suite needs `.env.e2e` (gitignored): `set -a && . ./.env.e2e && set +a`.
+  It holds `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and the QA Earner's
+  credentials. Those credentials existed nowhere on the machine at the start of
+  this session — a previous session had only exported them into a shell — so the
+  one non-anonymous account in the database, `trustflow.qa.1790033400@gmail.com`,
+  had its password reset through the GoTrue admin API. If `.env.e2e` is missing
+  again, every live suite silently **skips** rather than failing.
 - Supabase: project `trustflow` (ref `fqgpzhwvvfsxswlnbbgg`, Mumbai) — **healthy**,
   verified 2026-09-25 by a real `/auth/v1/health` 200 (GoTrue v2.197.0), a real
   PostgREST query, and a DB query (PostgreSQL 17.6), not by the management API,
@@ -139,19 +148,21 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
   from 2026-09-24 20:56 until a user-initiated restart; the cause was three
   back-to-back full E2E runs saturating the auth rate limit via `/signup`
   anonymous sign-in.
-- DB: **24 migrations recorded**, all matching local filenames. Migration history
-  was normalized on 2026-09-25 (`70421f5`) after a second round of drift.
-  **Pending: exactly two** — `20260927235959_reconcile_evidence_migrations`
-  (inert by design) and `20260928000000_atomic_acceptance`. Nothing out of order.
-  `accept_invitation()` and `invite_acceptance_context()` do not exist yet.
+- DB: **28 migrations recorded**, all matching local filenames, **nothing pending**,
+  nothing out of order. `accept_invitation()` and `invite_acceptance_context()`
+  exist, with `execute` granted to `service_role` only and revoked from `anon`
+  and `authenticated` — verified by querying `has_function_privilege`, not assumed
+  from the migration text.
   **Push with `supabase db push`, never the management API** — the API stamps its
-  own version numbers, which is what caused both drifts.
-- Edge Functions: the deployed source of `validate-invite-token` and `log-event`
-  was fetched and read on 2026-09-25 — both are the **old pre-atomic-acceptance
-  versions**. All three of `log-event`, `validate-invite-token` and
-  `guest-contract-events` show `updated_at` 2026-09-24 20:34 UTC; the identical
-  timestamps are a secrets-update re-bundle, not a deploy of current source.
-  `guest-contract-events` also has the event-ordering fix (`3e2e60b`) undeployed.
+  own version numbers, which is what caused both history drifts.
+- Edge Functions: `log-event`, `validate-invite-token` and `guest-contract-events`
+  were deployed 2026-09-25 and the deployed source was then **downloaded back and
+  diffed** against local — all five files (three entrypoints, `_shared/eventCanonical.ts`,
+  `_shared/eventRecord.ts`) byte-identical. Do this rather than reading `updated_at`:
+  three functions had previously shown the same timestamp purely from a
+  secrets-update re-bundle, which looks exactly like a deploy and is not one.
+  Still undeployed and unverified: the session-5 changes to `send-acceptance-email`,
+  `timestamp-event`, `capture-payment` and `cancel-payment`.
 - **Frontend hosting migrated to Vercel** (session 5, same day as the quality pass) — live at **`https://project-trustflow.vercel.app`**, git-push-to-deploy from `main`, project `team-kenji/project-trustflow`. `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` set on both Production and Preview. Verified live (confirmed by page `<title>`, not just HTTP status), no console errors. Rationale: pure static Vite SPA with zero server-side compute — Cloud Run's Dockerfile/nginx container was pure overhead for this project (unlike a service that actually needs GCP compute).
   - GitHub repo renamed the same day, dropping the `project-` prefix: `ken2san/project-trustflow` → `ken2san/trustflow` (local `origin` remote auto-updated by `gh repo rename`; local folder name intentionally left as `project-trustflow`). This part succeeded cleanly and stayed.
   - **Vercel project rename attempted and reverted the same day** — do not retry this without reading the rest of this bullet first. Renaming the Vercel project to `trustflow` did NOT yield the clean `https://trustflow.vercel.app` URL it looked like it would: that bare subdomain is already owned by an unrelated third party (a generic "bank login" demo page — harmless-looking but do not enter anything into a page found this way regardless). Vercel instead assigned our renamed project the team-suffixed alias `trustflow-team-kenji.vercel.app`, which turned out to also be gated behind Vercel's own Deployment Protection (SSO login required) — effectively taking the site private. Reverted the project name back to `project-trustflow`; the original `https://project-trustflow.vercel.app` alias came back immediately, publicly accessible, no protection. Net effect of the whole detour: zero — same URL as before, just confirmed it's the only one that actually works cleanly for this project. If a clean short URL is wanted later, it needs a real custom domain (e.g. via a domain the user owns), not a bare `<name>.vercel.app` guess.
@@ -178,43 +189,35 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 
 ## Next Priority (in order)
 
-1. **Deploy is unblocked — the three pre-deploy checks are answered.** The
-   project recovered after a restart on 2026-09-25 (`/auth/v1/health` 200,
-   GoTrue v2.197.0; PostgREST 200; PostgreSQL 17.6), and all three questions
-   this entry used to ask have been settled by read-only capture:
+1. ~~Deploy~~ **Done.** Both pending migrations applied with `supabase db push`
+   and all three stale Edge Functions deployed and source-verified. See Current
+   State.
 
-   - `accept_invitation()` and `invite_acceptance_context()` **do not exist**,
-     so `20260928000000` is definitively unapplied and the corrected file
-     (fbf1b63) is what will land.
-   - `events` has NOT NULL on only `id, type, contract_id, actor_id, payload,
-     created_at` — every one supplied by `buildEventRecord` — and no GENERATED
-     column. The `jsonb_populate_record` risk is retired.
-   - Migration history had drifted again and is now normalized (70421f5). It
-     holds 24 versions, all matching local filenames. Pending is exactly
-     `20260927235959_reconcile_evidence_migrations` (inert) and
-     `20260928000000_atomic_acceptance`, with nothing out of order.
+   **Two faults surfaced the moment the code was executed, both the same
+   mistake**, and they are the reason this entry is worth keeping rather than
+   deleting. `contracts.invite_token` and `contracts.guest_access_token` are both
+   `UUID`; the functions in `20260928000000_atomic_acceptance` take them as `text`
+   and used them directly — `42883 operator does not exist: uuid = text`, then
+   `column "guest_access_token" is of type uuid but expression is of type text`.
+   Every acceptance returned 500. Fixed in `20260929000000_invite_token_uuid`
+   (`940d48f`) and `20260929000100_guest_token_uuid` (`0e9586f`).
 
-   `events` is now in source control (438b94d), including the two append-only
-   RULES and `rls_auto_enable()`, so a fresh project can be rebuilt from
-   migrations. That rebuild has not actually been run — it needs Docker or a
-   local Postgres, neither of which was available.
+   Neither was visible to review, and both had been reviewed closely: PostgreSQL
+   coerces an *unknown-typed literal* to uuid, so the same predicate written by
+   hand in psql during development works, while an already-`text` parameter does
+   not coerce. The lesson for anything similar here: **a plpgsql function's
+   parameter types must be checked against the actual column types**, and reading
+   the SQL is not that check — executing it is.
 
-   So: `supabase db push`, then Edge Functions. Migration first —
-   `validate-invite-token` against a database without `accept_invitation()`
-   breaks acceptance outright. The chain-tip fix coalesces both sides, so that
-   function no longer has to be deployed in step with its caller, but the
-   ordering still holds.
+2. ~~Run the live suites once~~ **Done.** `atomic-acceptance` 10/10 and
+   `agreement-binding` 15/15, run once each against the live project. The
+   remaining suites have still not been run since the outage; the
+   never-run-the-full-suite-repeatedly constraint below is unchanged.
 
-   **Push with `supabase db push`, never the management API.** Applying through
-   the API is what caused the history drift twice, and each repair costs another
-   reconcile migration.
-
-2. **Run the live suites once, not repeatedly**: `atomic-acceptance.spec.js`
-   (14 tests, never yet executed — they are what would have caught the chain-tip
-   bug) and `agreement-binding.spec.js`. Three back-to-back full-suite runs
-   saturated the auth rate limit on 2026-09-24 and took the project offline;
-   that is the outage still in effect. Targeted suites first, full suite only
-   once and deliberately.
+   Left behind: a handful of `DEBUG atomic probe` and other test contracts, plus
+   their events, are still in the **production** database from the failed runs.
+   Not cleaned up. The append-only RULES on `events` mean the events cannot
+   simply be deleted, so this wants a decision rather than a `delete`.
 
 3. **Cancellation: build only the withdraw-before-acceptance half.** Decided
    2026-09-25, not implemented. Voiding an *accepted* agreement remains
