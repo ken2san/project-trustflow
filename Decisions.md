@@ -12,8 +12,20 @@ _Last updated: 2026-09-29_
 
 ### [2026-09-29] — An agreement cannot be called off, and CANCELLED is unreachable
 
-**Status**: a verified gap in the current flow. **No cancellation semantics have
-been chosen, and nothing below approves a design.**
+**Status**: partly decided on 2026-09-25, and **not implemented**.
+
+**What was decided**: the question splits, and only the uncontested half is in
+scope. Withdrawing an invitation that has **not** been accepted is a party
+retracting an offer nobody has yet relied on, and it is the case that actually
+occurs — a mistyped address, a client who never answers. That may be built.
+
+**What remains undecided**: whether a party may void an agreement the other side
+has **accepted**. Nothing below approves a design for that, and the reasoning
+that follows is why it is still open.
+
+**Not built yet.** Projecting a withdrawal into the contract state means
+changing `derive_contract_state()`, and no database change is being added while
+the deploy backlog is unapplied and the project is unreachable.
 
 Three facts, each confirmed in code:
 
@@ -208,6 +220,51 @@ delivery.
 ---
 
 ## Decision Log
+
+### [2026-09-25] — Two records, two things they can claim
+
+**Decision**: both parties can export the record, and they are given **different
+documents**. The owner gets the self-contained, re-verifiable audit trail
+(`auditExport.js`). The counterparty gets a **server-verified record**
+(`guestRecordExport.js`) that reports what TrustFlow checked and does not invite
+the reader to recompute anything.
+
+**Context**: the guest is the party who most needs the record and was the only
+one unable to obtain it. The obvious repair — hand them the same document — is
+the one that breaks: a guest has no `auth.users` row, so their trail arrives
+from `guest-contract-events` with every payload allowlist-filtered. A document
+instructing its reader to recompute each hash would mismatch on **every
+untouched event**, and an export that falsely cries tampering is worse than no
+export at all.
+
+**The alternative considered and rejected**: widening what the guest may see so
+their document could be re-verified like the owner's. Rejected for now because
+it moves an access-control boundary that exists deliberately, to solve a problem
+that does not require moving it.
+
+**What makes the guest document honest**:
+
+- It is named `trustflow_counterparty_record`, never `trustflow_audit_trail`, so
+  the two cannot be confused by a reader or by a future code path.
+- The verdicts are the server's, carried through untouched. The client only
+  names the *reason* for a verdict from the same per-event results.
+- It states in the document that its results **cannot be reproduced from the
+  file**, and why. The absence of verification instructions is not a statement a
+  reader will notice.
+- `truncated` is surfaced: if the record was cut short, the absence of an event
+  means nothing.
+- A record with no events raises instead of producing a document, exactly as the
+  owner's export does.
+- A chain with nothing server-attested reports `NOT_SERVER_ATTESTED`, not
+  "unverified" — there was never an attestation to check, which is a different
+  statement.
+
+**Consequences future work must not undo**: do not converge these two documents.
+The damaging regression is not a missing button, it is a guest handed the
+owner's document — one that would cry tampering on an intact record.
+
+---
+
 
 ### [2026-03-06] — State management: App.jsx + custom hooks
 
@@ -524,11 +581,9 @@ obtainable by anyone actually using the product. `AgreementView` now offers it.
   shaped from `guest-contract-events`. Offering them a button would produce
   either an empty document or an unverifiable one.
 
-**Known gap**: the guest — often the party who most needs the record — still has
-no export. Giving them one honestly requires deciding what a document can claim
-when the reader's copy of each payload is allowlist-filtered: either widen what
-the guest may see, or publish a document that carries the server's verification
-verdicts and does not invite the reader to recompute. Not decided here.
+**Resolved 2026-09-25**: the guest now has an export. It is a different
+document, not a widened version of this one — see "Two records, two things they
+can claim" below.
 
 ---
 

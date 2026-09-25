@@ -1,6 +1,6 @@
 # TrustFlow — AI Session Handoff
 
-_Last updated: 2026-09-29 (evidence core: canonical v4, atomic acceptance, record export)_
+_Last updated: 2026-09-25 (chain-tip fix, verifier ordering, counterparty record export)_
 
 > Use this file to brief a new AI session on the current project state.
 > Update before ending a session. Paste the contents as your first message.
@@ -53,8 +53,10 @@ Where the product actually stands:
   `performance.rejected` returning to `TERMS_ACCEPTED`. `SETTLED`, `DELIVERED`
   and `CANCELLED` are **not reachable** — money moves outside TrustFlow by
   design, and cancellation is an open question (see `Decisions.md`).
-- The owning account can download a self-contained, re-verifiable record from
-  `AgreementView`. The guest cannot yet — see `Decisions.md`.
+- Both parties can download the record from `AgreementView`, but they get
+  **different documents**: the owner a self-contained re-verifiable audit trail,
+  the guest a server-verified record that does not invite recomputation. Do not
+  converge them — see `Decisions.md`.
 
 The legacy five-step `ContractView`/Marketplace surface still exists and still
 runs on local mock state. It is reachable only through command-palette entries
@@ -151,31 +153,60 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
 
 ## Next Priority (in order)
 
-The list that used to sit here — wire the UI to the DB, build out
-`FUNDED`/`DISPUTED`/`REFUNDED`, Stripe Connect onboarding — has been overtaken.
-The UI is wired; the state machine is now the evidence projection in
-`derive_contract_state()`, not that list; payments were deliberately moved
-outside the product.
+1. **Apply and deploy what is pending — but check three things first.** The
+   database has been unreachable since 2026-09-24 20:56 and the Supabase
+   dashboard shows the project Unhealthy. Note the management API reports
+   `ACTIVE_HEALTHY` regardless, so judge recovery only by a real
+   `/auth/v1/health` and a real PostgREST query. Once it answers, in the first
+   round trip:
 
-1. **Apply and deploy what is pending.** `20260928000000_atomic_acceptance.sql`
-   is committed but **not applied**, and `log-event` / `validate-invite-token`
-   are **not deployed** with the atomic-acceptance change. **The migration must
-   land before the functions** — deploying `validate-invite-token` against a
-   database without `accept_invitation()` breaks acceptance outright. Blocked
-   while the Supabase project is unreachable (see Active Constraints).
-2. **Run the live suites once the database is back**: `atomic-acceptance.spec.js`
-   (14 tests, never yet executed) and `agreement-binding.spec.js`. Do **not**
-   run the full E2E suite repeatedly — three back-to-back runs saturated the
-   project's auth rate limit on 2026-09-24 and took it offline.
-3. **Decide cancellation semantics** before writing any cancel UI. Recorded as
-   an open question in `Decisions.md`: the product renders a `CANCELLED` state
-   nothing can reach, and whether one party may unilaterally void an accepted
-   agreement is a decision about evidence, not a button.
-4. **Guest record export** — the guest, who most needs the record, cannot export
-   one. Requires deciding what a document may claim when the reader's copy of
-   each payload is allowlist-filtered. See `Decisions.md`.
-5. **Docs**: `Protocol.md` and `Roadmap.md` are still stale legacy documents
+   - `select 1 from supabase_migrations.schema_migrations where version = '20260928000000'`
+     — if the version is already recorded, `db push` will **silently skip** the
+     corrected migration (schema_migrations stores no checksum) and the fix will
+     not land. This repo has been wrong about applied state before; that is what
+     the two `reconcile_*` migrations are.
+   - `select proargnames, prosrc from pg_proc where proname = 'accept_invitation'`
+     — whether the function exists, and which version of it.
+   - `select column_name, is_nullable, column_default, is_generated from
+     information_schema.columns where table_name = 'events'` — **`events` is not
+     created by any migration in this repo**, so its constraints are unknown
+     from source. `accept_invitation` inserts with `jsonb_populate_record` and
+     `select *`, which supplies an explicit NULL for every column the caller did
+     not send, so column DEFAULTS never apply. Any other NOT NULL column raises
+     on the first acceptance; a GENERATED column fails the insert outright.
+     (`log-event` is unaffected — it names its columns.)
+
+   Then migration first, Edge Functions second — `validate-invite-token` against
+   a database without `accept_invitation()` breaks acceptance outright. The
+   chain-tip fix (fbf1b63) coalesces both sides, so that function no longer has
+   to be deployed in step with its caller, but the ordering above still holds.
+
+2. **Run the live suites once, not repeatedly**: `atomic-acceptance.spec.js`
+   (14 tests, never yet executed — they are what would have caught the chain-tip
+   bug) and `agreement-binding.spec.js`. Three back-to-back full-suite runs
+   saturated the auth rate limit on 2026-09-24 and took the project offline;
+   that is the outage still in effect. Targeted suites first, full suite only
+   once and deliberately.
+
+3. **Cancellation: build only the withdraw-before-acceptance half.** Decided
+   2026-09-25, not implemented. Voiding an *accepted* agreement remains
+   undecided. Deliberately deferred so no database change is added while the
+   backlog above is unapplied — it needs `derive_contract_state()` to project
+   the withdrawal.
+
+4. **Docs**: `Protocol.md` and `Roadmap.md` are still stale legacy documents
    describing a model the code no longer implements.
+
+### Open, deliberately not acted on
+
+- **Nothing is recorded when an agreement is created.** `createContract` inserts
+  the row and logs no event, which is why the acceptance is always the first
+  event in the chain. A `contract.created` event would make chain handling
+  uniform, but whether the evidence chain should record the agreement's own
+  creation is a design question, not plumbing. Note that inserting one event by
+  hand before testing acceptance would have **masked** the chain-tip bug.
+- **`events` predates the migration history** and is therefore not in source
+  control. That is the root of the unknown-constraints risk in #1.
 
 ## Key Files to Read First
 
