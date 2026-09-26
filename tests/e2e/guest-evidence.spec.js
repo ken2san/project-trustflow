@@ -323,8 +323,12 @@ test('a guest accepts an invite and can then read the record in the UI', async (
   await expect(page.getByText('Terms accepted')).toBeVisible();
   await expect(page.getByText(/Hash chain verified/i)).toBeVisible();
   // The trail says who acted, in readable terms rather than raw ids. The name
-  // also appears in the header, so this targets the actor line specifically.
-  await expect(page.getByText('UI Flow Earner', { exact: true })).toBeVisible();
+  // also appears in the header ("… — with UI Flow Earner") and again on each
+  // trail entry ("by UI Flow Earner"), so this is scoped to the trail list. It
+  // previously matched both and failed strict mode; the assertion was wrong
+  // rather than the page.
+  await expect(page.locator('ol').getByText('UI Flow Earner', { exact: true }).first())
+    .toBeVisible();
   // And the guest's own entry is attributed to them. The address shows twice —
   // as the actor label and as the allowlisted counterparty_email detail — so
   // this asserts presence rather than uniqueness.
