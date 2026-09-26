@@ -5,9 +5,12 @@ SERVICE_NAME=trustflow-web
 
 .PHONY: build push deploy down all create-project check
 
-# Local sanity check — run before every commit
+# Local sanity check — run before every commit.
+# The migration check is offline, so it costs nothing and needs no credentials;
+# `npm run check:migrations -- --live` additionally compares the local filenames
+# against the versions the linked Supabase project has recorded.
 check:
-	npm test && npm run build
+	npm run check:migrations && npm test && npm run build
 
 # プロジェクト作成（初回のみ手動実行）
 create-project:

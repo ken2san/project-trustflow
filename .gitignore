@@ -1,5 +1,9 @@
 # Node.js
 node_modules/
+# Dropbox creates numbered duplicates ("node_modules 2/") when it syncs a
+# package tree, and those do not match the pattern above. Without this line they
+# show up as untracked and a `git add -A` would commit a quarter-gigabyte of them.
+node_modules*/
 .env
 .DS_Store
 

@@ -32,6 +32,12 @@
 -- presence is exactly the condition. On a fresh database it does not exist and
 -- nothing here runs; on the database this was written for it has already been
 -- removed, so nothing runs there either and re-applying is safe.
+--
+-- drift-check: history write is guarded
+-- (scripts/check-migrations.mjs flags any migration that records a version dated
+-- after itself, because that is what broke the rebuild. This one is guarded by
+-- the `if exists` below, so the marker tells the check to report it as a note
+-- rather than an error. Remove the marker if the guard is ever removed.)
 do $$
 begin
   if exists (
