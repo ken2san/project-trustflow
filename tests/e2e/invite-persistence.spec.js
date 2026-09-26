@@ -37,7 +37,12 @@ const TERMS = {
 
 async function api(request, path, { method = 'POST', token, body, prefer } = {}) {
   const headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  // Always present a bearer: a user's token when there is one, otherwise the anon
+  // key — which is what supabase-js does, and what these tests' own comments mean
+  // by "anon key only". Sending `apikey` alone worked on the older project but is
+  // refused at the gateway by a newer one (UNAUTHORIZED_NO_AUTH_HEADER), which
+  // would turn every negative-auth assertion into a pass for the wrong reason.
+  headers.Authorization = `Bearer ${token ?? SUPABASE_KEY}`;
   if (prefer) headers.Prefer = prefer;
   const response = await request.fetch(`${SUPABASE_URL}${path}`, { method, headers, data: body });
   let parsed = null;

@@ -11,9 +11,22 @@
 -- ever produce is the 403 guest_token_expired that the test asserts. The token
 -- is a fixed, obviously-synthetic uuid; there are no real terms in the row.
 --
--- The earner is the QA account the E2E suites already sign in as. If that
--- account is absent (a fresh database), this migration inserts nothing and the
--- test skips rather than failing.
+-- WHOSE ACCOUNT THIS HANGS OFF, AND WHY IT IS NOT NAMED
+-- contracts.earner_user_id is a foreign key into auth.users, so the row needs a
+-- real account. This used to name one address — the QA account of the original
+-- project — which made the fixture unreproducible anywhere else: building a
+-- second project from these migrations inserted nothing, and
+-- guest-evidence's "an expired guest token fails closed" then failed with
+-- invalid_guest_token instead of guest_token_expired. Found on 2026-09-26, while
+-- standing up a separate E2E project.
+--
+-- It now takes the earliest non-anonymous account instead, which is that same QA
+-- account on the original project and the new project's own test Earner
+-- elsewhere. The consequence is an ORDERING REQUIREMENT: create the test Earner
+-- before running these migrations. If no such account exists yet this inserts
+-- nothing and the test fails — deliberately, not silently, since a hole in the
+-- expiry check is the thing worth being told about. The earlier comment here
+-- claimed the test would skip; it never had a skip to fall back on.
 
 insert into contracts (
   id, earner_user_id, earner_display_name, project_name, dod,
@@ -35,5 +48,7 @@ select
   'fffffff0-0000-4000-8000-000000000001'::uuid,
   timestamptz '2020-01-01 00:00:00+00'
 from auth.users u
-where u.email = 'trustflow.qa.1790033400@gmail.com'
+where u.is_anonymous is false
+order by u.created_at
+limit 1
 on conflict (id) do nothing;
