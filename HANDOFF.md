@@ -161,8 +161,10 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
   `_shared/eventRecord.ts`) byte-identical. Do this rather than reading `updated_at`:
   three functions had previously shown the same timestamp purely from a
   secrets-update re-bundle, which looks exactly like a deploy and is not one.
-  Still undeployed and unverified: the session-5 changes to `send-acceptance-email`,
-  `timestamp-event`, `capture-payment` and `cancel-payment`.
+  `capture-payment`, `cancel-payment` and `create-payment-intent` were diffed the
+  same way on 2026-09-26 and are already identical to local. Only
+  `send-acceptance-email` and `timestamp-event` remain undeployed, and what is
+  live for those two is the pre-fix, unauthenticated source — see Next Priority #4.
 - **Frontend hosting migrated to Vercel** (session 5, same day as the quality pass) — live at **`https://project-trustflow.vercel.app`**, git-push-to-deploy from `main`, project `team-kenji/project-trustflow`. `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` set on both Production and Preview. Verified live (confirmed by page `<title>`, not just HTTP status), no console errors. Rationale: pure static Vite SPA with zero server-side compute — Cloud Run's Dockerfile/nginx container was pure overhead for this project (unlike a service that actually needs GCP compute).
   - GitHub repo renamed the same day, dropping the `project-` prefix: `ken2san/project-trustflow` → `ken2san/trustflow` (local `origin` remote auto-updated by `gh repo rename`; local folder name intentionally left as `project-trustflow`). This part succeeded cleanly and stayed.
   - **Vercel project rename attempted and reverted the same day** — do not retry this without reading the rest of this bullet first. Renaming the Vercel project to `trustflow` did NOT yield the clean `https://trustflow.vercel.app` URL it looked like it would: that bare subdomain is already owned by an unrelated third party (a generic "bank login" demo page — harmless-looking but do not enter anything into a page found this way regardless). Vercel instead assigned our renamed project the team-suffixed alias `trustflow-team-kenji.vercel.app`, which turned out to also be gated behind Vercel's own Deployment Protection (SSO login required) — effectively taking the site private. Reverted the project name back to `project-trustflow`; the original `https://project-trustflow.vercel.app` alias came back immediately, publicly accessible, no protection. Net effect of the whole detour: zero — same URL as before, just confirmed it's the only one that actually works cleanly for this project. If a clean short URL is wanted later, it needs a real custom domain (e.g. via a domain the user owns), not a bare `<name>.vercel.app` guess.
@@ -214,18 +216,103 @@ User asked to stop feature work and specifically hunt for latent bugs and unopti
    remaining suites have still not been run since the outage; the
    never-run-the-full-suite-repeatedly constraint below is unchanged.
 
-   Left behind: a handful of `DEBUG atomic probe` and other test contracts, plus
-   their events, are still in the **production** database from the failed runs.
-   Not cleaned up. The append-only RULES on `events` mean the events cannot
-   simply be deleted, so this wants a decision rather than a `delete`.
+   Silent skips are closed as of 2026-09-26 (`d8e7f3c`). `tests/e2e/liveEnv.js` is
+   the single source of the four live credentials, loads `.env.e2e` itself, and
+   **throws** when one is absent; `TF_LIVE_E2E=skip` is the only way to skip.
+   `tests/reporters/noSilentSkip.js` additionally fails a run in which nothing
+   executed, or in which one spec file was emptied inside an otherwise green run.
+   Each path was verified by deliberately breaking it. One gap: `--reporter=line`
+   on the command line replaces the configured reporters and so that backstop; the
+   `liveEnv` throw still applies.
 
-3. **Cancellation: build only the withdraw-before-acceptance half.** Decided
+3. **The test data in the production database, and what it reveals.** Surveyed
+   2026-09-26, nothing deleted. **Every one of the 1272 contracts belongs to the
+   QA Earner** (`trustflow.qa.1790033400@gmail.com`, the only non-anonymous user),
+   alongside 2310 events. There is no real data in this project at all — largest
+   groups are `Event Ingestion Probe` (272), `Guest Evidence Probe` (246),
+   `Persisted Terms Probe` (207), `Evidence Core Probe` (167).
+
+   Two facts make this a design question rather than a cleanup chore:
+
+   - `events` carries `no_delete_events` / `no_update_events` as
+     **`DO INSTEAD NOTHING`** rules, so a `DELETE` on events *succeeds and
+     deletes nothing*. A cleanup script would report success having done nothing.
+   - `contracts` has no such rule and `events.contract_id` is `text`, not a
+     foreign key, so contracts can be deleted while their events cannot.
+     **814 of the 2310 events are already orphaned** this way by earlier
+     deletions — the pile exists and grows.
+
+   So the choice must be made before the first real contract exists, because
+   afterwards it cannot be: that contract's events are permanent by design and
+   could never be separated from test rows sharing the table. RLS is party-scoped
+   (`parties_read_own_contracts`), so none of this is publicly readable today —
+   it is a correctness and evidence-hygiene problem, not an exposure.
+
+   Options, in the order they are worth considering:
+
+   1. **A separate Supabase project for E2E** — the live project stops being a
+      test target, and the append-only rule stops being in tension with cleanup.
+      Costs a second project and a second set of secrets. Supabase branches would
+      do the same per-run and are billable.
+   2. **A `is_test` marker on `contracts`**, written by the suites, with the app's
+      queries and the audit export filtering it out. Cheap, but it puts test rows
+      permanently inside the evidence store and every future reader has to
+      remember the filter.
+   3. **Delete the test contracts now** and accept ~2310 orphaned events. Honest
+      about the rule rather than fighting it, but it makes the orphan pile the
+      normal state.
+   4. **Leave it.** Defensible only for as long as this project has no real user.
+
+   Recommendation: (1), decided before any real contract is created. No
+   destructive action taken; this is the user's call.
+
+4. **The four session-5 Edge Functions: checked, and the answer is not what the
+   note said.** Verified 2026-09-26 by downloading each deployed source and
+   diffing it against local.
+
+   - `capture-payment`, `cancel-payment`, `create-payment-intent` are
+     **already identical to local** — there was nothing to deploy. The earlier
+     claim that their session-5 changes were outstanding was wrong.
+   - `send-acceptance-email` and `timestamp-event` do differ, and the difference
+     is exactly their security fix. **The versions currently live are the
+     unauthenticated ones.** Deployed `send-acceptance-email` reads
+     `hirer_email`, `project_name`, `dod` and `amount_jpy` straight from the
+     request body, so anyone holding the anon key — which ships in the frontend
+     bundle — can have TrustFlow's verified domain `noreply@kenji.com.hk` send
+     arbitrary content to any address. Deployed `timestamp-event` only
+     length-checks `hashHex`, so invalid hex becomes zero bytes and still comes
+     back with a real signed TSA token; it is also a free RFC 3161 signing proxy
+     for any caller.
+
+   Being unreachable from the app does not help: an Edge Function is a public
+   HTTPS endpoint whether or not `src/` calls it.
+
+   And they are unreachable. Traced this session: `src/lib/tsa.js`, the only
+   caller of `timestamp-event`, **is imported by nobody**; `auditExport.js` states
+   outright that no event in the system carries a TSA token. `send-acceptance-email`
+   is called only from `handleNextStep` step 4 — the legacy five-step flow — and
+   only for `state === 'SETTLED'`, which the current state machine cannot reach.
+   `capturePayment`/`cancelPayment` are exported from `src/lib/stripe.js` and
+   imported by nobody, and `PaymentModal` is rendered in `App.jsx` but
+   `setIsPaymentModalOpen(true)` appears nowhere, so `create-payment-intent` has
+   no trigger either.
+
+   So the decision is not deploy-or-not but **delete-or-fix**: deleting the two
+   endpoints removes the exposure outright and matches their obsolescence;
+   deploying the fixed source keeps them for a payment flow that may return.
+   Dependency to keep in mind either way: deployed `capture-payment` calls
+   `send-acceptance-email` server-side (fire-and-forget, so its loss is
+   harmless), and `_shared/trustpointsRules.ts` is imported by
+   `src/lib/trustpoints.js` and is therefore live regardless of the functions.
+   Not acted on — awaiting the user's call.
+
+5. **Cancellation: build only the withdraw-before-acceptance half.** Decided
    2026-09-25, not implemented. Voiding an *accepted* agreement remains
    undecided. Deliberately deferred so no database change is added while the
    backlog above is unapplied — it needs `derive_contract_state()` to project
    the withdrawal.
 
-4. **Docs**: `Protocol.md` and `Roadmap.md` are still stale legacy documents
+6. **Docs**: `Protocol.md` and `Roadmap.md` are still stale legacy documents
    describing a model the code no longer implements.
 
 ### Open, deliberately not acted on
