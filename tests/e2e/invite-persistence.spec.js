@@ -167,8 +167,12 @@ test('the Hirer sees exactly the persisted terms', async ({ page, request }) => 
   await page.addInitScript(() => localStorage.setItem('tf_onboarded', '1'));
   await page.goto(`/?token=${contract.invite_token}`);
 
-  await expect(page.getByText(TERMS.earner_display_name)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(TERMS.project_name)).toBeVisible();
+  // The invite screen shows who is offering in two places, so this asserts
+  // presence rather than uniqueness — the claim is that the Hirer sees the
+  // persisted name, not that it appears once.
+  await expect(page.getByText(TERMS.earner_display_name).first())
+    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(TERMS.project_name).first()).toBeVisible();
   await expect(page.getByText(`¥${TERMS.amount_jpy.toLocaleString()}`)).toBeVisible();
   for (const item of TERMS.dod) {
     await expect(page.getByText(item)).toBeVisible();
@@ -189,9 +193,11 @@ test('URL tampering cannot change the amount, deadline or completion criteria', 
     + '&deadline=2099-01-01&dod=Tampered%20deliverable&inviter=Tampered%20Name',
   );
 
-  await expect(page.getByText(TERMS.project_name)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(TERMS.project_name).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(`¥${TERMS.amount_jpy.toLocaleString()}`)).toBeVisible();
-  await expect(page.getByText(TERMS.earner_display_name)).toBeVisible();
+  // Shown twice, as above. The toHaveCount(0) assertions below are the ones that
+  // carry this test's point, and they are unaffected.
+  await expect(page.getByText(TERMS.earner_display_name).first()).toBeVisible();
   await expect(page.getByText('Tampered Project')).toHaveCount(0);
   await expect(page.getByText('Tampered deliverable')).toHaveCount(0);
   await expect(page.getByText('¥1', { exact: true })).toHaveCount(0);
