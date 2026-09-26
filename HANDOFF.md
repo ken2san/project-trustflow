@@ -84,10 +84,14 @@ flow, and do not read its "✅" history as evidence of anything working.
   fails a run in which nothing executed or one spec file was emptied.
   `tests/e2e/00-backend-guard.spec.js` asserts the page under test reports the
   expected Supabase URL.
-- **Suite status on the E2E project**: `00-backend-guard` 1/1,
-  `atomic-acceptance` 10/10, `agreement-binding` 15/15, `guest-evidence` 11/11.
-  Not yet run there: `contracts-home`, `earner-signin`, `invite-persistence`,
-  `event-ingestion`, `evidence-core`. None has run since the 2026-09-24 outage.
+- **Suite status on the E2E project — every live suite has now run there**, and
+  stands at **91 of 92**: `00-backend-guard` 1/1, `atomic-acceptance` 10/10,
+  `agreement-binding` 15/15, `guest-evidence` 11/11, `event-ingestion` 10/10,
+  `earner-signin` 8/8, `contracts-home` 13/13, `evidence-core` 16/16,
+  `invite-persistence` **7/8**. The single failure is "an unverified (anonymous)
+  Earner cannot persist a contract at all", which needs an anonymous JWT to
+  present and so cannot run while anonymous sign-ins are off — see Next
+  Priority #1. No code is implicated.
 - **Frontend**: Vercel, `https://project-trustflow.vercel.app`, git-push-to-deploy
   from `main`, project `team-kenji/project-trustflow`. `.env` still points at
   production, so the site is unaffected by the E2E split. GCP hosts nothing for
@@ -169,9 +173,16 @@ flow, and do not read its "✅" history as evidence of anything working.
   evidence chain should record creation is a design question. Note that inserting
   one event by hand before testing acceptance would have **masked** the chain-tip
   bug.
-- **A CI check for migration-history drift.** It has happened twice from the same
-  cause and the only guard is the prose above. Comparing local filenames against
-  recorded versions would catch the third mechanically. Not built.
+- ~~A check for migration-history drift.~~ **Built** (`c8a18c2`):
+  `scripts/check-migrations.mjs`, wired into `make check`. Offline it verifies
+  filename shape, unique versions, and that no migration writes history for a
+  version dated after itself — the fault that stopped the rebuild at 22 of 28.
+  With `--live` it fails on any recorded version no local file claims, which is
+  the management-API drift. Every path was verified by deliberately breaking it.
+  What remains open is whether to run it in CI: this repository has no
+  `.github/workflows` at all, and the offline half needs no credentials, so a
+  workflow would be cheap — but adding one starts running checks on every push,
+  which is a decision rather than plumbing.
 - **Nobody has systematically diffed the live catalogue against the migrations.**
   `events` was found by accident during the outage, not by a check designed to find
   it; `rls_auto_enable()` and `ensure_rls` were the same kind of find. Other
