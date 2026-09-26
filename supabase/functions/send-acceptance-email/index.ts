@@ -1,3 +1,25 @@
+// ⚠️ NOT DEPLOYED, ON PURPOSE. Deleted from the Supabase project 2026-09-26.
+//
+// Kept in source control so the work is not lost, not because it is live. Do not
+// run `supabase functions deploy` on it without reading why it was removed.
+//
+// UNREACHABLE. Its only caller in the app is handleNextStep step 4, in the legacy
+// five-step flow, gated on state === SETTLED — which the current state machine
+// cannot reach. capture-payment also calls it server-side, but fire-and-forget
+// and without inspecting the response, so its absence changes nothing there.
+//
+// AND STILL ABUSABLE WHILE DEPLOYED. An Edge Function is a public HTTPS endpoint
+// whether or not src/ calls it, and the anon key that authorizes it ships inside
+// the frontend bundle. The version that was live read the recipient, project
+// name, DoD and amount straight from the request body, so any caller could send
+// arbitrary content from this project's verified domain to any address.
+//
+// The source below is the CORRECTED version; what was live was the pre-fix
+// source. That is what made deletion the right answer rather than a deploy. If
+// this is ever brought back, deploy THIS file, then confirm the deployed source
+// by downloading it back and diffing it — an `updated_at` change can be a
+// secrets re-bundle rather than a deploy.
+
 // supabase/functions/send-acceptance-email/index.ts
 //
 // Sends the Hirer a DoD acceptance confirmation email after a contract is SETTLED.

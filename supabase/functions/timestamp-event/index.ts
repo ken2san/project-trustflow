@@ -1,3 +1,25 @@
+// ⚠️ NOT DEPLOYED, ON PURPOSE. Deleted from the Supabase project 2026-09-26.
+//
+// Kept in source control so the work is not lost, not because it is live. Do not
+// run `supabase functions deploy` on it without reading why it was removed.
+//
+// UNREACHABLE. Its only caller is src/lib/tsa.js, which is imported by nothing at
+// all. auditExport.js states outright that no event in this system carries a TSA
+// token.
+//
+// AND STILL ABUSABLE WHILE DEPLOYED. An Edge Function is a public HTTPS endpoint
+// whether or not src/ calls it, and the anon key that authorizes it ships inside
+// the frontend bundle. This is an RFC 3161 signing proxy, so while live it was
+// free timestamping for any caller. The version that was live also only
+// length-checked hashHex, so invalid hex became zero bytes and still came back
+// with a real signed token.
+//
+// The source below is the CORRECTED version; what was live was the pre-fix
+// source. That is what made deletion the right answer rather than a deploy. If
+// this is ever brought back, deploy THIS file, then confirm the deployed source
+// by downloading it back and diffing it — an `updated_at` change can be a
+// secrets re-bundle rather than a deploy.
+
 // supabase/functions/timestamp-event/index.ts
 // Supabase Edge Function — RFC 3161 TSA proxy for production use.
 // Runs on Deno runtime — Node.js TypeScript errors here are expected and harmless.
