@@ -1,7 +1,7 @@
 # TrustFlow — AI Session Handoff
 
-_Last updated: 2026-09-26 (E2E split onto its own Supabase project; two public
-endpoints deleted; silent test skips closed)_
+_Last updated: 2026-09-26 (live E2E complete at 92/92 on the dedicated E2E
+project; two public endpoints deleted; silent test skips closed)_
 
 > Brief a new session with this file. It describes where the project **is**, not
 > what each past session did. `Decisions.md` is the source of truth for
@@ -49,7 +49,8 @@ flow, and do not read its "✅" history as evidence of anything working.
 
 ## Current State
 
-- Branch **`main`**, HEAD **`6bd6a48`**, in sync with `origin/main`, tree clean.
+- Branch **`main`**, in sync with `origin/main`, tree clean. (A specific HEAD hash
+  is deliberately not recorded here; it was stale within a commit of every update.)
 - Build ✓ 0 errors (`index-*.js` 599 kB, css 62 kB). Unit tests **197 passing**
   across 12 files (`npm test`).
 - **Two Supabase projects**, both in org `wavfjqgbnahqfhgeleqe` (free), Mumbai:
@@ -84,20 +85,18 @@ flow, and do not read its "✅" history as evidence of anything working.
   fails a run in which nothing executed or one spec file was emptied.
   `tests/e2e/00-backend-guard.spec.js` asserts the page under test reports the
   expected Supabase URL.
-- **Suite status on the E2E project — every live suite has now run there**, and
-  stands at **91 of 92**: `00-backend-guard` 1/1, `atomic-acceptance` 10/10,
+- **Suite status on the E2E project — every live suite has run there and all of
+  them pass: 92 of 92.** `00-backend-guard` 1/1, `atomic-acceptance` 10/10,
   `agreement-binding` 15/15, `guest-evidence` 11/11, `event-ingestion` 10/10,
   `earner-signin` 8/8, `contracts-home` 13/13, `evidence-core` 16/16,
-  `invite-persistence` **7/8**. The single failure is "an unverified (anonymous)
-  Earner cannot persist a contract at all", which needs an anonymous JWT to
-  present and so cannot run while anonymous sign-ins are off — see Next
-  Priority #1. No code is implicated.
+  `invite-persistence` 8/8. The last of these needed anonymous sign-ins on the E2E
+  project, enabled 2026-09-26, which closed the final gap.
 - **Frontend**: Vercel, `https://project-trustflow.vercel.app`, git-push-to-deploy
   from `main`, project `team-kenji/project-trustflow`. `.env` still points at
   production, so the site is unaffected by the E2E split. GCP hosts nothing for
   TrustFlow any more.
-- **Auth**: anonymous sign-ins **on** in production, **off** in the E2E project
-  (see Next Priority #1). Production's only non-anonymous user is the QA Earner
+- **Auth**: anonymous sign-ins **on** in both projects. Production's only
+  non-anonymous user is the QA Earner
   `trustflow.qa.1790033400@gmail.com`; the E2E project has its own.
 - **Secrets**: production has `RESEND_API_KEY`, `EMAIL_FROM`, `INVITE_SECRET` and
   `STRIPE_SECRET_KEY` set; the first three are now unused by any deployed function.
@@ -128,26 +127,16 @@ flow, and do not read its "✅" history as evidence of anything working.
 
 ## Next Priority (in order)
 
-1. **Enable anonymous sign-ins on the E2E project, then run the remaining suites
-   once.** `/auth/v1/signup` there answers "Anonymous sign-ins are disabled".
-   `invite-persistence` mints an anonymous identity and cannot run without it;
-   `guest-evidence` passes without it. It is a dashboard toggle (Authentication →
-   Sign In / Providers); doing it from a session would need the account-level
-   access token, which is deliberately not reached for. Afterwards run
-   `contracts-home`, `earner-signin` and `invite-persistence` — and
-   `event-ingestion` / `evidence-core`, which additionally need `capture-payment`
-   deployed there with a test-mode `STRIPE_SECRET_KEY`.
-
-2. **Cancellation: build only the withdraw-before-acceptance half.** Decided
+1. **Cancellation: build only the withdraw-before-acceptance half.** Decided
    2026-09-25, not implemented. Voiding an *accepted* agreement remains undecided.
    Needs `derive_contract_state()` to project the withdrawal.
 
-3. **Docs**: `Protocol.md` is two contradictory legacy documents concatenated and
+2. **Docs**: `Protocol.md` is two contradictory legacy documents concatenated and
    is not usable as-is. `Roadmap.md` describes a model the code no longer
    implements and contradicts itself. `Decisions.md` contains a contradiction on
    guest dispute rights. None of the three tracks the MVP consistency work.
 
-4. **The rest of the MVP consistency refactor**, from a full-spec review whose spec
+3. **The rest of the MVP consistency refactor**, from a full-spec review whose spec
    is not in this repo: the full state machine (`FUNDED`, `ACCEPTED`,
    `AUTO_ACCEPTED`, `DISPUTED`, `REFUNDED` do not exist), fault-attributed
    cancellation penalties (currently a flat -30 to both parties), `App.jsx`

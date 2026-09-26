@@ -160,17 +160,15 @@ rm -f tests/e2e/.earner-session.json tests/e2e/.anon-fixture.json
 `.env` — the deployed site and an ordinary `npm run dev` — keeps pointing at
 production. Only the test path moved.
 
-## Outstanding
+## Status
 
-- **Anonymous sign-ins are still disabled on the E2E project.** `/auth/v1/signup`
-  answers "Anonymous sign-ins are disabled". `invite-persistence` mints an anonymous
-  identity and cannot run until this is on; `guest-evidence` passes without it. It is
-  a dashboard toggle (Authentication → Sign In / Providers → anonymous sign-ins);
-  doing it from here would need the account-level access token, which is not
-  something to reach into.
-- **Suites not yet run against the new project**: `contracts-home`,
-  `earner-signin`, `invite-persistence`, `event-ingestion`, `evidence-core`. The
-  last two need `capture-payment` and a Stripe test key. None has run since the
-  2026-09-24 outage. Run them once, deliberately.
-- Passing so far on the new project: `00-backend-guard` 1/1,
-  `atomic-acceptance` 10/10, `agreement-binding` 15/15, `guest-evidence` 11/11.
+Every live suite has now run against this project and all of them pass — **92 of
+92**: `00-backend-guard` 1/1, `atomic-acceptance` 10/10, `agreement-binding` 15/15,
+`guest-evidence` 11/11, `event-ingestion` 10/10, `earner-signin` 8/8,
+`contracts-home` 13/13, `evidence-core` 16/16, `invite-persistence` 8/8.
+
+Anonymous sign-ins were the last blocker: `invite-persistence` mints an anonymous
+identity to prove an unverified Earner cannot persist a contract, so that one test
+could not run while the provider was off. Enabled on 2026-09-26 through the
+dashboard (Authentication → Sign In / Providers), which is the only route — doing it
+from a session would need the account-level access token.
