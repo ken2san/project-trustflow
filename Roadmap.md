@@ -1,8 +1,17 @@
 ---
 # TrustFlow Development Roadmap & Strategy
 
-_Last updated: 2026-05-28 (TSA CORS fix, email delivery confirmed, Cloud Run deploy)_
+_Product direction and sequencing. Last revised 2026-09-26._
 ---
+
+> **What this file is and is not.** This is the intent: who TrustFlow is for, why
+> it exists, and what order things should happen in. It is **not** a record of
+> what is built. For that, read `HANDOFF.md` (current state) and `Protocol.md`
+> (the implemented protocol). Where this file describes a mechanism, assume it is
+> unbuilt unless `HANDOFF.md` says otherwise.
+>
+> The five-step escrow / Marketplace surface that earlier versions of this file
+> described as working is legacy mock state, not the product.
 
 ## 0. Mission
 
@@ -55,6 +64,22 @@ TrustFlow has two distinct user types who arrive with fundamentally different co
 - Professionals looking to browse and discover new work opportunities (Type A / Upwork model)
 - This profile is the future state after the data flywheel turns; it is not the entry point
 
+#### OPEN — is the operator always the party receiving paid work?
+
+Both types above are written as "a professional who gets hired". The
+implementation is already broader than that: `contracts.performed_by` is
+`creator` or `counterparty`, the agreement-creation form asks which side
+performs, and the evidence model carries the answer into the agreement snapshot.
+So the creator can already be the hiring party, and the first dogfooding
+transactions may well go that way.
+
+**This is a product-positioning question, not a code gap, and it is not decided
+here.** Do not silently rewrite the target user, the "Earner / Hirer" vocabulary
+or the copy to match the wider capability. Whoever settles it should settle it
+deliberately: either the operator is the earning side and `performed_by` is a
+generality the product does not yet claim, or the product is symmetric and a good
+deal of copy is wrong. Both readings have consequences beyond documentation.
+
 ### Core Value Proposition
 
 TrustFlow converts ambiguous project briefs into structured, AI-generated Definitions of Done — creating a mutual agreement that is logged, locked, and enforceable before any money moves. Both parties are protected symmetrically.
@@ -66,7 +91,17 @@ Most contract disputes do not start from bad intent. They start from ambiguity �
 **Not competing on:** Price, talent discovery, or ease of onboarding light users.
 **Competing on:** Making fair outcomes the structural default for both sides.
 
+> The AI in the two paragraphs above does not exist. There is no Gemini or other
+> model integration anywhere in the code; completion criteria are whatever the
+> creator types. What the product does deliver from this section is the second
+> paragraph's back half: the agreed deal is bound at acceptance and neither side
+> can rewrite it afterwards.
+
 ### Design Principles
+
+> Several of these describe capability that does not exist yet — there is no AI
+> in the code, no trust ladder enforcement on the DB-backed flow, and no rating
+> mechanism. They are stated as intent, not as behaviour.
 
 1. **Symmetric protection** — Both Earner and Hirer carry stakes and responsibilities equally
 2. **Behavior over credentials** — What you do matters more than what you claim
@@ -77,39 +112,48 @@ Most contract disputes do not start from bad intent. They start from ambiguity �
 7. **Invisible enforcement** — The protection mechanisms must work without the user understanding them. A surgeon does not explain anesthesia to the patient before operating. TrustFlow's mutual stakes, append-only logs, blind ratings, and DoD hashes operate silently in the background. The user's only awareness should be: "if I act in good faith, I am protected; if I don't, I will pay for it." The system is the expert — not the user.
 8. **Market self-cleansing through information symmetry** — TrustFlow is not a neutral venue. The root cause of most freelance market dysfunction is information asymmetry: Hirers cannot verify whether an Earner will deliver; Earners cannot verify whether a Hirer will pay. Both sides exploit that opacity — Hirers through 中抜き (intermediary margin extraction), non-payment, and deliberate delay; Earners through inflated quotes, low-quality delivery, and overpromising. These are not edge cases; they are the structural norm TrustFlow exists to dismantle. Every completed contract, every dispute outcome, and every DoD acceptance reduces that opacity permanently. Bad-faith actors on either side accumulate negative trust signals that progressively restrict their access — reduced Earner visibility for Hirers, reduced recommendation ranking for Earners. This is not punitive enforcement; it is structural consequence. A Hirer who cannot find willing Earners, and an Earner who cannot win good projects, both face the same choice: reform or exit. The marketplace curates itself by making the cost of information asymmetry exploitation accumulate faster than its benefit.
 
-### Canonical Contract State Machine
+### Contract State Machine
 
-Principles #6 and #7 are not just UX guidelines — they have a direct consequence for system architecture. If the platform is responsible for agreement quality, and protections operate silently, then most of the complexity in a typical contract system is caused by the platform _not_ taking that responsibility. Ambiguous DoDs produce subjective disputes. Subjective disputes require negotiation loops. Negotiation loops require pause states, renegotiation flows, and admin override buttons.
-
-**The correct state machine for a DoD-quality-guaranteed contract is linear:**
+**Implemented** (`Protocol.md` §3 is authoritative; `derive_contract_state()` is
+the single definition):
 
 ```
-DRAFTING ──(AI validates DoD quality)──▶ LOCKED ──▶ IN_PROGRESS ──▶ DELIVERED
-                                                                          │
-                                              ┌───────────────────────────┤
-                                              ▼                           ▼
-                                         CONFIRMED                   DISPUTED
-                                              │                           │
-                                              └───────────┬───────────────┘
-                                                          ▼
-                                                       SETTLED
+DRAFTING ──▶ AWAITING_ACCEPTANCE ──▶ TERMS_ACCEPTED ──▶ AWAITING_CONFIRMATION ──▶ PERFORMANCE_ACCEPTED
+                                          ▲                      │                     (terminal)
+                                          └──── performance.rejected
 ```
 
-One branch. One direction. No loops.
+`SETTLED`, `DELIVERED` and `CANCELLED` are not reachable. Money moves outside
+TrustFlow today, so nothing settles, and whether an accepted agreement can be
+voided at all is undecided (`Decisions.md`).
 
-**What this eliminates — and why:**
+**The reasoning that produced this shape, which still holds:** if the platform
+takes responsibility for the quality of the agreement, most of the machinery of a
+typical contract system stops being necessary. Ambiguous criteria produce
+subjective disputes; subjective disputes need negotiation loops; negotiation
+loops need pause states, renegotiation flows and admin overrides. A clear
+agreement needs none of them.
 
-| Mechanism                               | Why it exists today                                             | Why it disappears                                              |
-| --------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------- |
-| Renegotiation flow                      | DoD was vague; parties disagree mid-contract on what was agreed | AI-validated DoD cannot be vague; re-scoping = a new contract  |
-| Pause / Resume                          | Parties are confused or blocked; no clear next action           | Clear DoD always defines the next action; pausing is avoidance |
-| Rejection loops (unlimited)             | Subjective "done" criteria allow endless dispute                | AI-generated DoD produces objective binary pass/fail           |
-| Multiple-rejection-forced-dispute logic | Escalation heuristic for unresolvable loops                     | Loops don't exist; DISPUTED is entered on explicit trigger     |
-| Admin Intervention button               | Human override for states the system cannot exit                | System always has an exit; unresolvable → AI arbitration       |
+So these are deliberately **not** in the product, and a future session should not
+add them back as if they were missing features:
 
-**A rejection is still possible** — it signals "deliverable does not meet the DoD." That is a binary factual dispute, mediated by AI against the signed DoD hash. If AI cannot resolve it, a human arbiter is invoked (Feature #4). The system does not ask the user what to do next; it proceeds.
+| Mechanism | Why it would exist | Why it does not |
+|---|---|---|
+| Renegotiation flow | criteria were vague; parties disagree mid-contract | re-scoping is a new agreement |
+| Pause / Resume | parties are blocked with no clear next action | clear criteria always define the next action |
+| Unlimited rejection loops | subjective "done" allows endless dispute | rejection is recorded as disagreement, not adjudicated |
+| Forced-dispute-after-N-rejections | escalation heuristic for unresolvable loops | there is no verdict mechanism to escalate into |
+| Admin intervention button | human override for inescapable states | no state is inescapable |
 
-**One exception: emergency exit.** Cancellation remains available as a mutual-consent off-ramp, with symmetric stake penalty. It is not a user convenience; it is an acknowledgment that circumstances outside both parties' control sometimes require abandonment. But this is rare, and the penalty makes it non-trivial.
+A rejection *is* possible, and the implemented model treats it as recorded
+disagreement that returns the protocol to `TERMS_ACCEPTED`. It does not decide
+who is right; TrustFlow cannot observe the work.
+
+**Dispute resolution and arbitration are unbuilt and undesigned.** Earlier
+versions of this file described AI arbitration against the DoD hash with a human
+arbiter as fallback. Nothing of that exists, and the evidence model's stance —
+that a party's assertion is not a fact — is not obviously compatible with a
+platform verdict. Treat it as an open product question, not a scheduled feature.
 
 ### What We Are NOT Building (Scope Boundaries)
 
@@ -156,7 +200,7 @@ These two flywheels are the same mechanism viewed from opposite directions. The 
 
 - Early users will find their own counterparties elsewhere and bring them to TrustFlow to use the protocol
 - This is not a weakness — it is the correct entry point for a trust-infrastructure product
-- The marketplace matching UI (Earner mode) is a _vision demo_ of what the platform becomes once data accumulates, not the primary user acquisition path
+- The marketplace UI still in the repository is not a matching engine and never was — it is part of the legacy mock surface, reachable only through command-palette entries labelled "(legacy)". Treat it as a sketch of a destination, not as a feature with data behind it
 - "Zero matches" is not a failure state; it is a signal to go deeper into BYOC and build trust history first
 
 **Implication for UI design:**
@@ -167,364 +211,118 @@ These two flywheels are the same mechanism viewed from opposite directions. The 
 
 ---
 
-## Current Sprint (as of 2026-05-28)
+## 2. Where the product actually is
 
-### Completed this session
+Not repeated here, deliberately — it went stale every time. `HANDOFF.md` holds
+current state, live test status and the next priorities; `Protocol.md` holds what
+the protocol does; `Decisions.md` holds why.
 
-- **TSA CORS fix ✅** — `src/lib/tsa.js` now routes RFC 3161 requests through `timestamp-event` Supabase Edge Function (server-side) instead of calling freetsa.org directly from the browser. CORS block in production is eliminated. Dev mode falls back to direct call.
-- **Email delivery confirmed ✅** — Full BYOC flow tested end-to-end. Acceptance email delivered to `ken2san@gmail.com` via Resend. FROM: `noreply@kenji.com.hk`.
-- **InviteView runtimeState bug fixed ✅** — Persisted snapshot was overwriting `view='invite'` set from URL params at init. Fixed by skipping view restoration when invite URL params are present.
-- **Supabase anonymous auth enabled ✅** — Actor IDs now come from Supabase anon session in production.
-- **Cloud Run deployed ✅** — revision `trustflow-web-00052-xxx` (post-TSA-fix build)
-
-### Completed prior sprint (2026-03-06 → 2026-03-15)
-
-- **Canonical state machine established** — DoD quality guaranteed → contract flow becomes linear. Renegotiation, Pause/Resume, and unlimited rejection loops architecturally eliminated.
-- **Dead state removed from `ContractView.jsx`** ✅
-- **Trust Ladder upper limit enforcement** ✅
-- **Re-hire data carry-over** ✅
-- **Counterparty Invite Flow** ✅ — Full round-trip with staged participation (3 stages)
-
-### Next tasks (priority order)
-
-1. **Stripe live keys** — set `VITE_STRIPE_PUBLISHABLE_KEY` in `.env` + rebuild Cloud Run. Enables real JPY payments.
-2. **RLS policy hardening** — anonymous identity + realtime event subscription in place; role-aware access boundaries needed before any real-user data.
-3. **Gemini API integration** — Scope Builder uses token extraction today; wire real Gemini for DoD quality enforcement (Design Principle #6).
-4. **eKYC** — Phase 4 prerequisite for Sybil resistance.
+The short version as of 2026-09-26: the DB-backed evidence core works
+end-to-end — create, invite, atomic acceptance, hash-chained server-attested
+events, agreement snapshot bound at acceptance, two different exports — and
+almost nothing else in this file is built. Payment is not wired. There is no AI,
+no timestamping authority, no rating, no matching, no trust ladder on the real
+flow.
 
 ---
 
-## Previous Sprint (as of 2026-03-14)
+## 3. Feature Vision (unbuilt)
 
-### Decisions made
+Everything in this section is intent. None of it is implemented on the DB-backed
+flow; several items existed only as mock behaviour on the legacy surface and were
+never real. Kept because the ordering still expresses what matters.
 
-- **Canonical state machine established** — Platform guarantees DoD quality → contract flow becomes linear (DRAFTING → LOCKED → IN_PROGRESS → DELIVERED → CONFIRMED | DISPUTED → SETTLED). Renegotiation, Pause/Resume, and unlimited rejection loops are architecturally eliminated. See Design Principles #6/#7 section above.
-- **Dead state removed from `ContractView.jsx`** ✅ — Removed: `showRenegotiate`, `isRenegotiating`, `pendingRenegotiation`, `isPaused`, `previewSubmitted`, `chatLocked` (local), `currentStep`, `stepFromProps`, and their associated UI (renegotiation modal, pause button, pause banner, Acceptance Protocol block). `stagedPhase` was listed in the original dead-state note but is actively used by the Staged Delivery feature (ContractStep2); it was intentionally kept.
+### Trust infrastructure — without these the product stays a one-operator tool
 
-### Next 3 tasks (priority order)
+| # | Feature | Purpose |
+|---|---|---|
+| 1 | **Auto-release timer** | A window after performance is asserted with no answer. Requires money in the loop; currently meaningless. |
+| 2 | **Mutual stake** | Both sides carry a cost for abandonment. Requires money in the loop. |
+| 3 | **Milestone / partial performance** | Most real work is not one delivery. See `Decisions.md` on multi-step performance — the open question is whether the existing event model already covers it. |
+| 4 | **Dispute path** | Undesigned; see the state-machine section above. |
 
-1. ~~**Trust Ladder upper limit enforcement**~~ ✅ — `ContractStep1.jsx`: `isOverLimit` computed from `tier.contractLimit`; HoldButton disabled + red warning banner when over limit.
-2. ~~**Re-hire data carry-over**~~ ✅ — `handleRehire` in `App.jsx` now syncs `acceptanceCriteria` from `acceptanceProtocol`, resets `dodHash`/`contractEvents`, sets `isRehire` flag. ScopingView shows "Pre-filled" banner.
-3. ~~**Counterparty Invite Flow**~~ ✅ — Full round-trip implemented.
-   - **Sender side (A):** BYOC modal extended with Amount + DoD fields and a "Generate Link" button. Generates a `?invite=...` URL from form content; copy-to-clipboard with ✓ feedback. Can also "Start Myself →" to skip invite and go directly to ScopingView.
-   - **Recipient side (B):** `InviteView.jsx` receives URL params, shows inviter + project + amount + DoD, 3-panel "what you gain" pitch (protection, Trust Passport, DoD lock). Accept → populates `selectedItem` and navigates to ScopingView. Decline → marketplace. URL params cleared via `history.replaceState` after either action.
-   - **Staged participation redesign** ✅ (2026-03-15) — InviteView now uses a 3-stage flow to lower the counterparty's signup barrier:
-     - Stage 1 (review): read-only. CTA is "Review Agreement". "No account required to review." is explicit. No commitment, no identity ask.
-     - Stage 2 (identify): triggered only when user taps "Review Agreement". Asks for display name / handle only. "No account required yet." Back link returns to stage 1. Deferred signup hook: "You can create a full account later to save your Trust Passport."
-     - Stage 3: `onAccept(guestName)` fires → scoping view loads. Full account creation deferred to high-value moments (approval, dispute, Trust Passport export).
-   - BYOC modal subtext updated: "They can review the terms before creating an account." — removes sender-side anxiety about forcing their counterparty to register.
+### Verifiable trust — what would make participation worth something
 
-### Bug fixes & missing connections (2026-03-14)
+| # | Feature | Purpose |
+|---|---|---|
+| 5 | **Blind simultaneous rating** | Both submit before either sees the other's. Removes retaliation fear. |
+| 6 | **Behaviour signals** | Legible facts (response time, on-time rate, cancellation rate) instead of an opaque score. |
+| 7 | **Progressive limits** | Contract ceiling rises with track record, no KYC to start. |
+| 8 | **Portable record** | The counterparty's record belongs to them, not to the platform. The guest export is the first, minimal instance of this. |
 
-- **Trust Passport write-back** ✅ — Contract completion (Step 4→5) now updates `completedContracts`, `exp` (+500), `trustScore` (+5, capped 1000), `level` (derived from completedContracts at 1/3/5/10 thresholds), `totalEarned` (earner), `totalSpent` (hirer). `avgRating` computed as weighted average from blind rating reveal. `triggerLevelUp()` fires on completion.
-- **`isCancelled` bug** ✅ — `handleAbortSequence` was calling `setIsCancelled(false)`, so contracts never entered the cancelled state. Fixed to `true`; cancel log now includes reason text.
-- **Auto-Release Timer** ✅ — Was only firing if deadline had already passed at component mount. Rewritten to `setTimeout(delay)` so it fires at the correct future time. 24h advance warning toast added.
-- **Scope Builder** ✅ — `handleAIArchitectSubmit` always returned hardcoded "React Native / Stripe / Biometric" DoD regardless of prompt. Now extracts tokens from the actual user input.
-- **`totalSpent` tracking** ✅ — Hirer's `totalSpent` was not updated on escrow lock (Step 2 transition). Fixed alongside the existing points deduction.
-- **Dispute resolution real logic** ✅ — `DisputeModal` now shows a verdict card at step 4 (AI arbiter: DoD-based winner determination with coin-flip fallback; Human/Panel: "Pending review" with expected SLA). `onResolve({ winner, arbiter, reason })` propagates outcome to `handleDisputeResolve` in App.jsx, which: applies trustScore -10 penalty and bad-actor flag to the losing party, logs `DISPUTE_WON`/`DISPUTE_LOST` event with actorId, and advances the contract to step 4 (blind rating). Normal rejections (<3) now correctly step back to step 2 (re-delivery) rather than opening the dispute modal.
-- **Dead code removed** ✅ — `DUMMY_ACTIVE_OPERATIONS` and `DUMMY_MISSION_LOGS` constants deleted from App.jsx (replaced by `activeOperations` useMemo and `contractHistory` state in prior commit). Feature #14 (Contract Pause / Resume) removed from feature table — contradicts Canonical State Machine.
-- **Actor identity bootstrap (Supabase-first)** ✅ — App now attempts anonymous Supabase Auth session and uses `user.id` as `actor_id` for event writes; falls back to stable device ID if anon auth is disabled.
-- **Invite contract ID propagation** ✅ — Invite URL now carries `cid` so sender and recipient can reference the same contract record instead of generating separate local IDs.
-- **Realtime contract event sync scaffold** ✅ — Contract view now fetches historical events for `contract_id` and subscribes to Supabase `postgres_changes` inserts, merging remote events into local timeline.
+### Structural prevention
 
-### Demo: Complete Invite Round-Trip
+| # | Feature | Purpose |
+|---|---|---|
+| 9 | **Deadline handling** | Deadlines are stored and bound into the snapshot; nothing acts on them. |
+| 10 | **Staged performance** | Preview → accept → full. Neither side fully exposed. |
+| 11 | **Vouching** | Transitive trust as a cold-start answer without eKYC. |
+| 12 | **Re-contract from a prior agreement** | Retention is the proof the thing works. |
 
-**Sender side (A) — in-app:**
+### Later
 
-1. Marketplace → "Work with someone you know" (BYOC button)
-2. Fill: project description, amount, DoD items (one per line)
-3. Click "Generate Link" → copy URL
-4. Send to counterparty via any channel
-
-**Recipient side (B) — via link:**
-
-```
-http://localhost:5173/?invite=1&inviter=Felix&project=Mobile%20App%20Design%20System&amount=300000&dod=Definitive%20Figma%20Library,Dark%20Mode%20Tokens,Atomic%20Design%20Compliance
-```
-
-Recipient flow (staged):
-
-1. Lands on Stage 1 — reads project card, DoD, "What you get" panels. No account required to view.
-2. Clicks "Review Agreement" → Stage 2 — enters display name only. Back link available.
-3. Clicks "Continue to Agreement" → ScopingView loads with pre-filled terms.
-4. Full account prompt surfaces only at high-value moments: approval, dispute, Trust Passport export.
+- Multi-party / team agreements
+- eKYC, if and when regulation requires it
+- The counterparty's record as a W3C Verifiable Credential — the endpoint of
+  "the platform does not own what it witnesses"
 
 ---
 
-## 2. Prototype Status (as of 2026-03-06)
+## 4. Sequencing
 
-### Implemented & Working
+Only two things here are decided; everything else is direction.
 
-- Dual-mode (Earner / Hirer) switching
-- Marketplace with Scope Builder (prompt → DoD criteria extraction)
-- Definition of Done display and lock protocol
-- Negotiation chat with export capability
-- Full contract state machine (5 steps: Commitment → Vault → Inspect → Blind Rating → Settled)
-- Contract Health Score (real-time, based on events + deadline)
-- Staged Delivery (Preview Phase → Approve → Full Delivery)
-- Milestone / partial payment
-- Auto-Release Timer (fires at deadline; 24h warning)
-- Mutual Stake (symmetric escrow deduction)
-- Deadline enforcement (past-deadline banner in Step 2; auto-release timer)
-- Mid-contract cancellation with reason logging (isCancelled state correctly set)
-- Human Arbiter Escalation modal
-- File upload simulation with progress bar
-- Payment delay simulation and retry flow
-- Dispute modal
-- Profile system with level (derived from completedContracts), EXP, badges, skill endorsements
-- Trust Passport: completedContracts, avgRating, trustScore, totalEarned/Spent written back on completion
-- Feature unlock system (level-gated)
-- Progressive Trust Ladder (contract limit enforced at Step 1)
-- Re-hire / Contract Template from prior contract
-- Counterparty Invite Flow (URL params → InviteView)
-- Toast notifications, Command Palette (Cmd+K)
-- Trust Passport modal
-- Supabase append-only event log, SHA-256 DoD hash, RFC 3161 TSA timestamps
-- Signed audit trail export (tamper-evident JSON)
+1. **Withdraw before acceptance** — decided 2026-09-25, not implemented. Needs
+   `derive_contract_state()` to project the withdrawal. Voiding an *accepted*
+   agreement is a separate, undecided question.
+2. **Real transactions before generalisation.** The method, from `Decisions.md`:
+   real transaction → real friction → inspect the existing model → decide whether
+   the friction is specific or general → make the smallest justified
+   generalisation. The certified-translation job is the first concrete case.
 
-### Known Gaps (not yet implemented)
+Then, in rough order of what a second real transaction would demand: payment
+wired end-to-end (Stripe Connect is decided, not built), then whichever of
+performance-across-steps, ratings or limits the friction actually asks for.
 
-- Persistent Notification Center (audit log replacing ephemeral toasts)
-- Social/GitHub import for Trust Score bootstrap
-- RLS policy completion and role-aware access boundaries (anonymous identity + realtime event subscription are in place; policy hardening still required)
-- Real Gemini API integration (Scope Builder currently uses token extraction)
-- Real Gemini API integration (currently mock responses)
+**Not scheduled, and not to be picked up on inference alone:** AI scoping,
+arbitration, matching, a trust ladder on the real flow, on-chain anchoring,
+external timestamping (`timestamp-event` was deleted as an unauthenticated public
+endpoint).
 
 ---
 
-## 3. Feature Vision
+## 5. Record integrity — the part that is the product
 
-Features are organized by their role in the mission: protecting both parties, building verifiable trust, and preventing exploitation.
+This was Phase 4 of an earlier plan and is the one area where the ambition was
+actually delivered, so it is worth stating what the trust model rests on **now**:
 
-### 🔴 Critical — Trust Infrastructure (platform cannot function without these)
+- Append-only `events` (`DO INSTEAD NOTHING` rules — a `DELETE` succeeds and
+  deletes nothing), RLS, server-side hashing in the Edge Functions.
+- A hash chain per contract with `prev_event_hash` and a `GENESIS` sentinel.
+- Canonical v4: the hash binds the agreement snapshot, so an acceptance proves
+  the whole deal, not only the completion criteria.
+- Acceptance and its evidence commit in one transaction.
+- Exports built from raw rows, re-verifiable by the owner.
 
-| #   | Feature                             | Purpose                                                                                                                                                                                                                                         |
-| --- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0   | **Counterparty Invite Flow**        | Initiator sends a link → Invited user lands on a context-aware screen showing who invited them, what the project is, and — critically — what _they_ gain (Trust Passport from day one). Without this, BYOC adoption fails at the second person. |
-| 1   | **Auto-Release Timer**              | 72–96h after delivery with no client response → funds auto-release. Earners cannot be ghosted.                                                                                                                                                  |
-| 2   | **Mutual Stake (Symmetric Escrow)** | Earner also deposits a small stake. Both parties have skin in the game. Abandonment costs both sides.                                                                                                                                           |
-| 3   | **Milestone Payment**               | Multi-step escrow for large projects. 70%+ of real freelance work is milestone-based.                                                                                                                                                           |
-| 4   | **Human Arbiter Escalation**        | When AI cannot resolve a dispute, a human arbiter is summoned. AI is the first line; humans are the last.                                                                                                                                       |
-
-### 🟡 High — Verifiable Trust (makes the platform worth joining)
-
-| #   | Feature                       | Purpose                                                                                                                        |
-| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 5   | **Blind Simultaneous Rating** | Both parties submit ratings before either sees the other's. Eliminates retaliation fear. Trust Scores become honest.           |
-| 6   | **Behavior Signals**          | Replace opaque "Trust Score: 847" with legible signals: avg. response time, on-time delivery rate, lifetime cancellation rate. |
-| 7   | **Progressive Trust Ladder**  | New users start at ¥50k contract limit. Limit rises automatically with verified track record. No KYC required to start.        |
-| 8   | **Public Trust Passport**     | Other users can view your Behavior Signals and track record. The marketplace only works if people can make informed choices.   |
-| 9   | **Deadline Enforcement**      | Contracts have deadlines. Approaching/missed deadlines trigger notifications and auto-dispute or extension proposals.          |
-
-### 🟢 Medium — Structural Prevention (stop problems before they start)
-
-| #   | Feature                         | Purpose                                                                                                                        |
-| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 10  | **Contract Health Score**       | AI monitors conversation tone, response latency, scope drift in real time. Shows "contract risk level" before a dispute forms. |
-| 11  | **Staged Delivery**             | Preview → Approve → Full delivery. Earner is not exposed to theft; Hirer is not exposed to non-delivery.                       |
-| 12  | **Vouching System**             | Established users can vouch for new users, sharing trust transitively. Organic solution to Cold Start without eKYC.            |
-| 13  | **Re-hire / Contract Template** | One-click re-contract with a known counterparty. Retention is the proof that the platform works.                               |
-
-> **Note:** Feature #14 (Contract Pause / Resume) was removed. The Canonical State Machine (Section 1) explicitly eliminates pause/resume — clear DoD always defines the next action, and pausing is avoidance. `isPaused` was also removed from `ContractView.jsx` in the Phase 4 dead-state cleanup.
-
-### 🔵 Completion — Audit & Transparency
-
-| #   | Feature                            | Purpose                                                                                                                        |
-| --- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 15  | **Persistent Activity Log**        | Every action is logged chronologically. Replaces ephemeral toasts. This is the audit trail that protects both parties legally. |
-| 16  | **First Contract Trust Bootstrap** | Small-stake first contracts, social/GitHub import for initial Trust Score. Solve the chicken-and-egg problem.                  |
-| 17  | **PDF Audit Trail Export**         | Legal-grade export of the full contract history. For disputes that escalate beyond the platform.                               |
-
-### ⚪ Future
-
-- Multi-Earner / team contracts
-- Streak & referral engagement loops
-- eKYC integration (when regulated)
-- **Trust Passport as Verifiable Credential** — self-sovereign, W3C VC standard; individual carries their record across any platform without TrustFlow's involvement
+**What it does not rest on:** any external notary. There is no RFC 3161
+timestamping and no blockchain anchor. The earlier plan's threat model claimed
+protection against a malicious DB admin and against the operator themselves
+through TSA and on-chain anchoring; neither exists, so **today the operator is
+inside the trust boundary**. That is the honest statement, and closing it is a
+real decision rather than a task — an external anchor is cheap, but it changes
+what TrustFlow can be asked to prove.
 
 ---
 
-## 4. Redesign Phases
+## 6. Risk register
 
-### Phase 1 — Message & Copy (priority: HIGH, code impact: LOW)
-
-Reframe every UI string: lead with the mission (fair work), not the technology.
-
-- [x] Rename or reframe "AI Architect" — now "Scope Builder", emphasizes agreement over AI novelty
-- [x] Ensure every UI label speaks to protection, fairness, and accountability ("Decline & Return", "Evidence Archive", "Enforceable commitment")
-- [x] Update placeholder text in marketplace to reflect "Bring Your Own Client" model
-- [x] Rewrite onboarding / landing copy: lead with the problem (scope disputes), not the solution
-- [x] Add mission statement to the first screen the user sees
-
-### Phase 2 — UX Flow (priority: MEDIUM, code impact: MEDIUM)
-
-- [x] First-run onboarding screen: explain the core problem and why TrustFlow exists
-- [x] "Bring Your Own Client" entry point: skip marketplace, jump straight to Scoping with a counterparty invite
-- [x] Deadline field on contract creation with enforcement logic (Feature #9)
-- [x] Persistent Activity Log panel replacing ephemeral toasts (Feature #15)
-- [x] Blind Simultaneous Rating flow (Feature #5)
-
-### Phase 3 — Feature Additions (priority: MEDIUM, code impact: HIGH)
-
-Implement only after Phase 1 & 2 are validated by user feedback.
-
-- [x] Auto-Release Timer — Feature #1
-- [x] Mutual Stake (Symmetric Escrow) — Feature #2
-- [x] Milestone Payment — Feature #3
-- [x] Human Arbiter Escalation modal — Feature #4
-- [x] Behavior Signals on profile — Feature #6
-- [x] Progressive Trust Ladder — Feature #7
-- [x] Contract Health Score — Feature #10
-- [x] Staged Delivery — Feature #11
-- [x] Vouching System — Feature #12
-- [x] Re-hire / Contract Template — Feature #13
-- ~~Feature #14 (Contract Pause / Resume) — eliminated by canonical state machine (see Design Principles #6/#7)~~
-
-### Phase 4 — Record Integrity (priority: HIGH — this is the core differentiator)
-
-> **Goal:** Make every action immutable, timestamped, and verifiable. "It happened" can never be disputed.
-> This is not a backend convenience feature. It is the product's core promise.
-
-#### Architecture: DB + Notary Layer
-
-The trust model separates **data storage** from **proof of existence**.
-The DB holds events; external notaries make those events impossible to deny — including by the platform operator.
-
-```
-[TrustFlow App]
-  Hirer  ──signs──▶ Contract Event
-  Earner ──signs──▶ Contract Event
-                        │
-                        ▼
-              [Supabase DB — append-only events table]
-                        │
-              ┌─────────┴──────────┐
-              ▼                    ▼
-    [RFC 3161 TSA             [Polygon / Base
-     e.g. FreeTSA]             on-chain anchor]
-     Proves: WHEN              Proves: WHAT
-     (tamper-evident           (operator cannot
-      timestamp)                deny the content)
-              └─────────┬──────────┘
-                        ▼
-              [Anyone can verify:
-               contract ID → raw events → recompute hash
-               → compare against TSA token + on-chain tx]
-```
-
-**Threat model:**
-| Attacker | DB trigger alone | + TSA | + Blockchain anchor |
+| Risk | Impact | Intended mitigation | Status |
 |---|---|---|---|
-| Regular user | blocked | blocked | blocked |
-| Malicious employee (DB admin) | can bypass | blocked | blocked |
-| Platform operator (self) | can bypass | blocked | blocked |
-| Infrastructure failure / restore | can overwrite | blocked | blocked |
-
-**Implementation order:**
-
-1. Supabase DB + append-only trigger (blocks regular users)
-2. RFC 3161 TSA per event (free, no account needed — freeTSA.org)
-3. Polygon / Base anchoring of Merkle root per milestone (~$0.01/tx)
-
-**Chain selection rationale:** Ethereum mainnet for legitimacy; Polygon or Base (Coinbase L2) for cost ($0.001–0.01/tx vs $5–50 on mainnet). Full smart-contract escrow is Phase 5+.
-
----
-
-- [x] **Supabase backend** — append-only events table (no UPDATE/DELETE rules), Row Level Security, indexes; connection verified
-- [x] **Immutable contract hash** — at initiation, the full Definition of Done is SHA-256 hashed (Web Crypto API) and stored; all subsequent events carry the same DoD hash
-- [x] **RFC 3161 trusted timestamping** — every event receives a cryptographic timestamp from FreeTSA.org; DER-encoded TimeStampReq built in-browser + Edge Function proxy; token stored in events table
-- [x] **Signed audit trail export** — full contract event chain exportable as tamper-evident JSON; re-verifies SHA-256 hashes at export time; downloadable from Step 5
-- [x] **Portable reputation record** — bad-actor events (dispute loss, forced cancellation, ghosting) are permanently logged via append-only event log and displayed in Trust Passport; cannot be deleted or hidden
-
-### Phase 5 — Full Infrastructure (priority: LOW until Phase 4 validated)
-
-- [ ] Real payment layer (Stripe Escrow API or equivalent)
-- [ ] Gemini API integration (real DoD generation, inspection scoring)
-- [ ] eKYC identity verification
-- [ ] AML / KYC compliance
-
-### Phase 6 — Trust Passport as Public Utility (priority: VISION — defines the destination)
-
-> **Goal:** The trust record an individual builds on TrustFlow becomes portable proof, usable outside the platform — by employers, banks, other platforms — without requiring TrustFlow as an intermediary.
-
-This is the answer to the structural asymmetry that has always existed between institutions and individuals. Credentials have been owned by the institutions that issued them. TrustFlow behavior data is owned by the person who earned it.
-
-**API model: consent-first, not platform-first**
-
-Three tiers, in order of individual sovereignty:
-
-| Tier | Model                         | Description                                                                                                                                                                                                     |
-| ---- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | **Consent-gated API**         | Individual authorizes a third party (employer, bank, platform) to query their Trust Passport via OAuth-style consent. TrustFlow issues a scoped read token. Revenue: API access fee paid by the querying party. |
-| 2    | **Self-presented credential** | Individual exports a signed JSON object (Trust Passport snapshot). Recipient verifies authenticity using TrustFlow's public key. No API call required — works even if TrustFlow is offline.                     |
-| 3    | **W3C Verifiable Credential** | Trust Passport issued as a standards-compliant VC. Storable in any compatible digital wallet. Verifiable by anyone without contacting TrustFlow. Fully self-sovereign.                                          |
-
-**Design constraint:** TrustFlow must never become a gatekeeper of its own data. Tier 1 is the business model; Tiers 2 and 3 are the insurance policy — proof that the platform does not own what it witnesses.
-
----
-
-## 5. Real-World Risk Register
-
-| Risk                                       | Impact                          | Mitigation                                           |
-| ------------------------------------------ | ------------------------------- | ---------------------------------------------------- |
-| Ghosting (client unresponsive)             | Fund locked indefinitely        | Auto-Release Timer (#1)                              |
-| Earner abandonment                         | Hirer loses time and money      | Mutual Stake (#2)                                    |
-| Subjectivity gap ("not what I envisioned") | Endless rejection loop          | Human Arbiter (#4); Staged Delivery (#11)            |
-| Retaliation in ratings                     | Trust Scores become dishonest   | Blind Simultaneous Rating (#5)                       |
-| Cold Start (no reputation)                 | Platform unusable for new users | Progressive Trust Ladder (#7); Vouching (#12)        |
-| Scope drift mid-contract                   | Dispute that was preventable    | Contract Health Score (#10)                          |
-| Regulatory (fund custody)                  | Legal liability                 | Point system abstraction; no real money in prototype |
-| Malware in deliverables                    | Security incident               | Virus scan + Cloud Sandbox (future phase)            |
-
-- For all formatting and data handling, use shared utility functions in `src/lib/utils.js`:
-  - `formatNumber` for numbers
-  - `formatDate` for dates
-  - `truncate` for strings
-  - `uniqueArray` for arrays
-    This ensures robust, consistent, and maintainable code.
-
-# 9. Edge Case & Exception Handling: Implementation Checklist & UI Design Principles
-
-## 9.1. Required Edge Case & Exception Features (per Protocol)
-
-- **Mid-Contract Cancellation:** Cancel during contract, input reason, record in history, lock progress
-- **Payment Delay/Failure:** Simulate delay, remind, retry, contact admin
-- **Renegotiation/Terms Modification:** Change deadline, amount, scope, agreement flow, record in history
-- **Multiple Rejections/Forced Dispute:** Limit rejection count, auto-dispute, admin intervention
-- **Pause/Resume:** Temporarily hold/resume progress, record in history
-- **Admin Intervention UI:** Force end/resume button for disputes or exceptions
-
-## 9.2. UI Design & Operational Guidelines (Protocol Alignment)
-
-- Main flow actions are primary; edge cases are added as "sub-operations" (e.g., menu or small buttons)
-- Show/hide buttons based on state; never display all buttons at once
-- Always show a confirmation modal for edge case actions to prevent mistakes
-- Use progress/history/toast notifications to clearly indicate state changes
-- State transitions should be clear and limited (e.g., "in progress → cancelled", "in progress → paused → resumed")
-
-> _First, add as sub-operations and test for usability. Adjust UI as needed based on user feedback._
-
----
-
-## Edit Terms & Cancel Timing (Implementation)
-
-- Edit Terms and Cancel are only available between DoD presentation and Commitment Locked.
-- Once Commitment Locked, contract terms are irreversibly finalized; modifications and cancellations are not permitted in principle.
-- See Protocol.md for detailed rules and rationale.
-
----
-
-# 10. Design Change & Correction Operation Rules
-
-## 10.1. Design Change & Correction Flow
-
-- When a design change or feature correction is required during implementation or user testing, first document the "change proposal, reason, and impact scope" in this Markdown file (in English).
-- After documentation, confirm agreement (or self-approval) before starting implementation.
-- After implementation, append a summary of "what was changed, why, and the diff" to this file to keep a clear history.
-
-## 10.2. Operational Merits
-
-- Prevents spec drift and misunderstandings, making future reviews and explanations easier.
-- Useful for team development and future maintenance.
-
----
+| Counterparty never answers a performance assertion | protocol stalls | auto-release window | unbuilt; needs money in the loop |
+| Performer abandons | receiver loses time | mutual stake | unbuilt |
+| "Not what I envisioned" | unresolvable disagreement | clear criteria; staged performance | partial — criteria are bound at acceptance |
+| Retaliatory ratings | scores become dishonest | blind simultaneous rating | unbuilt |
+| No reputation to start with | nobody can be evaluated | progressive limits; vouching | unbuilt |
+| Holding other people's money | regulatory liability | TrustFlow never holds funds; Stripe is the licensed rail | decided, unbuilt |
+| Operator inside the trust boundary | evidence provable only as far as TrustFlow is trusted | external notarisation | **open, see §5** |
+| Self-asserted counterparty identity | actor attribution is weaker than it looks | verification at acceptance | open, see `Decisions.md` |

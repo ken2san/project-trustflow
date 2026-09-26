@@ -5,6 +5,11 @@ _Last updated: 2026-09-29_
 > This file records significant design decisions and the reasoning behind them.
 > AI agents must read this before proposing changes to established patterns.
 > Do not reverse a decision without explicit user instruction.
+>
+> A decision here is not evidence that the thing is built. Several older entries
+> are annotated with a status line saying what the implementation actually does;
+> `Protocol.md` describes the implemented protocol and `HANDOFF.md` the current
+> operational state.
 
 ---
 
@@ -24,8 +29,9 @@ has **accepted**. Nothing below approves a design for that, and the reasoning
 that follows is why it is still open.
 
 **Not built yet.** Projecting a withdrawal into the contract state means
-changing `derive_contract_state()`, and no database change is being added while
-the deploy backlog is unapplied and the project is unreachable.
+changing `derive_contract_state()`. The reason for the delay has changed: the
+deploy backlog that originally blocked it is applied and both projects are
+reachable, so what remains is simply that the work has not been done.
 
 Three facts, each confirmed in code:
 
@@ -221,202 +227,98 @@ delivery.
 
 ## Decision Log
 
-### [2026-09-25] — Two records, two things they can claim
+### [2026-09-29] — An export is built from rows that can be re-verified
 
-**Decision**: both parties can export the record, and they are given **different
-documents**. The owner gets the self-contained, re-verifiable audit trail
-(`auditExport.js`). The counterparty gets a **server-verified record**
-(`guestRecordExport.js`) that reports what TrustFlow checked and does not invite
-the reader to recompute anything.
+**Invariant**: an evidence export is always built from the raw `events` rows, never
+from the shaped view a screen is rendering. A document built from shaped events
+would recompute each payload hash over a payload the UI had already filtered or
+truncated, and report every untouched event as tampered with. **An evidence
+export that falsely cries tampering is worse than no export at all.**
 
-**Context**: the guest is the party who most needs the record and was the only
-one unable to obtain it. The obvious repair — hand them the same document — is
-the one that breaks: a guest has no `auth.users` row, so their trail arrives
-from `guest-contract-events` with every payload allowlist-filtered. A document
-instructing its reader to recompute each hash would mismatch on **every
-untouched event**, and an export that falsely cries tampering is worse than no
-export at all.
+**Context**: `downloadAuditTrail()` has existed since early on but was reachable
+only from the legacy five-step mock flow — `DisputeModal` and `ContractStep5`.
+No database-backed agreement could produce one, so the single artefact TrustFlow
+promises — a self-contained record a third party can verify without us — was not
+obtainable by anyone actually using the product. `AgreementView` now offers it.
 
-**The alternative considered and rejected**: widening what the guest may see so
-their document could be re-verified like the owner's. Rejected for now because
-it moves an access-control boundary that exists deliberately, to solve a problem
-that does not require moving it.
+**Consequences future work must not undo**:
 
-**What makes the guest document honest**:
+- The handler re-fetches with `fetchContractEvents()` rather than exporting
+  `agreement.events`, which has been through `shapeOwnerEvents` and carries no
+  hashes and reduced payloads. Wiring the export to the screen's own array is
+  the obvious-looking change and is the one that breaks it.
+- An empty result raises instead of producing a document. A record with nothing
+  in it still looks like a signed record.
+- **Only the owning account is offered the export.** A guest has no `auth.users`
+  row, so RLS returns them nothing from `events`; their trail arrives already
+  shaped from `guest-contract-events`. Offering them a button would produce
+  either an empty document or an unverifiable one.
 
-- It is named `trustflow_counterparty_record`, never `trustflow_audit_trail`, so
-  the two cannot be confused by a reader or by a future code path.
-- The verdicts are the server's, carried through untouched. The client only
-  names the *reason* for a verdict from the same per-event results.
-- It states in the document that its results **cannot be reproduced from the
-  file**, and why. The absence of verification instructions is not a statement a
-  reader will notice.
-- `truncated` is surfaced: if the record was cut short, the absence of an event
-  means nothing.
-- A record with no events raises instead of producing a document, exactly as the
-  owner's export does.
-- A chain with nothing server-attested reports `NOT_SERVER_ATTESTED`, not
-  "unverified" — there was never an attestation to check, which is a different
-  statement.
-
-**Consequences future work must not undo**: do not converge these two documents.
-The damaging regression is not a missing button, it is a guest handed the
-owner's document — one that would cry tampering on an intact record.
+**Resolved 2026-09-25**: the guest now has an export. It is a different
+document, not a widened version of this one — see "Two records, two things they
+can claim".
 
 ---
 
+### [2026-09-28] — Acceptance and its evidence commit together
 
-### [2026-03-06] — State management: App.jsx + custom hooks
+**Invariant**: TrustFlow never records that an agreement was accepted unless the
+authoritative acceptance evidence for that exact agreement — the canonical v4
+event carrying the agreement snapshot, the invited recipient, the claimed
+identity and the authentication method — was durably written in the same
+database transaction. Neither can exist without the other.
 
-**Decision**: All state centralized in `src/App.jsx`; logic exceeding ~50 lines extracted into custom hooks in `src/hooks/`. No external state library.
+**Context**: accepting an invitation was two independent requests.
+`validate-invite-token` consumed the one-time invite and moved the contract to
+`TERMS_ACCEPTED`; the browser then called `log-event` to write
+`dod.consent_recorded`. Anything failing in between — a dropped connection, a
+closed tab, a rejected CORS preflight — left a contract that was accepted with
+no record of what had been accepted. That was tolerable while the acceptance
+event added little the contract row did not already hold. It stopped being
+tolerable on 2026-09-27, when the acceptance event became the only place the
+agreed deal is preserved: its absence is now the absence of the evidence, not of
+a log line.
 
-**Context**: Prototype-phase solo dev project. External libraries add a dependency with no benefit at current scale (<10 stores).
+**Where the boundary was drawn**: the transaction covers the invite validity
+check, the single-use consumption, the state transition, the claimed identity,
+the guest access credential, and the acceptance event with its snapshot, hashes
+and chain link. The guest credential is inside it for free — it is a column on
+the same row — but the load-bearing pair is the accepted state and the evidence.
 
-**Alternatives considered**:
+**Why a SQL function and not SQL-side hashing**: the event hash is computed in
+Deno over the canonical defined once in `_shared/eventCanonical.ts`.
+Recomputing it in plpgsql would create a second implementation of that
+canonical, which is exactly the drift that produced this project's one
+production bug. So the hash stays in one place and the database is given only
+the job it is uniquely good at — committing several writes or none.
+`invite_acceptance_context()` reads the terms, the chain tip and an opaque row
+version; the Edge Function builds and hashes; `accept_invitation()` re-checks
+all three under a row lock and commits.
 
-- Zustand — rejected because it adds a dependency without solving any current problem
-- Redux — rejected because overhead is unjustifiable for a prototype
+**Consequences that future work must not undo**:
 
-**Consequences**: Simple and auditable now. If state grows beyond ~10 stores, migrate to Zustand.
+- **`dod.consent_recorded` is no longer writable by a party.** `log-event`
+  refuses it with `type_is_server_recorded`. A guest who could append a second
+  acceptance could record a snapshot taken at a different moment, leaving two
+  records and no rule for which is the agreement. Existing rows are untouched
+  and verify exactly as before.
+- **The client must never regain a second call on this path.** Correctness may
+  not depend on the browser completing a follow-up request; a test asserts that
+  nothing reaches `log-event` during acceptance.
+- **The row lock is what makes concurrency safe.** `select … for update` in
+  `accept_invitation` serializes concurrent accepts of one invitation. The
+  previous conditional update guarded the contract row but not the event, so two
+  racing accepts could each have gone on to append their own acceptance.
+- **Evidence must not come to depend on the transaction succeeding quietly.**
+  A refused acceptance returns a status before anything is written; a failed one
+  raises and rolls back. There is no ordering that writes one half.
 
----
-
-### [2026-03-06] — Modal system: single ModalDialog component
-
-**Decision**: All modal dialogs rendered through `src/components/ui/ModalDialog.jsx`. No ad-hoc modal markup anywhere else.
-
-**Context**: Early development saw z-index stacking conflicts from inline modal markup. Centralizing ensures consistent backdrop, animation, and keyboard behavior.
-
-**Alternatives considered**:
-
-- Inline ad-hoc modal markup — rejected; caused z-index conflicts in early development
-- React portals per component — rejected; harder to audit and test
-
-**Consequences**: All modal content must flow through ModalDialog. New modal UI belongs in `src/components/modals/`.
-
----
-
-### [2026-03-14] — Timestamp integrity: Supabase Edge Function + RFC 3161 TSA
-
-**Decision**: Contract lifecycle events timestamped via the `timestamp-event` Supabase Edge Function, which calls an RFC 3161-compliant TSA (FreeTSA.org) server-side. Clients must never call the TSA directly.
-
-**Context**: Core protocol requirement — the event log must be tamper-evident and verifiable by third parties without trusting TrustFlow servers. Direct browser → TSA calls are blocked by CORS in production environments. The Edge Function acts as a transparent proxy: it receives `{ hashHex }` from the client, forwards the DER-encoded TimeStampReq to FreeTSA, and returns the base64 token.
-
-**Implementation (2026-05-28)**:
-- `supabase/functions/timestamp-event/index.ts` — proxy function deployed to Supabase (Mumbai)
-- `src/lib/tsa.js` — `requestTimestamp()` now calls Edge Function first (`isSupabaseEnabled`); falls back to direct freetsa.org call in dev mode (Node/Vite dev server, where CORS is not enforced)
-
-**Alternatives considered**:
-
-- Client-side timestamps — rejected; trivially forgeable
-- DB `created_at` only — rejected; mutable by DB admin, not independently verifiable
-- Direct browser → freetsa.org — rejected; CORS-blocked in production browsers
-- On-chain timestamping — deferred to Phase 4+ (cost and complexity unjustified at prototype stage)
-
-**Consequences**: All contract events must go through the Edge Function. `src/lib/tsa.js` handles client-side TSA interaction and selects the correct path automatically.
-
----
-
----
-
-### [2026-05-27] — Payment rail: Stripe Connect (no internal payment token)
-
-**Decision**: All contract payments flow through Stripe Connect. TrustFlow never holds funds. The platform account holds payments and transfers to Earner's Connected Account on DoD confirmation.
-
-**Context**: Internal payment token ("deposit PTS and exchange for cash") would require 資金移動業 or 前払式支払手段 registration under Japanese payment law. Stripe is already a licensed 資金移動業 operator.
-
-**Alternatives considered**:
-
-- Stripe manual capture — rejected: 7-day auth hold limit makes it unsuitable for long contracts
-- Immediate capture + platform balance — selected: funds sit in Stripe platform account; Transfer issued at completion. No hold expiry.
-- Internal escrow token — rejected: regulatory registration required
-
-**Consequences**:
-
-- `supabase/functions/create-payment-intent` must be deployed before payment flows work
-- `VITE_STRIPE_PUBLISHABLE_KEY` must be set in `.env`
-- Contract amounts are in JPY integers (Stripe uses smallest currency unit = 円 = no subunit)
-
----
-
-### [2026-05-27] — Reputation layer: TrustPoints (non-redeemable)
-
-**Decision**: TrustPoints are a non-redeemable reputation score. They cannot be converted to cash or fiat equivalents. Earned through good behavior; spent on platform benefits (fee discounts, priority arbitration).
-
-**Context**: Redeemable points would trigger 前払式支払手段 registration. Non-redeemable system (like airline miles) has no such requirement as long as points cannot be exchanged for legal tender.
-
-**Alternatives considered**:
-
-- Redeemable PTS — rejected: regulatory overhead
-- Pure Trust Score (no spend mechanic) — deferred; spend mechanic adds a loop that makes score meaningful
-
-**Consequences**:
-
-- TrustPoints logic in `src/lib/trustpoints.js`
-- Ledger persisted in Supabase `trustpoints_ledger` table (append-only)
-- WalletView now shows Trust Passport (TrustPoints + Trust Score + badges) instead of fiat wallet
-
----
-
-### [2026-05-27] — Counterparty onboarding: asymmetric guest model (Type 2)
-
-**Decision**: The invited counterparty (Hirer) does not need a TrustFlow account. They participate via a one-time invite link: review DoD → enter email → pay via Stripe. Email address is the identity anchor.
-
-**Context**: Requiring the Hirer to register creates friction that kills adoption. The DocuSign/HoneyBook/Bonsai pattern proves "sign/pay without account" is legally and practically accepted. The core guarantee (Stripe escrow + DoD hash) does not require both parties to be registered users.
-
-**Trade-offs accepted**:
-
-- Hirer earns no TrustPoints (no reputation stake) — offset by financial stake in escrow
-- Hirer has no dispute rights in-app — offset by timeout auto-refund and email token access to a confirmation page
-- Hirer identity is email only — offset by Stripe card data (real name / billing address) as secondary identity
-
-**Upgrade path**: If Hirer creates a TrustFlow account later (or on next contract), all prior contracts linked by email are attributed to that account.
-
-**Alternatives considered**:
-
-- Full registration required for both parties — rejected: adoption barrier too high for counterparty
-- Guest checkout (card only, no email) — rejected: no DoD confirmation path, no audit record, TrustFlow's core value proposition disappears
-
-**Consequences**:
-
-- `contracts` table needs `hirer_email` and `invite_token` (one-time, 72h expiry) fields
-- Invite token must be invalidated after first use
-- DoD acceptance confirmation email must be sent to Hirer's email on payment (timestamped, DoD hash included)
-- Guest Hirer needs an email-token-gated confirmation page to approve DoD or trigger dispute
-
----
-
-### [2026-05-27] — Threat model: guest Hirer flows
-
-**Decision**: Document accepted risks, required mitigations, and deferred items for the guest Hirer architecture. This is the binding security baseline for all Type 2 implementation.
-
-**Threats and mitigations:**
-
-| ID  | Threat                          | Actor     | Severity  | Mitigation                                                                                     | Status          |
-| --- | ------------------------------- | --------- | --------- | ---------------------------------------------------------------------------------------------- | --------------- |
-| H1  | Chargeback after delivery       | Hirer     | 🔴 High   | DoD acceptance email (timestamped + DoD hash) sent on payment; used as Stripe Dispute evidence | ❌ MVP required |
-| H2  | Deliberate DoD non-confirmation | Hirer     | 🔴 High   | Timeout auto-capture: N days after Earner's delivery declaration → auto-release to Earner      | ❌ MVP required |
-| H3  | Retroactive scope expansion     | Hirer     | 🟡 Medium | DoD hash is immutable; additional scope = new contract                                         | ✅ Design       |
-| H4  | Disposable email + chargeback   | Hirer     | 🟡 Medium | Stripe card data is real identity; disposable domain blocklist as secondary filter             | ⚠️ Partial      |
-| T1  | Invite URL reuse / interception | 3rd party | 🔴 High   | Invite token is one-time + 72h expiry; used_at recorded in DB                                  | ❌ MVP required |
-| T2  | Edge Function called directly   | 3rd party | 🟡 Medium | All Edge Functions require Supabase Auth; unauthenticated requests → 401                       | ❓ Verify       |
-| T3  | URL parameter tampering         | 3rd party | 🟢 Low    | Amount/DoD sanitized in App.jsx BYOC parsing                                                   | ✅ Implemented  |
-| E1  | Earner ghost after payment      | Earner    | 🟢 Low    | Escrow: Earner cannot receive funds until DoD confirmed or timeout                             | ✅ Design       |
-| E2  | Fraudulent quality claim        | Earner    | 🟡 Medium | DoD granularity guidance in UI (acceptance criteria templates)                                 | ⚠️ UX task      |
-| E3  | TrustPoints self-dealing        | Earner    | 🟢 Low    | Real Stripe payment required (fee cost) makes self-dealing economically irrational             | ✅ Design       |
-
-**DoD scope change policy (MVP)**: Changes handled as cancel + new contract. Amendment flow deferred to Phase 4.
-
-**Stripe fee burden policy (MVP)**: Fees absorbed by Earner (deducted from transfer amount). Must be disclosed in PaymentModal and invite page before Hirer pays.
-
-**Delivery deadline**: ContractStep1 must include a required `deadline` field. This is the trigger reference for timeout auto-refund (deadline + grace period).
-
-**Deferred**:
-
-- Disposable email domain blocklist
-- Earner Stripe Connect KYC state check before contract creation
-- Multi-milestone guest payment flows
-- Guest Hirer in-app chat (replaced by email notifications for MVP)
+**Known limit, not fixed here**: a client that loses the response to a
+successful acceptance cannot retry. The invitation is spent, so the retry gets
+`already_used`, and the guest access credential issued to the first attempt is
+lost with the response. Re-issuing it on demand would let anyone holding the
+invite token mint a credential, so it is a recovery problem rather than an
+atomicity one, and guest recovery remains unaddressed.
 
 ---
 
@@ -492,98 +394,268 @@ single server-side act is the obvious repair and has not been done.
 
 ---
 
-### [2026-09-28] — Acceptance and its evidence commit together
+### [2026-09-25] — Two records, two things they can claim
 
-**Invariant**: TrustFlow never records that an agreement was accepted unless the
-authoritative acceptance evidence for that exact agreement — the canonical v4
-event carrying the agreement snapshot, the invited recipient, the claimed
-identity and the authentication method — was durably written in the same
-database transaction. Neither can exist without the other.
+**Decision**: both parties can export the record, and they are given **different
+documents**. The owner gets the self-contained, re-verifiable audit trail
+(`auditExport.js`). The counterparty gets a **server-verified record**
+(`guestRecordExport.js`) that reports what TrustFlow checked and does not invite
+the reader to recompute anything.
 
-**Context**: accepting an invitation was two independent requests.
-`validate-invite-token` consumed the one-time invite and moved the contract to
-`TERMS_ACCEPTED`; the browser then called `log-event` to write
-`dod.consent_recorded`. Anything failing in between — a dropped connection, a
-closed tab, a rejected CORS preflight — left a contract that was accepted with
-no record of what had been accepted. That was tolerable while the acceptance
-event added little the contract row did not already hold. It stopped being
-tolerable on 2026-09-27, when the acceptance event became the only place the
-agreed deal is preserved: its absence is now the absence of the evidence, not of
-a log line.
+**Context**: the guest is the party who most needs the record and was the only
+one unable to obtain it. The obvious repair — hand them the same document — is
+the one that breaks: a guest has no `auth.users` row, so their trail arrives
+from `guest-contract-events` with every payload allowlist-filtered. A document
+instructing its reader to recompute each hash would mismatch on **every
+untouched event**, and an export that falsely cries tampering is worse than no
+export at all.
 
-**Where the boundary was drawn**: the transaction covers the invite validity
-check, the single-use consumption, the state transition, the claimed identity,
-the guest access credential, and the acceptance event with its snapshot, hashes
-and chain link. The guest credential is inside it for free — it is a column on
-the same row — but the load-bearing pair is the accepted state and the evidence.
+**The alternative considered and rejected**: widening what the guest may see so
+their document could be re-verified like the owner's. Rejected for now because
+it moves an access-control boundary that exists deliberately, to solve a problem
+that does not require moving it.
 
-**Why a SQL function and not SQL-side hashing**: the event hash is computed in
-Deno over the canonical defined once in `_shared/eventCanonical.ts`.
-Recomputing it in plpgsql would create a second implementation of that
-canonical, which is exactly the drift that produced this project's one
-production bug. So the hash stays in one place and the database is given only
-the job it is uniquely good at — committing several writes or none.
-`invite_acceptance_context()` reads the terms, the chain tip and an opaque row
-version; the Edge Function builds and hashes; `accept_invitation()` re-checks
-all three under a row lock and commits.
+**What makes the guest document honest**:
 
-**Consequences that future work must not undo**:
+- It is named `trustflow_counterparty_record`, never `trustflow_audit_trail`, so
+  the two cannot be confused by a reader or by a future code path.
+- The verdicts are the server's, carried through untouched. The client only
+  names the *reason* for a verdict from the same per-event results.
+- It states in the document that its results **cannot be reproduced from the
+  file**, and why. The absence of verification instructions is not a statement a
+  reader will notice.
+- `truncated` is surfaced: if the record was cut short, the absence of an event
+  means nothing.
+- A record with no events raises instead of producing a document, exactly as the
+  owner's export does.
+- A chain with nothing server-attested reports `NOT_SERVER_ATTESTED`, not
+  "unverified" — there was never an attestation to check, which is a different
+  statement.
 
-- **`dod.consent_recorded` is no longer writable by a party.** `log-event`
-  refuses it with `type_is_server_recorded`. A guest who could append a second
-  acceptance could record a snapshot taken at a different moment, leaving two
-  records and no rule for which is the agreement. Existing rows are untouched
-  and verify exactly as before.
-- **The client must never regain a second call on this path.** Correctness may
-  not depend on the browser completing a follow-up request; a test asserts that
-  nothing reaches `log-event` during acceptance.
-- **The row lock is what makes concurrency safe.** `select … for update` in
-  `accept_invitation` serializes concurrent accepts of one invitation. The
-  previous conditional update guarded the contract row but not the event, so two
-  racing accepts could each have gone on to append their own acceptance.
-- **Evidence must not come to depend on the transaction succeeding quietly.**
-  A refused acceptance returns a status before anything is written; a failed one
-  raises and rolls back. There is no ordering that writes one half.
-
-**Known limit, not fixed here**: a client that loses the response to a
-successful acceptance cannot retry. The invitation is spent, so the retry gets
-`already_used`, and the guest access credential issued to the first attempt is
-lost with the response. Re-issuing it on demand would let anyone holding the
-invite token mint a credential, so it is a recovery problem rather than an
-atomicity one, and guest recovery remains unaddressed.
+**Consequences future work must not undo**: do not converge these two documents.
+The damaging regression is not a missing button, it is a guest handed the
+owner's document — one that would cry tampering on an intact record.
 
 ---
 
-### [2026-09-29] — An export is built from rows that can be re-verified
 
-**Invariant**: an evidence export is always built from the raw `events` rows, never
-from the shaped view a screen is rendering. A document built from shaped events
-would recompute each payload hash over a payload the UI had already filtered or
-truncated, and report every untouched event as tampered with. **An evidence
-export that falsely cries tampering is worse than no export at all.**
+### [2026-05-27] — Payment rail: Stripe Connect (no internal payment token)
 
-**Context**: `downloadAuditTrail()` has existed since early on but was reachable
-only from the legacy five-step mock flow — `DisputeModal` and `ContractStep5`.
-No database-backed agreement could produce one, so the single artefact TrustFlow
-promises — a self-contained record a third party can verify without us — was not
-obtainable by anyone actually using the product. `AgreementView` now offers it.
+**Status: decided, not built.** Nothing in the live flow opens `PaymentModal`,
+`VITE_STRIPE_PUBLISHABLE_KEY` is unset, and money moves outside TrustFlow. The
+three payment Edge Functions are deployed but unreachable from the app. This
+decision is not reversed — it is what should be implemented when payment is
+wired — and `SETTLED` being unreachable is a direct consequence of it being
+unbuilt.
 
-**Consequences future work must not undo**:
+**Decision**: All contract payments flow through Stripe Connect. TrustFlow never holds funds. The platform account holds payments and transfers to Earner's Connected Account on DoD confirmation.
 
-- The handler re-fetches with `fetchContractEvents()` rather than exporting
-  `agreement.events`, which has been through `shapeOwnerEvents` and carries no
-  hashes and reduced payloads. Wiring the export to the screen's own array is
-  the obvious-looking change and is the one that breaks it.
-- An empty result raises instead of producing a document. A record with nothing
-  in it still looks like a signed record.
-- **Only the owning account is offered the export.** A guest has no `auth.users`
-  row, so RLS returns them nothing from `events`; their trail arrives already
-  shaped from `guest-contract-events`. Offering them a button would produce
-  either an empty document or an unverifiable one.
+**Context**: Internal payment token ("deposit PTS and exchange for cash") would require 資金移動業 or 前払式支払手段 registration under Japanese payment law. Stripe is already a licensed 資金移動業 operator.
 
-**Resolved 2026-09-25**: the guest now has an export. It is a different
-document, not a widened version of this one — see "Two records, two things they
-can claim" below.
+**Alternatives considered**:
+
+- Stripe manual capture — rejected: 7-day auth hold limit makes it unsuitable for long contracts
+- Immediate capture + platform balance — selected: funds sit in Stripe platform account; Transfer issued at completion. No hold expiry.
+- Internal escrow token — rejected: regulatory registration required
+
+**Consequences**:
+
+- `supabase/functions/create-payment-intent` must be deployed before payment flows work
+- `VITE_STRIPE_PUBLISHABLE_KEY` must be set in `.env`
+- Contract amounts are in JPY integers (Stripe uses smallest currency unit = 円 = no subunit)
+
+---
+
+### [2026-05-27] — Reputation layer: TrustPoints (non-redeemable)
+
+**Status: not part of the evidence core, and not on the DB-backed flow.**
+`src/lib/trustpoints.js`, `WalletView` and `ProfileModal` operate on local mock
+profile state; the `trustpoints_ledger` table exists in migrations but nothing in
+`src/` writes to it. Non-redeemability stands and is binding if a reputation
+layer is ever wired — it is a regulatory constraint, not a feature preference.
+
+**Decision**: TrustPoints are a non-redeemable reputation score. They cannot be converted to cash or fiat equivalents. Earned through good behavior; spent on platform benefits (fee discounts, priority arbitration).
+
+**Context**: Redeemable points would trigger 前払式支払手段 registration. Non-redeemable system (like airline miles) has no such requirement as long as points cannot be exchanged for legal tender.
+
+**Alternatives considered**:
+
+- Redeemable PTS — rejected: regulatory overhead
+- Pure Trust Score (no spend mechanic) — deferred; spend mechanic adds a loop that makes score meaningful
+
+**Consequences**:
+
+- TrustPoints logic in `src/lib/trustpoints.js`
+- Ledger persisted in Supabase `trustpoints_ledger` table (append-only)
+- WalletView now shows Trust Passport (TrustPoints + Trust Score + badges) instead of fiat wallet
+
+---
+
+### [2026-05-27] — Counterparty onboarding: asymmetric guest model (Type 2)
+
+**Status: partly implemented, partly superseded. Read these corrections before
+the decision below.**
+
+- **Implemented**: the counterparty needs no account; a one-time invite token
+  with an expiry is consumed inside the acceptance transaction; the identity
+  anchor is an email address. But that address is **self-asserted and never
+  verified** — the guest-identity note under Open Questions is authoritative on
+  exactly what the system may and may not claim from it.
+- **"Hirer has no dispute rights in-app" no longer describes the product, and
+  the offsets named for it never existed.** The counterparty reads the full
+  evidence trail (`GuestEvidenceView` / `guest-contract-events`) and exports
+  their own record (see the 2026-09-25 entry). When they are the receiver they
+  may also record `performance.accepted` / `performance.rejected`; `log-event`'s
+  role check is what grants that, and a rejection is recorded disagreement, not
+  an adjudicated dispute. There is no timeout auto-refund and no escrow, because
+  no money flows. **Whether a formal dispute mechanism should exist at all is
+  OPEN and undesigned.**
+- Stripe card data as a secondary identity does not exist; that path is unwired.
+- The upgrade path — prior contracts attributed to an account created later — is
+  **not implemented**. `contracts.hirer_user_id` exists and nothing populates it,
+  and it is explicitly not an approved recovery mechanism.
+
+**Decision**: The invited counterparty (Hirer) does not need a TrustFlow account. They participate via a one-time invite link: review DoD → enter email → pay via Stripe. Email address is the identity anchor.
+
+**Context**: Requiring the Hirer to register creates friction that kills adoption. The DocuSign/HoneyBook/Bonsai pattern proves "sign/pay without account" is legally and practically accepted. The core guarantee (Stripe escrow + DoD hash) does not require both parties to be registered users.
+
+**Trade-offs accepted**:
+
+- Hirer earns no TrustPoints (no reputation stake) — offset by financial stake in escrow
+- Hirer has no dispute rights in-app — offset by timeout auto-refund and email token access to a confirmation page
+- Hirer identity is email only — offset by Stripe card data (real name / billing address) as secondary identity
+
+**Upgrade path**: If Hirer creates a TrustFlow account later (or on next contract), all prior contracts linked by email are attributed to that account.
+
+**Alternatives considered**:
+
+- Full registration required for both parties — rejected: adoption barrier too high for counterparty
+- Guest checkout (card only, no email) — rejected: no DoD confirmation path, no audit record, TrustFlow's core value proposition disappears
+
+**Consequences**:
+
+- `contracts` table needs `hirer_email` and `invite_token` (one-time, 72h expiry) fields
+- Invite token must be invalidated after first use
+- DoD acceptance confirmation email must be sent to Hirer's email on payment (timestamped, DoD hash included)
+- Guest Hirer needs an email-token-gated confirmation page to approve DoD or trigger dispute
+
+---
+
+### [2026-05-27] — Threat model: guest Hirer flows
+
+**Status: the baseline stands; three parts have since been settled by fact.**
+
+- **T2 ("Edge Function called directly", marked ❓ Verify) was verified, and
+  failed.** `send-acceptance-email` and `timestamp-event` were public and
+  unauthenticated; both were deleted from Supabase on 2026-09-26. `verify_jwt` is
+  on for every remaining function. Being unreachable from `src/` protects
+  nothing: an Edge Function is a public HTTPS endpoint and the anon key ships in
+  the bundle.
+- **T1 (invite reuse) is implemented, and more strongly than written here.** The
+  invitation is consumed inside `accept_invitation()` under a row lock, so
+  concurrent accepts serialise.
+- **H1, H2, E1 and every auto-capture / auto-refund mitigation presuppose escrow
+  that is not wired.** None of them is implemented and none can be while money
+  moves outside TrustFlow. Do not read "❌ MVP required" as a live to-do list.
+- The **"cancel + new contract" scope-change policy** has no cancel half: there
+  is no reachable cancellation. In practice an agreed term cannot change at all
+  once accepted — `contracts_freeze_accepted_terms` refuses it — so a change
+  means a new agreement while the old one stays open.
+
+**Decision**: Document accepted risks, required mitigations, and deferred items for the guest Hirer architecture. This is the binding security baseline for all Type 2 implementation.
+
+**Threats and mitigations:**
+
+| ID  | Threat                          | Actor     | Severity  | Mitigation                                                                                     | Status          |
+| --- | ------------------------------- | --------- | --------- | ---------------------------------------------------------------------------------------------- | --------------- |
+| H1  | Chargeback after delivery       | Hirer     | 🔴 High   | DoD acceptance email (timestamped + DoD hash) sent on payment; used as Stripe Dispute evidence | ❌ MVP required |
+| H2  | Deliberate DoD non-confirmation | Hirer     | 🔴 High   | Timeout auto-capture: N days after Earner's delivery declaration → auto-release to Earner      | ❌ MVP required |
+| H3  | Retroactive scope expansion     | Hirer     | 🟡 Medium | DoD hash is immutable; additional scope = new contract                                         | ✅ Design       |
+| H4  | Disposable email + chargeback   | Hirer     | 🟡 Medium | Stripe card data is real identity; disposable domain blocklist as secondary filter             | ⚠️ Partial      |
+| T1  | Invite URL reuse / interception | 3rd party | 🔴 High   | Invite token is one-time + 72h expiry; used_at recorded in DB                                  | ❌ MVP required |
+| T2  | Edge Function called directly   | 3rd party | 🟡 Medium | All Edge Functions require Supabase Auth; unauthenticated requests → 401                       | ❓ Verify       |
+| T3  | URL parameter tampering         | 3rd party | 🟢 Low    | Amount/DoD sanitized in App.jsx BYOC parsing                                                   | ✅ Implemented  |
+| E1  | Earner ghost after payment      | Earner    | 🟢 Low    | Escrow: Earner cannot receive funds until DoD confirmed or timeout                             | ✅ Design       |
+| E2  | Fraudulent quality claim        | Earner    | 🟡 Medium | DoD granularity guidance in UI (acceptance criteria templates)                                 | ⚠️ UX task      |
+| E3  | TrustPoints self-dealing        | Earner    | 🟢 Low    | Real Stripe payment required (fee cost) makes self-dealing economically irrational             | ✅ Design       |
+
+**DoD scope change policy (MVP)**: Changes handled as cancel + new contract. Amendment flow deferred to Phase 4.
+
+**Stripe fee burden policy (MVP)**: Fees absorbed by Earner (deducted from transfer amount). Must be disclosed in PaymentModal and invite page before Hirer pays.
+
+**Delivery deadline**: ContractStep1 must include a required `deadline` field. This is the trigger reference for timeout auto-refund (deadline + grace period).
+
+**Deferred**:
+
+- Disposable email domain blocklist
+- Earner Stripe Connect KYC state check before contract creation
+- Multi-milestone guest payment flows
+- Guest Hirer in-app chat (replaced by email notifications for MVP)
+
+---
+
+### [2026-03-14] — Timestamp integrity: Supabase Edge Function + RFC 3161 TSA
+
+**Status (2026-09-26): superseded by removal, not by a replacement.**
+`timestamp-event` was deleted from Supabase — it was a public, unauthenticated
+endpoint that nothing in `src/` called — and `src/lib/tsa.js` is now imported by
+nothing. **There is no external timestamping today**, and no decision has been
+taken to restore it. The reasoning below still governs *how* it would have to be
+done if it returns (server-side; never browser → TSA). The consequence that
+matters now: with no external notary, the operator is inside the trust boundary.
+
+**Decision**: Contract lifecycle events timestamped via the `timestamp-event` Supabase Edge Function, which calls an RFC 3161-compliant TSA (FreeTSA.org) server-side. Clients must never call the TSA directly.
+
+**Context**: Core protocol requirement — the event log must be tamper-evident and verifiable by third parties without trusting TrustFlow servers. Direct browser → TSA calls are blocked by CORS in production environments. The Edge Function acts as a transparent proxy: it receives `{ hashHex }` from the client, forwards the DER-encoded TimeStampReq to FreeTSA, and returns the base64 token.
+
+**Implementation (2026-05-28)**:
+- `supabase/functions/timestamp-event/index.ts` — proxy function deployed to Supabase (Mumbai)
+- `src/lib/tsa.js` — `requestTimestamp()` now calls Edge Function first (`isSupabaseEnabled`); falls back to direct freetsa.org call in dev mode (Node/Vite dev server, where CORS is not enforced)
+
+**Alternatives considered**:
+
+- Client-side timestamps — rejected; trivially forgeable
+- DB `created_at` only — rejected; mutable by DB admin, not independently verifiable
+- Direct browser → freetsa.org — rejected; CORS-blocked in production browsers
+- On-chain timestamping — deferred to Phase 4+ (cost and complexity unjustified at prototype stage)
+
+**Consequences**: All contract events must go through the Edge Function. `src/lib/tsa.js` handles client-side TSA interaction and selects the correct path automatically.
+
+---
+
+---
+
+### [2026-03-06] — State management: App.jsx + custom hooks
+
+**Status: still the decision, and now at its limit.** `src/App.jsx` is ~1,740
+lines with two hooks extracted. Decomposing it is on the priority list in
+`HANDOFF.md`; no external state library has become necessary.
+
+**Decision**: All state centralized in `src/App.jsx`; logic exceeding ~50 lines extracted into custom hooks in `src/hooks/`. No external state library.
+
+**Context**: Prototype-phase solo dev project. External libraries add a dependency with no benefit at current scale (<10 stores).
+
+**Alternatives considered**:
+
+- Zustand — rejected because it adds a dependency without solving any current problem
+- Redux — rejected because overhead is unjustifiable for a prototype
+
+**Consequences**: Simple and auditable now. If state grows beyond ~10 stores, migrate to Zustand.
+
+---
+
+### [2026-03-06] — Modal system: single ModalDialog component
+
+**Decision**: All modal dialogs rendered through `src/components/ui/ModalDialog.jsx`. No ad-hoc modal markup anywhere else.
+
+**Context**: Early development saw z-index stacking conflicts from inline modal markup. Centralizing ensures consistent backdrop, animation, and keyboard behavior.
+
+**Alternatives considered**:
+
+- Inline ad-hoc modal markup — rejected; caused z-index conflicts in early development
+- React portals per component — rejected; harder to audit and test
+
+**Consequences**: All modal content must flow through ModalDialog. New modal UI belongs in `src/components/modals/`.
 
 ---
 
