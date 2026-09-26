@@ -16,11 +16,7 @@
 
 import { test, expect } from '@playwright/test';
 import { getEarnerSession } from './earnerSession.js';
-
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-const EARNER_EMAIL = process.env.TF_TEST_EARNER_EMAIL;
-const EARNER_PASSWORD = process.env.TF_TEST_EARNER_PASSWORD;
+import { SUPABASE_URL, SUPABASE_KEY, LIVE_SKIPPED } from './liveEnv.js';
 
 const hoursFromNow = h => new Date(Date.now() + h * 3_600_000).toISOString();
 
@@ -200,8 +196,8 @@ test('opening a contract reaches the agreement screen, not the escrow flow', asy
 // ── Scoping is the database's job ───────────────────────────────────────────
 
 test.describe('listContracts scoping', () => {
-  test.skip(!(SUPABASE_URL && SUPABASE_KEY && EARNER_EMAIL && EARNER_PASSWORD),
-    'Set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TF_TEST_EARNER_EMAIL and TF_TEST_EARNER_PASSWORD to run the scoping checks.');
+  test.skip(LIVE_SKIPPED,
+    'TF_LIVE_E2E=skip — the live-API suites were deliberately disabled.');
 
   test('an unauthenticated client sees no contracts, not an error', async ({ request }) => {
     // listContracts applies no client-side filter on purpose — RLS is the

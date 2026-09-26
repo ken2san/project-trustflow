@@ -19,16 +19,17 @@
 
 import { test, expect } from '@playwright/test';
 import { getEarnerSession } from './earnerSession.js';
+import {
+  SUPABASE_URL,
+  SUPABASE_KEY,
+  EARNER_EMAIL,
+  EARNER_PASSWORD,
+  CONFIGURED,
+  LIVE_SKIPPED,
+} from './liveEnv.js';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-const EARNER_EMAIL = process.env.TF_TEST_EARNER_EMAIL;
-const EARNER_PASSWORD = process.env.TF_TEST_EARNER_PASSWORD;
-
-const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_KEY && EARNER_EMAIL && EARNER_PASSWORD);
-
-test.skip(!CONFIGURED,
-  'Set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TF_TEST_EARNER_EMAIL and TF_TEST_EARNER_PASSWORD to run the sign-in suite.');
+test.skip(LIVE_SKIPPED,
+  'TF_LIVE_E2E=skip — the live-API suites were deliberately disabled.');
 
 /** supabase-js keys its stored session by the project ref in the URL. */
 const STORAGE_KEY = CONFIGURED

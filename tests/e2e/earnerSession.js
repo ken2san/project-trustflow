@@ -10,6 +10,9 @@
 // access token, so it is gitignored alongside the anonymous fixture.
 
 import { readFile, writeFile } from 'node:fs/promises';
+import {
+  SUPABASE_URL, SUPABASE_KEY, EARNER_EMAIL, EARNER_PASSWORD,
+} from './liveEnv.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,10 +47,9 @@ async function stillLive(request, session, url, key) {
  * @returns {Promise<{ token: string, userId: string, session: object }>}
  */
 export async function getEarnerSession(request) {
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY;
-  const email = process.env.TF_TEST_EARNER_EMAIL;
-  const password = process.env.TF_TEST_EARNER_PASSWORD;
+  // Read through liveEnv rather than from process.env, so that importing this
+  // helper is enough to load .env.e2e and to refuse a run with no credentials.
+  const [url, key, email, password] = [SUPABASE_URL, SUPABASE_KEY, EARNER_EMAIL, EARNER_PASSWORD];
 
   inFlight ??= (async () => {
     try {

@@ -18,19 +18,13 @@
 
 import { test, expect } from '@playwright/test';
 import { getEarnerSession } from './earnerSession.js';
+import { SUPABASE_URL, SUPABASE_KEY, LIVE_SKIPPED } from './liveEnv.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-const EARNER_EMAIL = process.env.TF_TEST_EARNER_EMAIL;
-const EARNER_PASSWORD = process.env.TF_TEST_EARNER_PASSWORD;
-
-const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_KEY && EARNER_EMAIL && EARNER_PASSWORD);
-
-test.skip(!CONFIGURED,
-  'Set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TF_TEST_EARNER_EMAIL and TF_TEST_EARNER_PASSWORD to run the invite-persistence suite.');
+test.skip(LIVE_SKIPPED,
+  'TF_LIVE_E2E=skip — the live-API suites were deliberately disabled.');
 
 // The terms a Hirer must be shown, and which a tampered URL must not change.
 const TERMS = {
